@@ -1,55 +1,44 @@
 # AutoSurveyAI
 
-AutoSurveyAI is a survey-answering copilot that interprets common survey question types and drafts responses that remain consistent with a user-provided profile.
+Minimal survey-answering copilot architecture.
 
-## Intended use
+## What v1 does
 
-This project assists a real respondent with drafting and consistency. It is not designed to fabricate eligibility, invent demographic or factual claims, bypass attention checks, create multiple identities, or automatically submit deceptive responses to paid surveys.
+- Classifies common survey question types.
+- Uses stored profile facts when a question asks for factual personal information.
+- Uses stored preferences when available.
+- Uses stable session defaults for low-stakes preference questions when no preference is defined.
+- Remembers answers during a survey session to reduce contradictions.
+- Provides a simple answer engine that can later be connected to an LLM for more natural open-ended responses.
 
-## Features
+## What v1 intentionally does not do
 
-- Multiple choice / single select
-- Likert and numeric scales
-- Ranking questions
-- Matrix questions
-- Open-ended responses
-- Multi-page survey session memory
-- Tone controls: casual, professional, slightly humorous, neutral
-- Profile-based consistency checks
-- Contradiction detection
-- Human-review workflow before submission
+- It does not fabricate missing factual identity or eligibility information.
+- It does not bypass attention checks or anti-bot systems.
+- It does not automatically submit paid-survey forms.
 
-## Quick start
+## Structure
+
+```text
+src/
+  index.ts          # minimal runner / coordinator
+  classifier.ts     # identifies question type
+  answerEngine.ts   # chooses an answer
+  types.ts          # shared schemas
+```
+
+The system deliberately starts as one process instead of many agents. Additional workers should only be introduced if actual complexity requires them.
+
+## Run
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+npm install
+npm run dev
 ```
 
-Open `http://127.0.0.1:8000/docs` for the interactive API.
+## Next useful steps
 
-## API
-
-`POST /answer` accepts a profile, tone, session ID, and question. The server remembers prior answers in the same session and returns a draft plus any consistency warnings.
-
-## Example
-
-```json
-{
-  "session_id": "demo-1",
-  "profile": {
-    "age": 25,
-    "occupation": "software developer",
-    "interests": ["technology", "fitness"]
-  },
-  "tone": "casual",
-  "question": {
-    "id": "q1",
-    "type": "single_select",
-    "text": "How often do you exercise?",
-    "options": ["Never", "1-2 times/week", "3-4 times/week", "5+ times/week"]
-  }
-}
-```
+1. Add persistent profile storage.
+2. Add an LLM adapter for natural open-ended answers.
+3. Add multi-page session persistence.
+4. Add tests for consistency and question classification.
