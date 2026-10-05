@@ -1,44 +1,53 @@
-# AutoSurveyAI
+# Brawl Hockey Tournament Dashboard
 
-Minimal survey-answering copilot architecture.
-
-## What v1 does
-
-- Classifies common survey question types.
-- Uses stored profile facts when a question asks for factual personal information.
-- Uses stored preferences when available.
-- Uses stable session defaults for low-stakes preference questions when no preference is defined.
-- Remembers answers during a survey session to reduce contradictions.
-- Provides a simple answer engine that can later be connected to an LLM for more natural open-ended responses.
-
-## What v1 intentionally does not do
-
-- It does not fabricate missing factual identity or eligibility information.
-- It does not bypass attention checks or anti-bot systems.
-- It does not automatically submit paid-survey forms.
-
-## Structure
-
-```text
-src/
-  index.ts          # minimal runner / coordinator
-  classifier.ts     # identifies question type
-  answerEngine.ts   # chooses an answer
-  types.ts          # shared schemas
-```
-
-The system deliberately starts as one process instead of many agents. Additional workers should only be introduced if actual complexity requires them.
+A local Python dashboard for 10 players, two **Natural Selection Edition** cutting rounds, and **The Death Valley** final. All calculations run in Python. No extra packages, accounts, or internet connection are needed to run it.
 
 ## Run
 
-```bash
-npm install
-npm run dev
+Install Python 3.10 or newer if it is not already installed, download this repository, and open a terminal in its folder:
+
+```sh
+python app.py
 ```
 
-## Next useful steps
+On macOS/Linux, use `python3 app.py`. On Windows, you can also double-click `start.bat`.
 
-1. Add persistent profile storage.
-2. Add an LLM adapter for natural open-ended answers.
-3. Add multi-page session persistence.
-4. Add tests for consistency and question classification.
+The dashboard opens at **http://127.0.0.1:8765**. Leave the terminal running while using it. Press Ctrl+C to stop. If the port is occupied, run `python app.py --port 8766`.
+
+This runs on your computer. A GitHub repository stores the code; it does not host the running Python dashboard. For private GitHub Codespaces use, forward port 8765 privately and run `python app.py --no-browser` in its terminal. Do not expose the app as a public service.
+
+## Tournament flow
+
+1. **Settings:** enter 10 unique names. Win points default to 1.5, goal points to 1, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
+2. **Round 1:** assign five players per team and enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
+3. **Round 2:** the eight survivors appear automatically. Assign two new teams of four. Enter three goal scores per team per game and leave the sitting player's cell blank. A zero counts as played; a blank does not. Each player must play at least once to qualify. Three per team advance by this round's average.
+4. **Final:** the six survivors start at zero. Enter goals and W/L for each player in all five games. Each game requires three W and three L results. All points in games 1 and 2 receive the multiplier; games 3–5 use normal points. Incomplete goal/result pairs do not contribute points until completed.
+5. **Overview:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
+
+Yellow controls are editable. Gray cells are calculated. Advance is green, cut is red, and relevant ties display **TIE - EXTRA GAMES NEEDED**. Rankings during incomplete rounds are provisional; nobody advances until the round is complete.
+
+## Extra games
+
+Click **Add extra game** after regulation play for tied cut or podium groups. Enter a score for every player in that tied group. For a final extra game, enter both goals and W/L; it uses normal scoring without the games 1–2 multiplier.
+
+If players remain tied, add another extra game and score only the remaining tied subgroup. Extra games are compared in sequence, so an already resolved place is preserved. Regulation totals and averages do not change. Up to 50 extra games per stage are supported.
+
+## Saving and recovery
+
+- Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser.
+- **Download backup** saves the full tournament as JSON. **Restore backup** validates and restores it.
+- **Export CSV** downloads the player summary.
+- Player records use permanent IDs, so renaming someone does not move their scores.
+- If an earlier edit changes the survivor list, later scores are retained but blocked until you explicitly reset the affected stage. This prevents old scores from being silently assigned to new survivors.
+- Simultaneous edits from another browser tab produce a conflict instead of silently overwriting progress. Reload the older tab.
+- Tournament data and backups are excluded from git. The repository starts with blank player names, assignments, and results.
+
+Use a custom save location with `python app.py --data path/to/tournament.json`.
+
+## Test
+
+```sh
+python -m unittest discover -s tests -v
+```
+
+The tests cover advancement, team-local ranks, blank versus zero, exact averages, multiple extra games, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, and revision conflicts.
