@@ -13,7 +13,7 @@ def blank_round():
 
 def new_state():
     return {'version': 1, 'names': {p: '' for p in IDS},
-            'settings': {'win_points': 1.5, 'goal_points': 1, 'multiplier': 2, 'prizes': [18,8,4]},
+            'settings': {'win_points': 1.5, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4]},
             'round1': blank_round(), 'round2': blank_round(),
             'final': {'players': {p: {'goals': [None]*5, 'results': ['']*5} for p in IDS}, 'extras': [], 'roster': []}}
 

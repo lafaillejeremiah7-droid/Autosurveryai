@@ -18,7 +18,7 @@ This runs on your computer. A GitHub repository stores the code; it does not hos
 
 ## Tournament flow
 
-1. **Settings:** enter 10 unique names. Win points default to 1.5, goal points to 1, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
+1. **Settings:** enter 10 unique names. Win points default to 1.5, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
 2. **Round 1:** assign five players per team and enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
 3. **Round 2:** the eight survivors appear automatically. Assign two new teams of four. Enter three goal scores per team per game and leave the sitting player's cell blank. A zero counts as played; a blank does not. Each player must play at least once to qualify. Three per team advance by this round's average.
 4. **Final:** the six survivors start at zero. Enter goals and W/L for each player in all five games. Each game requires three W and three L results. All points in games 1 and 2 receive the multiplier; games 3–5 use normal points. Incomplete goal/result pairs do not contribute points until completed.
