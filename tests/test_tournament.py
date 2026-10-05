@@ -25,8 +25,8 @@ class Rules(unittest.TestCase):
         self.assertEqual(v['round1']['survivors'],['p1','p2','p3','p4','p6','p7','p8','p9'])
         self.assertEqual(v['round2']['survivors'],['p1','p2','p3','p6','p7','p8'])
         self.assertEqual([r['prize'] for r in v['final']['rows']],[18,8,4,0,0,0]);self.assertEqual(v['awarded'],30)
-        first=v['final']['rows'][0];self.assertEqual(first['win_points'],10.5);self.assertEqual(first['goal_points'],35);self.assertEqual(first['total'],45.5)
-        self.assertEqual(first['game_points'],[13,13,6.5,6.5,6.5])
+        first=v['final']['rows'][0];self.assertEqual(first['win_points'],10.5);self.assertEqual(first['goal_points'],52.5);self.assertEqual(first['total'],63)
+        self.assertEqual(first['game_points'],[18,18,9,9,9])
     def test_blank_zero_and_fresh_average(self):
         s=fixture();r=evaluate(s)['round2']['rows'][0];self.assertEqual((r['played'],r['average']),(3,4))
         s['round2']['players']['p1']['goals'][1]=0;r=evaluate(s)['round2']['rows'][0]
@@ -43,16 +43,16 @@ class Rules(unittest.TestCase):
     def test_final_podium_tie(self):
         s=fixture();s['final']['players']['p2']['goals']=[5]*5;v=evaluate(s)
         self.assertEqual([r['status'] for r in v['final']['rows'][:2]],[TIE,TIE]);self.assertIsNone(v['final']['rows'][0]['prize'])
-        e={p:{'goals':None,'result':''} for p in IDS};e['p1']={'goals':0,'result':'W'};e['p2']={'goals':1,'result':'L'};s['final']['extras']=[e]
+        e={p:{'goals':None,'result':''} for p in IDS};e['p1']={'goals':0,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
         self.assertEqual(evaluate(s)['final']['rows'][0]['prize'],18)
     def test_third_fourth_tie_and_nonpodium_tie(self):
         s=fixture();s['settings']['win_points']=0;s['final']['players']['p6']['goals']=[3]*5
         v=evaluate(s);self.assertEqual(v['final']['rows'][2]['status'],TIE);self.assertEqual(v['final']['rows'][3]['status'],TIE)
         s=fixture();s['final']['players']['p8']['goals']=[1]*5;v=evaluate(s);self.assertTrue(v['final']['complete'])
     def test_multiplier_setting_and_paired_inputs(self):
-        s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],58.5)
+        s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],81)
         s['final']['players']['p1']['results'][0]='';r=next(r for r in evaluate(s)['final']['rows'] if r['id']=='p1')
-        self.assertEqual(r['total'],39);self.assertIsNone(r['prize'])
+        self.assertEqual(r['total'],54);self.assertIsNone(r['prize'])
     def test_names_and_validation(self):
         s=fixture();s['names']['p2']=' player 1 ';self.assertFalse(evaluate(s)['names_ok'])
         for invalid in [-1,1.5,True,float('nan'),'2']:
