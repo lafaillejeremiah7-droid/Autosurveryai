@@ -8,13 +8,13 @@ import math
 TIE = 'TIE - EXTRA GAMES NEEDED'
 IDS = [f'p{i+1}' for i in range(10)]
 
-def blank_round():
-    return {'players': {p: {'team': '', 'goals': [None]*5} for p in IDS}, 'extras': [], 'roster': []}
+def blank_round(games=5):
+    return {'players': {p: {**({'team': ''} if games==5 else {}), 'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': []}
 
 def new_state():
-    return {'version': 2, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
+    return {'version': 3, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
             'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4]},
-            'round1': blank_round(), 'round2': blank_round(),
+            'round1': blank_round(), 'round2': blank_round(8),
             'final': {'players': {p: {'goals': [None]*10, 'results': ['']*10} for p in IDS}, 'extras': [], 'roster': []}}
 
 def final_schedule(roster):
@@ -24,17 +24,37 @@ def final_schedule(roster):
              'B': [p for p in roster if p not in (roster[0], *pair)]}
             for i, pair in enumerate(combinations(roster[1:], 2))]
 
+def round2_schedule(roster):
+    """Eight 3v3 matches: six plays/two rests, all pairs meet on both sides.
+
+    Cyclic shifts cover all eight slots. Alternating even and odd shifts
+    separates both rest days and gives three plays in each half of the round.
+    """
+    if len(roster)!=8: return []
+    base={'A':(2,3,6), 'B':(4,5,7), 'sit':(0,1)}
+    return [{'game':i+1, **{t:[roster[(p+shift)%8] for p in slots] for t,slots in base.items()}}
+            for i,shift in enumerate((0,2,4,6,1,3,5,7))]
+
+def has_inputs(stage):
+    return bool(stage['extras']) or any(d.get('team') or any(v is not None for v in d['goals']) or any(d.get('results',[])) for d in stage['players'].values())
+
 def migrate(s):
-    if s.get('version') != 1: return s
+    if s.get('version') not in (1,2): return s
     s=deepcopy(s)
-    # Preserve the entire old final; fixed-team games cannot become rotations.
-    old=s['final']
-    if old['extras'] or any(any(g is not None for g in p['goals']) or any(p['results']) for p in old['players'].values()):
-        s['legacy_final']={'settings': deepcopy(s['settings']), 'final': deepcopy(old)}
+    if s['version']==1:
+        old=s['final']
+        if has_inputs(old):
+            s['legacy_final']={'settings':deepcopy(s['settings']), 'final':deepcopy(old)}
+        s['final']=new_state()['final']
+        s['settings']['win_points']=1
+        s['settings']['goal_points']=1.5
+    # Previous Round 2 inputs describe fixed teams, not the new rotation.
+    # Retain all old Round 2/final records in downloadable backups.
+    if has_inputs(s['round2']) or has_inputs(s['final']):
+        s['legacy_round2']={'round2':deepcopy(s['round2']), 'final':deepcopy(s['final']), 'settings':deepcopy(s['settings'])}
+    s['round2']=blank_round(8)
     s['final']=new_state()['final']
-    s['settings']['win_points']=1
-    s['settings']['goal_points']=1.5
-    s['version']=2
+    s['version']=3
     return s
 
 def numeric(v, nullable=False, integer=False):
@@ -49,7 +69,7 @@ def validate(s):
         s.setdefault('wheel', {'text': '', 'remove_winner': False})
         if not isinstance(s['wheel'],dict) or not isinstance(s['wheel'].get('text'),str) or not isinstance(s['wheel'].get('remove_winner'),bool):
             raise ValueError('Invalid wheel list or removal setting.')
-        if s['version'] != 2 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
+        if s['version'] != 3 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
         for name in s['names'].values():
             if not isinstance(name,str) or len(name)>40: raise ValueError('Names must be 40 characters or fewer.')
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
@@ -61,11 +81,11 @@ def validate(s):
             if not isinstance(a['roster'],list) or len(a['roster'])!=len(set(a['roster'])) or any(p not in IDS for p in a['roster']):
                 raise ValueError('Invalid roster.')
             for d in a['players'].values():
-                if len(d['goals'])!=(10 if stage=='final' else 5): raise ValueError('Five games per cutting round and ten final games are required.')
+                if len(d['goals'])!={'round1':5,'round2':8,'final':10}[stage]: raise ValueError('To Live needs 5 games, To Die 8 games, and Rebirth 10 games.')
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
                     if len(d['results'])!=10 or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
-                elif d['team'] not in ['','A','B']: raise ValueError('Teams must be A or B.')
+                elif stage=='round1' and d['team'] not in ['','A','B']: raise ValueError('Teams must be A or B.')
             for extra in a['extras']:
                 if not isinstance(extra,dict) or set(extra)!=set(IDS): raise ValueError('Invalid extra-game records.')
                 for value in extra.values():
@@ -100,28 +120,24 @@ def order_groups(ids, scores, extras):
         return result
     return [sub for group in groups for sub in split(group,0)]
 
-def round_view(s, key, roster, names_ok, upstream=True):
-    stage=s[key]; size=5 if key=='round1' else 4; cut=size-1
-    stale=bool(stage['roster'] and stage['roster']!=roster) if key=='round2' else False
+def round1_view(s, names_ok):
+    stage=s['round1'];roster=IDS;size=5;cut=4;stale=False
     rows=[]; scores={}; issues=[]
     for p in roster:
         d=stage['players'][p]; played=sum(v is not None for v in d['goals']); total=sum(v or 0 for v in d['goals'])
         scores[p]=Fraction(total,played) if played else Fraction(0)
         rows.append({'id':p,'name':s['names'][p] or f'Player {IDS.index(p)+1}', 'team':d['team'], 'goals':total,'played':played,
                      'average':float(scores[p]),'rank':None,'status':'PENDING'})
-    if not upstream: issues.append('Complete the previous round and resolve its cut ties.')
-    if stale: issues.append('The survivor list changed. Reset this round before entering new scores.')
     if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
     for t in ['A','B']:
         n=sum(r['team']==t for r in rows)
-        if n!=size and upstream: issues.append(f'Team {t}: assign {size} players ({n} assigned).')
+        if n!=size: issues.append(f'Team {t}: assign {size} players ({n} assigned).')
     games=[]
     for g in range(5):
         counts={t:sum(stage['players'][p]['team']==t and stage['players'][p]['goals'][g] is not None for p in roster) for t in ['A','B']}
-        required=5 if key=='round1' else 3
+        required=5
         games.append({'game':g+1,'counts':counts,'ready':all(v==required for v in counts.values())})
-    if upstream and not all(g['ready'] for g in games): issues.append('Complete all five games: '+('5' if key=='round1' else '3')+' scores per team per game. Enter 0 for no goals.')
-    if key=='round2' and roster and any(r['played']==0 for r in rows): issues.append('Each player must play at least one match to qualify.')
+    if not all(g['ready'] for g in games): issues.append('Complete all five games: 5 scores per team per game. Enter 0 for no goals.')
     ready=not issues
     rowmap={r['id']:r for r in rows}
     for t in ['A','B']:
@@ -137,10 +153,45 @@ def round_view(s, key, roster, names_ok, upstream=True):
     survivors=[r['id'] for r in rows if r['status']=='ADVANCE'] if ready and not tied else []
     return {'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
+def round2_view(s, roster, names_ok, upstream=True):
+    stage=s['round2'];schedule=round2_schedule(roster);rows=[];scores={};issues=[]
+    stale=bool(stage['roster'] and stage['roster']!=roster)
+    if not upstream: issues.append('Complete To Live and resolve its cut ties.')
+    if stale: issues.append('The survivor list changed. Reset To Die before entering new scores.')
+    if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
+    games=[]
+    for match in schedule:
+        g=match['game']-1
+        counts={t:sum(stage['players'][p]['goals'][g] is not None for p in match[t]) for t in ['A','B']}
+        rest_blank=all(stage['players'][p]['goals'][g] is None for p in match['sit'])
+        games.append({'game':g+1,'counts':counts,'ready':all(n==3 for n in counts.values()) and rest_blank})
+        if not rest_blank: issues.append(f'Game {g+1}: both scheduled sit-outs must stay blank.')
+    if upstream and (len(games)!=8 or not all(g['ready'] for g in games)):
+        issues.append('Complete all eight games: score the six scheduled players, including 0 for no goals. Leave the two sit-outs blank.')
+    for p in roster:
+        eligible=[i for i,g in enumerate(schedule) if p not in g['sit']]
+        values=[stage['players'][p]['goals'][i] for i in eligible]
+        played=sum(v is not None for v in values);total=sum(v or 0 for v in values)
+        scores[p]=Fraction(total,played) if played else Fraction(0)
+        rows.append({'id':p,'name':s['names'][p], 'goals':total,'played':played,'average':float(scores[p]),
+                     'rank':None,'status':'PENDING'})
+    ready=not issues;rowmap={r['id']:r for r in rows};rank=1
+    for group in order_groups(roster,scores,stage['extras']):
+        tied=rank<=6<rank+len(group)-1
+        for p in group:
+            rowmap[p]['rank']=rank
+            rowmap[p]['status']=(TIE if tied else 'ADVANCE' if rank<=6 else 'CUT') if ready else 'PENDING'
+        rank+=len(group)
+    tied=any(r['status']==TIE for r in rows)
+    if tied: issues.append('Tie across 6th and 7th: play extra games for the highlighted players.')
+    survivors=[p for p in roster if rowmap[p]['status']=='ADVANCE'] if ready and not tied else []
+    rows.sort(key=lambda r:r['rank'])
+    return {'rows':rows,'games':games,'schedule':schedule,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
+
 def evaluate(s):
     n=[s['names'][p].strip().casefold() for p in IDS]; names_ok=all(n) and len(set(n))==10
-    r1=round_view(s,'round1',IDS,names_ok)
-    r2=round_view(s,'round2',r1['survivors'],names_ok,r1['complete'])
+    r1=round1_view(s,names_ok)
+    r2=round2_view(s,r1['survivors'],names_ok,r1['complete'])
     roster=r2['survivors']; stage=s['final']; settings=s['settings']; rows=[]; scores={}; issues=[]
     stale=bool(stage['roster'] and stage['roster']!=roster)
     if not r2['complete']: issues.append('Complete To Die and resolve its cut ties.')

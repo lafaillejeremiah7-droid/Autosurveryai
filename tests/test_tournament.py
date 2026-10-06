@@ -3,19 +3,29 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule
+from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule
 from app import Store, make_server
 
 def fixture(final=True):
     s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)}
     for i,p in enumerate(IDS):s['round1']['players'][p]={'team':'A' if i<5 else 'B','goals':[4-i%5]*5}
     v=evaluate(s);players=v['round1']['survivors']
-    for i,p in enumerate(players):s['round2']['players'][p]={'team':'A' if i<4 else 'B','goals':[None if i%4==g%4 else 4-i%4 for g in range(5)]}
+    schedule=round2_schedule(players)
+    for i,p in enumerate(players):s['round2']['players'][p]={'goals':[None if p in g['sit'] else [8,7,6,2,5,4,3,1][i] for g in schedule]}
     bind_rosters(s)
     if final:
         roster=evaluate(s)['round2']['survivors']
         for i,p in enumerate(roster):s['final']['players'][p]={'goals':[5-i]*10,'results':['W' if p in g['A'] else 'L' for g in final_schedule(roster)]}
     return bind_rosters(s)
+
+def legacy_fixture(version=2):
+    s=fixture();s['version']=version
+    players=evaluate(s)['round1']['survivors']
+    for i,p in enumerate(IDS):
+        s['round2']['players'][p]={'team':'','goals':[None]*5}
+    for i,p in enumerate(players):
+        s['round2']['players'][p]={'team':'A' if i<4 else 'B','goals':[None if i%4==g%4 else 4-i%4 for g in range(5)]}
+    return s
 
 class Rules(unittest.TestCase):
     def test_blank(self):
@@ -29,10 +39,13 @@ class Rules(unittest.TestCase):
         first=v['final']['rows'][0];self.assertEqual(first['win_points'],12);self.assertEqual(first['goal_points'],90);self.assertEqual(first['total'],102)
         self.assertEqual(first['game_points'],[17,17]+[8.5]*8)
     def test_blank_zero_and_fresh_average(self):
-        s=fixture();r=evaluate(s)['round2']['rows'][0];self.assertEqual((r['played'],r['average']),(3,4))
-        s['round2']['players']['p1']['goals'][1]=0;r=evaluate(s)['round2']['rows'][0]
-        self.assertEqual(r['played'],3);self.assertAlmostEqual(r['average'],8/3)
-        s['round2']['players']['p1']['goals'][1]=None;r=evaluate(s)['round2']['rows'][0];self.assertEqual(r['played'],2)
+        s=fixture();row=lambda: next(r for r in evaluate(s)['round2']['rows'] if r['id']=='p1')
+        self.assertEqual((row()['played'],row()['average']),(6,8))
+        s['round2']['players']['p1']['goals'][1]=0
+        self.assertEqual(row()['played'],6);self.assertAlmostEqual(row()['average'],40/6)
+        s['round2']['players']['p1']['goals'][1]=None
+        self.assertEqual((row()['played'],row()['average']),(5,8))
+        self.assertFalse(evaluate(s)['round2']['complete'])
     def test_cut_tie_and_incomplete_extra(self):
         s=fixture();s['round1']['players']['p4']['goals']=[0]*5
         v=evaluate(s);self.assertEqual(v['round1']['rows'][3]['status'],TIE);self.assertEqual(v['round1']['survivors'],[])
@@ -71,13 +84,59 @@ class Rules(unittest.TestCase):
         s=fixture();before=evaluate(s)['final']['rows'][0]['total']
         s['final']['players']['p1']['goals'][9]+=2
         self.assertEqual(evaluate(s)['final']['rows'][0]['total'],before+3)
-        old=deepcopy(s);old['version']=1
+        old=legacy_fixture(1)
         for p in old['final']['players'].values():p['goals']=p['goals'][:5];p['results']=p['results'][:5]
         original=deepcopy(old);new=validate(old)
         self.assertEqual(old,original);self.assertEqual(new['legacy_final']['final'],original['final'])
-        self.assertEqual(new['round2'],old['round2']);self.assertEqual(new['settings']['win_points'],1)
+        self.assertEqual(new['legacy_round2']['round2'],old['round2']);self.assertEqual(new['settings']['win_points'],1)
         self.assertEqual(new['final']['players']['p1']['goals'],[None]*10)
         self.assertEqual(validate(new),new)
+
+    def test_round2_eight_game_rotation(self):
+        roster=evaluate(fixture())['round1']['survivors'];schedule=round2_schedule(roster)
+        self.assertEqual(len(schedule),8)
+        self.assertEqual(len({tuple(sorted(g['sit'])) for g in schedule}),8)
+        for g in schedule:
+            self.assertEqual((len(g['A']),len(g['B']),len(g['sit'])),(3,3,2))
+            self.assertEqual(set(g['A']+g['B']+g['sit']),set(roster))
+        for p in roster:
+            self.assertEqual(sum(p in g['sit'] for g in schedule),2)
+            self.assertEqual(sum(p not in g['sit'] for g in schedule[:4]),3)
+            self.assertEqual(sum(p not in g['sit'] for g in schedule[4:]),3)
+            self.assertFalse(any(p in a['sit'] and p in b['sit'] for a,b in zip(schedule,schedule[1:])))
+            for q in roster:
+                if p==q:continue
+                teammates=sum(any(p in g[t] and q in g[t] for t in ['A','B']) for g in schedule)
+                opponents=sum(any(p in g[t] and q in g['B' if t=='A' else 'A'] for t in ['A','B']) for g in schedule)
+                self.assertIn(teammates,[1,2]);self.assertIn(opponents,[2,3])
+    def test_round2_overall_cut_tie_and_extras(self):
+        s=fixture();d=s['round2']['players']['p4'];d['goals']=[3 if n is not None else None for n in d['goals']]
+        v=evaluate(s)['round2'];self.assertEqual(v['survivors'],[])
+        self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p4','p8'})
+        e=dict.fromkeys(IDS);e['p8']=1;s['round2']['extras']=[e]
+        self.assertFalse(evaluate(s)['round2']['complete'])
+        e['p4']=0;v=evaluate(s)['round2'];self.assertTrue(v['complete'])
+        self.assertIn('p8',v['survivors']);self.assertNotIn('p4',v['survivors'])
+    def test_round2_eighth_match_and_invalid_rest_score(self):
+        s=fixture();schedule=evaluate(s)['round2']['schedule'];p=schedule[7]['A'][0]
+        s['round2']['players'][p]['goals'][7]=None
+        self.assertFalse(evaluate(s)['round2']['complete'])
+        s=fixture();p=schedule[0]['sit'][0]
+        before=next(r for r in evaluate(s)['round2']['rows'] if r['id']==p)
+        s['round2']['players'][p]['goals'][0]=999
+        after=next(r for r in evaluate(s)['round2']['rows'] if r['id']==p)
+        self.assertEqual((before['goals'],before['played']),(after['goals'],after['played']))
+        self.assertFalse(evaluate(s)['round2']['complete'])
+    def test_legacy_round2_archive_and_current_save_preservation(self):
+        old=legacy_fixture();old['settings']['goal_points']=2;old['wheel']['text']='A\nB'
+        original=deepcopy(old);new=validate(old)
+        self.assertEqual(old,original);self.assertEqual(new['version'],3)
+        self.assertEqual(new['legacy_round2']['round2'],old['round2'])
+        self.assertEqual(new['legacy_round2']['final'],old['final'])
+        for k in ['round1','names','settings','wheel']:self.assertEqual(new[k],old[k])
+        self.assertEqual(new['round2']['players']['p1']['goals'],[None]*8)
+        self.assertEqual(new['final']['players']['p1']['goals'],[None]*10)
+        current=fixture();original=deepcopy(current);self.assertEqual(validate(current),original)
 
     def test_wheel_large_lists_migration_and_validation(self):
         s=fixture();s['wheel']={'text':'\n'.join('Entry '+str(i) for i in range(25000)), 'remove_winner':True}
