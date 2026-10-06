@@ -2,7 +2,7 @@
 from copy import deepcopy
 from decimal import Decimal
 from fractions import Fraction
-from itertools import groupby
+from itertools import groupby, combinations
 import math
 
 TIE = 'TIE - EXTRA GAMES NEEDED'
@@ -12,10 +12,30 @@ def blank_round():
     return {'players': {p: {'team': '', 'goals': [None]*5} for p in IDS}, 'extras': [], 'roster': []}
 
 def new_state():
-    return {'version': 1, 'names': {p: '' for p in IDS},
-            'settings': {'win_points': 1.5, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4]},
+    return {'version': 2, 'names': {p: '' for p in IDS},
+            'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4]},
             'round1': blank_round(), 'round2': blank_round(),
-            'final': {'players': {p: {'goals': [None]*5, 'results': ['']*5} for p in IDS}, 'extras': [], 'roster': []}}
+            'final': {'players': {p: {'goals': [None]*10, 'results': ['']*10} for p in IDS}, 'extras': [], 'roster': []}}
+
+def final_schedule(roster):
+    """One representative of each unordered 3v3 partition of six players."""
+    if len(roster) != 6: return []
+    return [{'game': i+1, 'A': [roster[0], *pair],
+             'B': [p for p in roster if p not in (roster[0], *pair)]}
+            for i, pair in enumerate(combinations(roster[1:], 2))]
+
+def migrate(s):
+    if s.get('version') != 1: return s
+    s=deepcopy(s)
+    # Preserve the entire old final; fixed-team games cannot become rotations.
+    old=s['final']
+    if old['extras'] or any(any(g is not None for g in p['goals']) or any(p['results']) for p in old['players'].values()):
+        s['legacy_final']={'settings': deepcopy(s['settings']), 'final': deepcopy(old)}
+    s['final']=new_state()['final']
+    s['settings']['win_points']=1
+    s['settings']['goal_points']=1.5
+    s['version']=2
+    return s
 
 def numeric(v, nullable=False, integer=False):
     if v is None and nullable: return
@@ -25,7 +45,8 @@ def numeric(v, nullable=False, integer=False):
 
 def validate(s):
     try:
-        if s['version'] != 1 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
+        s=migrate(s)
+        if s['version'] != 2 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
         for name in s['names'].values():
             if not isinstance(name,str) or len(name)>40: raise ValueError('Names must be 40 characters or fewer.')
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
@@ -37,10 +58,10 @@ def validate(s):
             if not isinstance(a['roster'],list) or len(a['roster'])!=len(set(a['roster'])) or any(p not in IDS for p in a['roster']):
                 raise ValueError('Invalid roster.')
             for d in a['players'].values():
-                if len(d['goals'])!=5: raise ValueError('Exactly five regulation games are required.')
+                if len(d['goals'])!=(10 if stage=='final' else 5): raise ValueError('Five games per cutting round and ten final games are required.')
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
-                    if len(d['results'])!=5 or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
+                    if len(d['results'])!=10 or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
                 elif d['team'] not in ['','A','B']: raise ValueError('Teams must be A or B.')
             for extra in a['extras']:
                 if not isinstance(extra,dict) or set(extra)!=set(IDS): raise ValueError('Invalid extra-game records.')
@@ -123,19 +144,24 @@ def evaluate(s):
     if stale: issues.append('The finalist list changed. Reset the final before entering new scores.')
     for p in roster:
         d=stage['players'][p]; wins=Decimal(0); goals=Decimal(0); game_points=[]
-        for g in range(5):
+        for g in range(10):
             if d['goals'][g] is None or not d['results'][g]: game_points.append(None); continue
             w,h=points(d['goals'][g],d['results'][g],settings,settings['multiplier'] if g<2 else 1)
             wins+=w; goals+=h; game_points.append(float(w+h))
         scores[p]=wins+goals
         rows.append({'id':p,'name':s['names'][p],'win_points':float(wins),'goal_points':float(goals),'total':float(wins+goals),
                      'game_points':game_points,'rank':None,'prize':None,'status':'PENDING'})
+    schedule=final_schedule(roster)
     games=[]
-    for g in range(5):
+    for g in range(10):
         count=sum(stage['players'][p]['goals'][g] is not None for p in roster)
         w=sum(stage['players'][p]['results'][g]=='W' for p in roster); l=sum(stage['players'][p]['results'][g]=='L' for p in roster)
-        games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'ready':count==6 and w==3 and l==3})
-    if roster and not all(g['ready'] for g in games): issues.append('Every game needs six goal scores, three W results, and three L results.')
+        teams=schedule[g] if schedule else {'A':[], 'B':[]}
+        outcomes=[{stage['players'][p]['results'][g] for p in teams[t]} for t in ['A','B']]
+        consistent=outcomes in [[{'W'},{'L'}],[{'L'},{'W'}]]
+        games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'teams':teams,
+                      'ready':count==6 and consistent})
+    if roster and not all(g['ready'] for g in games): issues.append('Complete all ten games: six goal scores each, with W for the scheduled winning team and L for its opponents.')
     ready=not issues; extra_scores=[]
     for extra in stage['extras']:
         extra_scores.append({p:sum(points(d['goals'],d['result'],settings)) if d['goals'] is not None and d['result'] else None for p,d in extra.items()})
@@ -149,7 +175,7 @@ def evaluate(s):
         rank+=len(group)
     rows.sort(key=lambda r:r['rank'])
     if any(r['status']==TIE for r in rows): issues.append('Podium tie: play extra games for the highlighted players. Those prizes stay unassigned.')
-    final={'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not any(r['status']==TIE for r in rows),'stale':stale}
+    final={'schedule':schedule,'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not any(r['status']==TIE for r in rows),'stale':stale}
     return {'round1':r1,'round2':r2,'final':final,'pool':sum(settings['prizes']),
             'awarded':sum(r['prize'] or 0 for r in rows),'names_ok':names_ok}
 
