@@ -4,7 +4,7 @@ import argparse, csv, io, json, os, secrets, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
-from engine import new_state, validate, evaluate, bind_rosters
+from engine import new_state, validate, evaluate, bind_rosters, round2_draw_action, has_inputs
 
 ROOT=Path(__file__).resolve().parent
 MAX_BODY=2_000_000
@@ -14,8 +14,13 @@ class Store:
         self.path=Path(path); self.lock=threading.Lock(); self.revision=0
         self.state=validate(json.loads(self.path.read_text())) if self.path.exists() else new_state()
     def payload(self): return {'state':self.state,'view':evaluate(self.state),'revision':self.revision}
-    def save(self,state):
-        state=bind_rosters(validate(state)); self.path.parent.mkdir(parents=True,exist_ok=True)
+    def save(self,state,allow_draw=False):
+        state=validate(state)
+        previous=self.state['round2']['draw'];incoming=state['round2']['draw']
+        reset=not incoming['order'] and not state['round2']['roster'] and not has_inputs(state['round2']) and not has_inputs(state['final'])
+        if not allow_draw and incoming!=previous and not reset:
+            raise ValueError('Saved sit-out draws cannot be edited or rerolled. Use the match buttons or restore a backup.')
+        state=bind_rosters(state); self.path.parent.mkdir(parents=True,exist_ok=True)
         temp=self.path.with_suffix('.tmp')
         with temp.open('w',encoding='utf-8') as f:
             json.dump(state,f,ensure_ascii=False,indent=2); f.flush();os.fsync(f.fileno())
@@ -49,7 +54,7 @@ def make_server(store,port=8765):
                 name,kind=files[route];return self.send(200,(ROOT/'static'/name).read_bytes(),kind)
             self.send(404,{'error':'Not found'})
         def do_PUT(self):
-            if self.path!='/api/state':return self.send(404,{'error':'Not found'})
+            if self.path not in ['/api/state','/api/round2-draw']:return self.send(404,{'error':'Not found'})
             if self.headers.get('X-Session-Token')!=token:return self.send(403,{'error':'Reload the dashboard before saving.'})
             try:
                 length=int(self.headers.get('Content-Length','0'))
@@ -57,7 +62,10 @@ def make_server(store,port=8765):
                 data=json.loads(self.rfile.read(length))
                 with store.lock:
                     if data.get('revision')!=store.revision:return self.send(409,{'error':'Another tab changed this tournament. Reload before editing.'})
-                    store.save(data['state']);return self.send(200,store.payload())
+                    if self.path=='/api/round2-draw':
+                        store.save(round2_draw_action(store.state,data['action'],data.get('game')),allow_draw=True)
+                    else: store.save(data['state'],allow_draw=data.get('restore') is True)
+                    return self.send(200,store.payload())
             except (ValueError,KeyError,TypeError) as e:self.send(400,{'error':str(e)})
             except OSError:self.send(500,{'error':'Could not save the tournament file. Check folder permissions and free space.'})
     return ThreadingHTTPServer(('127.0.0.1',port),Handler)

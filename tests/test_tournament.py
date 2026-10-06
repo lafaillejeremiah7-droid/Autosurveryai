@@ -1,9 +1,10 @@
 import json, tempfile, threading, unittest
+from unittest.mock import patch
 from copy import deepcopy
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule
+from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule, round2_draw_action, blank_round
 from app import Store, make_server
 
 def fixture(final=True):
@@ -11,6 +12,7 @@ def fixture(final=True):
     for i,p in enumerate(IDS):s['round1']['players'][p]={'team':'A' if i<5 else 'B','goals':[4-i%5]*5}
     v=evaluate(s);players=v['round1']['survivors']
     schedule=round2_schedule(players)
+    s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':8,'completed':8,'mode':'random'}
     for i,p in enumerate(players):s['round2']['players'][p]={'goals':[None if p in g['sit'] else [8,7,6,2,5,4,3,1][i] for g in schedule]}
     bind_rosters(s)
     if final:
@@ -130,7 +132,7 @@ class Rules(unittest.TestCase):
     def test_legacy_round2_archive_and_current_save_preservation(self):
         old=legacy_fixture();old['settings']['goal_points']=2;old['wheel']['text']='A\nB'
         original=deepcopy(old);new=validate(old)
-        self.assertEqual(old,original);self.assertEqual(new['version'],3)
+        self.assertEqual(old,original);self.assertEqual(new['version'],4)
         self.assertEqual(new['legacy_round2']['round2'],old['round2'])
         self.assertEqual(new['legacy_round2']['final'],old['final'])
         for k in ['round1','names','settings','wheel']:self.assertEqual(new[k],old[k])
@@ -172,7 +174,84 @@ class Rules(unittest.TestCase):
         s=fixture();s['round1']['players']['p5']['team']='B';self.assertFalse(evaluate(s)['round1']['complete'])
         s=fixture();s['round2']['players']['p1']['goals'][0]=0;self.assertFalse(evaluate(s)['round2']['complete'])
 
+class Draws(unittest.TestCase):
+    def fresh(self):
+        s=fixture(False);s['round2']=blank_round(8);s['final']=new_state()['final'];return bind_rosters(s)
+    def test_balanced_random_draw_all_matches_and_repeat_clicks(self):
+        s=self.fresh();original=deepcopy(s);roster=evaluate(s)['round1']['survivors']
+        with patch('engine.secrets.SystemRandom.shuffle',side_effect=lambda a:a.reverse()) as shuffle:
+            s=round2_draw_action(s,'start');shuffle.assert_called_once()
+        self.assertEqual(original['round2']['draw']['order'],[])
+        self.assertEqual(s['round2']['draw']['order'],list(reversed(roster)))
+        self.assertEqual(round2_draw_action(s,'start'),s)
+        draw_order=s['round2']['draw']['order'].copy();rests={p:0 for p in roster};previous=set()
+        for game in range(1,9):
+            v=evaluate(s)['round2'];g=v['schedule'][game-1]
+            self.assertEqual(v['draw']['revealed'],game)
+            self.assertFalse(previous.intersection(g['sit']))
+            for p in g['sit']:rests[p]+=1;self.assertLessEqual(rests[p],2)
+            with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
+            for p in g['A']+g['B']:s['round2']['players'][p]['goals'][game-1]=10-roster.index(p)
+            s=round2_draw_action(s,'done',game)
+            self.assertEqual(s['round2']['draw']['order'],draw_order)
+            with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
+            self.assertEqual(validate(json.loads(json.dumps(s))),s)
+            previous=set(g['sit'])
+        self.assertTrue(all(n==2 for n in rests.values()))
+        self.assertTrue(evaluate(s)['round2']['complete'])
+        self.assertTrue(all(r['played']==6 for r in evaluate(s)['round2']['rows']))
+        self.assertEqual(len(evaluate(s)['round2']['survivors']),6)
+    def test_draw_guards_and_preserves_existing_version3_scores(self):
+        with self.assertRaises(ValueError):round2_draw_action(new_state(),'start')
+        s=self.fresh()
+        with self.assertRaises(ValueError):round2_draw_action(s,'done',1)
+        s=round2_draw_action(s,'start')
+        with self.assertRaises(ValueError):round2_draw_action(s,'done',2)
+        old=fixture();old['version']=3;del old['round2']['draw'];original=deepcopy(old)
+        upgraded=validate(old)
+        self.assertEqual(old,original)
+        self.assertEqual(upgraded['round2']['players'],old['round2']['players'])
+        self.assertEqual(upgraded['final'],old['final'])
+        self.assertEqual(upgraded['round2']['draw']['mode'],'preserved')
+        self.assertEqual(upgraded['round2']['draw']['completed'],8)
+        self.assertEqual(evaluate(upgraded)['awarded'],30)
+    def test_store_draw_cannot_be_changed_by_regular_save(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=Store(Path(d)/'data.json');store.save(self.fresh(),allow_draw=True)
+            store.save(round2_draw_action(store.state,'start'),allow_draw=True)
+            original=deepcopy(store.state)
+            edited=deepcopy(original);edited['round2']['draw']['order'].reverse()
+            with self.assertRaises(ValueError):store.save(edited)
+            edited=deepcopy(original);edited['round2']['draw']['completed']=1
+            with self.assertRaises(ValueError):store.save(edited)
+            self.assertEqual(store.state,original)
+            self.assertEqual(Store(store.path).state['round2']['draw'],original['round2']['draw'])
+
 class HTTP(unittest.TestCase):
+    def test_round2_draw_endpoint_and_completion(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=Store(Path(d)/'data.json');store.save(Draws().fresh(),allow_draw=True)
+            server=make_server(store,0);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            url=f'http://127.0.0.1:{server.server_port}'
+            try:
+                info=json.load(urlopen(url+'/api/state'));headers={'Content-Type':'application/json','X-Session-Token':info['token']}
+                def put(route,body):return json.load(urlopen(Request(url+route,data=json.dumps(body).encode(),headers=headers,method='PUT')))
+                started=put('/api/round2-draw',{'revision':store.revision,'action':'start'})
+                self.assertEqual(started['view']['round2']['draw']['revealed'],1)
+                again=put('/api/round2-draw',{'revision':store.revision,'action':'start'})
+                self.assertEqual(again['state']['round2']['draw'],started['state']['round2']['draw'])
+                with self.assertRaises(HTTPError) as cm:put('/api/round2-draw',{'revision':store.revision,'action':'done','game':1})
+                self.assertEqual(cm.exception.code,400)
+                state=again['state'];g=again['view']['round2']['schedule'][0]
+                for p in g['A']+g['B']:state['round2']['players'][p]['goals'][0]=0
+                put('/api/state',{'revision':store.revision,'state':state})
+                done=put('/api/round2-draw',{'revision':store.revision,'action':'done','game':1})
+                self.assertEqual(done['state']['round2']['draw']['completed'],1)
+                self.assertEqual(done['state']['round2']['draw']['revealed'],2)
+                with self.assertRaises(HTTPError):put('/api/round2-draw',{'revision':store.revision,'action':'done','game':1})
+                self.assertEqual(json.load(urlopen(url+'/api/backup'))['round2']['draw'],done['state']['round2']['draw'])
+            finally:server.shutdown();server.server_close();thread.join()
+
     def test_persistence_and_revision_conflict(self):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'data.json';store=Store(path);server=make_server(store,0);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
@@ -180,7 +259,7 @@ class HTTP(unittest.TestCase):
             try:
                 data=json.load(urlopen(url+'/api/state'));headers={'Content-Type':'application/json','X-Session-Token':data['token']}
                 data_state=fixture();data_state['wheel']['text']='Aaron\nGhost\nJay'
-                body=json.dumps({'revision':0,'state':data_state}).encode();req=Request(url+'/api/state',data=body,headers=headers,method='PUT')
+                body=json.dumps({'revision':0,'state':data_state,'restore':True}).encode();req=Request(url+'/api/state',data=body,headers=headers,method='PUT')
                 result=json.load(urlopen(req));self.assertEqual(result['revision'],1);self.assertEqual(evaluate(Store(path).state)['awarded'],30);self.assertEqual(Store(path).state['wheel']['text'],'Aaron\nGhost\nJay')
                 with self.assertRaises(HTTPError) as cm:urlopen(req)
                 self.assertEqual(cm.exception.code,409)

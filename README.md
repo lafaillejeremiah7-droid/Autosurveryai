@@ -33,11 +33,23 @@ Type or paste one name per line. Edit a line to rename it; delete the line to re
 
 Spin, optionally remove each winner automatically, remove a selected entry manually, shuffle the list, or copy the tournament names. **Add to tournament roster** fills the next empty tournament slot without changing the wheel. The tournament format itself remains ten players. The wheel list and removal preference are saved and included in backups.
 
+## Automatic Round 2 sit-out wheel
+
+1. After To Live is complete, open **To Die** and click **Draw Match 1 sit-outs**. The wheel automatically uses the eight survivors.
+2. Enter the six active players' goal counts, including zeroes. Leave the two sit-outs blank.
+3. Click **Match 1 of 8 done — draw next sit-outs**. The app saves completion and opens the wheel with Match 2's pair. Repeat through Match 8.
+
+The server shuffles the eight players into a balanced rotation once and saves that order. Subsequent clicks reveal the next pair from this random schedule. Everyone plays six times, sits exactly twice, and never sits in consecutive matches. This preserves the teammate/opponent balance; unrestricted independent spins would not guarantee it.
+
+Future match controls stay locked until the preceding match is marked done. Missing scores prevent advancement. Double-clicking cannot skip a match, and refreshing cannot reroll a pair. The draw and match progress are included in backups. The wheel has separate **Open name draw** and **To Die · sit-out draw** modes, so editing the unlimited list does not change the tournament draw.
+
+Previously entered eight-match Round 2 scores keep their original schedule when upgraded; a new, unstarted round uses the randomized draw.
+
 ## Tournament flow
 
 1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
 2. **To Live:** assign five players per team and enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
-3. **To Die:** the eight survivors follow the automatic eight-game rotation. Six play 3v3 and two sit out each match. Everyone plays six games and sits twice, with three appearances in each four-game half and no consecutive rests. Each pair are teammates once or twice and opponents two or three times. Enter all six scheduled goal scores, including zeroes; sit-out cells stay blank. A missing score for an active player prevents completion. Rank all eight together using only this round's goals per match: top six overall advance, bottom two are cut. A tie across sixth and seventh requires extra games. There are no permanent Round 2 teams. Keep survivor slots fixed before scoring.
+3. **To Die:** the eight survivors enter the automatic sit-out draw and follow its eight-game rotation. Six play 3v3 and two sit out each match. Everyone plays six games and sits twice, with three appearances in each four-game half and no consecutive rests. Each pair are teammates once or twice and opponents two or three times. Enter all six scheduled goal scores, including zeroes; sit-out cells stay blank. A missing score for an active player prevents completion. Rank all eight together using only this round's goals per match: top six overall advance, bottom two are cut. A tie across sixth and seventh requires extra games. There are no permanent Round 2 teams. The app saves and locks the random slots before scoring.
 4. **Rebirth:** the six survivors start at zero. Follow the displayed schedule of all ten unique 3v3 splits once each. Every player plays ten matches; each pair are teammates four times and opponents six times. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–10 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all ten games are complete.
 5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
 
@@ -48,7 +60,7 @@ Normal final points = **1.5 × goals + 1 for a win**. Games 1–2 double the ent
 
 ## To Die rotation schedule
 
-Slots 1–8 are assigned once in the survivor order from To Live, not by the live Round 2 rank. The dashboard displays actual names.
+Slots 1–8 are randomly assigned once when the first sit-out draw starts. The table is the balanced slot template; the dashboard reveals the actual names match by match. An already-started older save retains its existing slots.
 
 | Game | Team A | Team B | Sit out |
 | --- | --- | --- | --- |
@@ -89,4 +101,4 @@ python -m unittest discover -s tests -v
 
 If Node.js is available, verify Round 2 UI controls with `node tests/test_ui.cjs`.
 
-The tests cover advancement, team-local ranks, blank versus zero, exact averages, multiple extra games, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration, large wheel lists, wheel persistence, independent live goal/win points, eight-match Round 2 balance, overall cut ties, invalid sit-out entries, and preservation of archived stage scores.
+The tests cover advancement, team-local ranks, blank versus zero, exact averages, multiple extra games, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration, large wheel lists, wheel persistence, independent live goal/win points, eight-match Round 2 balance, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.
