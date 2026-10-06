@@ -12,7 +12,7 @@ def blank_round():
     return {'players': {p: {'team': '', 'goals': [None]*5} for p in IDS}, 'extras': [], 'roster': []}
 
 def new_state():
-    return {'version': 2, 'names': {p: '' for p in IDS},
+    return {'version': 2, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
             'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4]},
             'round1': blank_round(), 'round2': blank_round(),
             'final': {'players': {p: {'goals': [None]*10, 'results': ['']*10} for p in IDS}, 'extras': [], 'roster': []}}
@@ -46,6 +46,9 @@ def numeric(v, nullable=False, integer=False):
 def validate(s):
     try:
         s=migrate(s)
+        s.setdefault('wheel', {'text': '', 'remove_winner': False})
+        if not isinstance(s['wheel'],dict) or not isinstance(s['wheel'].get('text'),str) or not isinstance(s['wheel'].get('remove_winner'),bool):
+            raise ValueError('Invalid wheel list or removal setting.')
         if s['version'] != 2 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
         for name in s['names'].values():
             if not isinstance(name,str) or len(name)>40: raise ValueError('Names must be 40 characters or fewer.')
@@ -108,7 +111,7 @@ def round_view(s, key, roster, names_ok, upstream=True):
                      'average':float(scores[p]),'rank':None,'status':'PENDING'})
     if not upstream: issues.append('Complete the previous round and resolve its cut ties.')
     if stale: issues.append('The survivor list changed. Reset this round before entering new scores.')
-    if not names_ok: issues.append('Enter 10 unique player names in Settings.')
+    if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
     for t in ['A','B']:
         n=sum(r['team']==t for r in rows)
         if n!=size and upstream: issues.append(f'Team {t}: assign {size} players ({n} assigned).')
@@ -140,16 +143,18 @@ def evaluate(s):
     r2=round_view(s,'round2',r1['survivors'],names_ok,r1['complete'])
     roster=r2['survivors']; stage=s['final']; settings=s['settings']; rows=[]; scores={}; issues=[]
     stale=bool(stage['roster'] and stage['roster']!=roster)
-    if not r2['complete']: issues.append('Complete Round 2 and resolve its cut ties.')
+    if not r2['complete']: issues.append('Complete To Die and resolve its cut ties.')
     if stale: issues.append('The finalist list changed. Reset the final before entering new scores.')
     for p in roster:
         d=stage['players'][p]; wins=Decimal(0); goals=Decimal(0); game_points=[]
         for g in range(10):
-            if d['goals'][g] is None or not d['results'][g]: game_points.append(None); continue
+            if d['goals'][g] is None and not d['results'][g]: game_points.append(None); continue
             w,h=points(d['goals'][g],d['results'][g],settings,settings['multiplier'] if g<2 else 1)
             wins+=w; goals+=h; game_points.append(float(w+h))
         scores[p]=wins+goals
         rows.append({'id':p,'name':s['names'][p],'win_points':float(wins),'goal_points':float(goals),'total':float(wins+goals),
+                     'goals':sum(v or 0 for v in d['goals']),'wins':sum(v=='W' for v in d['results']),
+                     'played':sum(d['goals'][g] is not None and bool(d['results'][g]) for g in range(10)),
                      'game_points':game_points,'rank':None,'prize':None,'status':'PENDING'})
     schedule=final_schedule(roster)
     games=[]

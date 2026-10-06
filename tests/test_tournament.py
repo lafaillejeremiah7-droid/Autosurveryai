@@ -50,10 +50,10 @@ class Rules(unittest.TestCase):
         s=fixture();s['settings']['win_points']=0;s['final']['players']['p6']['goals']=[3]*10
         v=evaluate(s);self.assertEqual(v['final']['rows'][2]['status'],TIE);self.assertEqual(v['final']['rows'][3]['status'],TIE)
         s=fixture();s['settings']['win_points']=0;s['final']['players']['p8']['goals']=[1]*10;v=evaluate(s);self.assertTrue(v['final']['complete'])
-    def test_multiplier_setting_and_paired_inputs(self):
+    def test_multiplier_setting_and_partial_inputs(self):
         s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],119)
         s['final']['players']['p1']['results'][0]='';r=next(r for r in evaluate(s)['final']['rows'] if r['id']=='p1')
-        self.assertEqual(r['total'],93.5);self.assertIsNone(r['prize'])
+        self.assertEqual(r['total'],116);self.assertIsNone(r['prize'])
     def test_rotation_balance_and_team_results(self):
         s=fixture();roster=evaluate(s)['round2']['survivors'];schedule=final_schedule(roster)
         self.assertEqual(len(schedule),10)
@@ -79,6 +79,28 @@ class Rules(unittest.TestCase):
         self.assertEqual(new['final']['players']['p1']['goals'],[None]*10)
         self.assertEqual(validate(new),new)
 
+    def test_wheel_large_lists_migration_and_validation(self):
+        s=fixture();s['wheel']={'text':'\n'.join('Entry '+str(i) for i in range(25000)), 'remove_winner':True}
+        validate(s);self.assertEqual(len(s['wheel']['text'].splitlines()),25000)
+        self.assertEqual(evaluate(s)['awarded'],30)
+        old=deepcopy(s);del old['wheel'];migrated=validate(old)
+        self.assertEqual(migrated['final'],s['final']);self.assertEqual(migrated['wheel']['text'],'')
+        for value in [None,{'text':[],'remove_winner':False},{'text':'A','remove_winner':'yes'}]:
+            s['wheel']=value
+            with self.assertRaises(ValueError):validate(s)
+    def test_independent_live_points_and_counts(self):
+        s=fixture(False);p=evaluate(s)['round2']['survivors'][0]
+        s['final']['players'][p]['goals'][0]=2
+        r=next(r for r in evaluate(s)['final']['rows'] if r['id']==p)
+        self.assertEqual((r['goals'],r['wins'],r['played'],r['total']),(2,0,0,6))
+        s['final']['players'][p]['results'][0]='W'
+        r=next(r for r in evaluate(s)['final']['rows'] if r['id']==p)
+        self.assertEqual((r['goals'],r['wins'],r['played'],r['total']),(2,1,1,8))
+        s['final']['players'][p]['goals'][0]=None
+        r=next(r for r in evaluate(s)['final']['rows'] if r['id']==p)
+        self.assertEqual((r['goals'],r['wins'],r['played'],r['total']),(0,1,0,2))
+        self.assertIsNone(r['prize'])
+
     def test_names_and_validation(self):
         s=fixture();s['names']['p2']=' player 1 ';self.assertFalse(evaluate(s)['names_ok'])
         for invalid in [-1,1.5,True,float('nan'),'2']:
@@ -98,8 +120,9 @@ class HTTP(unittest.TestCase):
             url=f'http://127.0.0.1:{server.server_port}'
             try:
                 data=json.load(urlopen(url+'/api/state'));headers={'Content-Type':'application/json','X-Session-Token':data['token']}
-                body=json.dumps({'revision':0,'state':fixture()}).encode();req=Request(url+'/api/state',data=body,headers=headers,method='PUT')
-                result=json.load(urlopen(req));self.assertEqual(result['revision'],1);self.assertEqual(evaluate(Store(path).state)['awarded'],30)
+                data_state=fixture();data_state['wheel']['text']='Aaron\nGhost\nJay'
+                body=json.dumps({'revision':0,'state':data_state}).encode();req=Request(url+'/api/state',data=body,headers=headers,method='PUT')
+                result=json.load(urlopen(req));self.assertEqual(result['revision'],1);self.assertEqual(evaluate(Store(path).state)['awarded'],30);self.assertEqual(Store(path).state['wheel']['text'],'Aaron\nGhost\nJay')
                 with self.assertRaises(HTTPError) as cm:urlopen(req)
                 self.assertEqual(cm.exception.code,409)
                 self.assertEqual(json.load(urlopen(url+'/api/backup')),store.state)

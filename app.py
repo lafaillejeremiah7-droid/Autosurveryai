@@ -38,7 +38,7 @@ def make_server(store,port=8765):
                 if route=='/api/backup':return self.send(200,store.state,filename='brawl-hockey-backup.json')
                 if route=='/api/standings.csv':
                     view=evaluate(store.state);r1={r['id']:r for r in view['round1']['rows']};r2={r['id']:r for r in view['round2']['rows']};fin={r['id']:r for r in view['final']['rows']}
-                    out=io.StringIO();writer=csv.writer(out);writer.writerow(['Player','Round 1','Round 2','Final rank','Total points','Prize','Final status'])
+                    out=io.StringIO();writer=csv.writer(out);writer.writerow(['Player','To Live','To Die','Rebirth rank','Total points','Prize','Final status'])
                     for p,name in store.state['names'].items():
                         r=fin.get(p,{})
                         safe="'"+name if name.startswith(('=','+','-','@','\t','\r')) else name

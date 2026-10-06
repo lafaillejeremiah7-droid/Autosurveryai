@@ -1,4 +1,30 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brawl Hockey — Tournament Control</title><link rel="stylesheet" href="/style.css"></head>
-<body><aside><div class="brand"><div class="mark">BH</div><div>BRAWL HOCKEY<small>TOURNAMENT CONTROL</small></div></div><div class="nav-label">YOUR TOURNAMENT</div><nav id="nav"></nav><div class="sidebar-bottom"><span class="live-dot"></span> LOCAL TOURNAMENT<div id="save-status" role="status">Loading…</div><button id="backup">Download backup</button><label class="file-button">Restore backup<input type="file" id="restore" accept=".json"></label></div></aside>
-<main><header><span id="breadcrumb">TOURNAMENT / OVERVIEW</span><div><span class="legend input-dot"></span> Editable <span class="legend output-dot"></span> Automatic</div></header><div id="error" role="alert" hidden></div><div id="content"></div><footer>Natural Selection Edition <span>10 players · 2 cuts · 1 champion</span></footer></main><script src="/app.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#eae9e5">
+<title>To Live / To Die / Rebirth — Brawl Hockey</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="room-header"><a href="#" class="brand" id="home-link" aria-label="Brawl Hockey control room">BH<span>BRAWL HOCKEY<br><small>TOURNAMENT CONTROL ROOM</small></span></a><div class="connection"><i></i> LOCAL SESSION <span id="room-clock"></span></div></header>
+<div id="error" role="alert" hidden></div>
+<main class="room" id="room">
+<section class="room-intro"><div class="eyebrow">SURVIVAL SERIES / 001</div><h1>TO LIVE.<br>TO DIE.<br><em>REBIRTH.</em></h1><p>Ten enter.<br>Six reach the end.<br>One takes the crown.</p><div class="intro-line"></div><p class="instruction"><span>↗</span> SELECT A MONITOR<br><small>Zoom in. Take control.</small></p><div class="room-stats" id="room-stats"></div><div class="room-caption">20 MATCHES / 3 CHAPTERS<br>EVERY PLAYER. EVERY POINT.</div></section>
+<section class="rig" aria-label="Tournament monitors">
+<div class="mast" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<svg class="cables" viewBox="0 0 1000 1080" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke-linecap="round"><path d="M460 -30 C410 145 830 70 780 290 S430 250 550 580 S740 850 575 1110" stroke="#232326" stroke-width="13"/><path d="M530 -10 C580 130 270 210 290 355 S715 450 630 760 S390 910 470 1100" stroke="#aa1d5e" stroke-width="10"/><path d="M540 -15 C330 140 370 280 540 410 S760 630 435 735 S510 980 540 1080" stroke="#e54189" stroke-width="7"/><path d="M495 0 C630 105 520 230 495 455 S300 590 370 820 S640 860 595 1080" stroke="#2d2d30" stroke-width="8"/></g></svg>
+<div class="mount mount-one" aria-hidden="true"></div><div class="mount mount-two" aria-hidden="true"></div><div class="mount mount-three" aria-hidden="true"></div>
+<div id="monitors"></div>
+<div class="rig-label">CUSTOM BUILT FOR THE LAST ONE STANDING</div>
+</section>
+</main>
+<footer class="room-footer"><span>TO LIVE → TO DIE → REBIRTH</span><span id="save-status" role="status" aria-live="polite">Connecting…</span><button id="retry-save" hidden>Retry save</button></footer>
+<dialog id="screen-dialog" aria-labelledby="screen-title">
+<div class="screen-shell"><header class="screen-header"><div><span class="live-dot"></span><span id="breadcrumb">CONTROL ROOM</span></div><button id="close-screen" aria-label="Zoom out to control room">↙ <span>CONTROL ROOM</span> <kbd>ESC</kbd></button></header>
+<nav id="nav" aria-label="Monitor navigation"></nav><div id="screen-scroll"><div id="content"></div></div>
+<footer class="screen-footer"><span><i class="legend input-dot"></i> INPUT <i class="legend output-dot"></i> AUTOMATIC</span><div><button id="backup">Download backup</button><label class="file-button">Restore backup<input type="file" id="restore" accept=".json,application/json"></label></div></footer></div>
+</dialog>
+<script src="/app.js"></script>
+</body>
+</html>
