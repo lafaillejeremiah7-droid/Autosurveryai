@@ -1,0 +1,14 @@
+{
+  "task_id": "task-doomsday-cutscenes",
+  "task_description": "Add background ambient explosions/nukes every 1-5s with a world-layer-only vibrating shake, and a skippable cartoon/stickman furnace elimination cutscene that plays at the end of all three rounds (To Live, To Die, Rebirth) showing that round's eliminated players by name. Frontend/UX only (static/index.html, static/app.js, static/style.css); engine.py and app.py unchanged. Must respect the existing Pause-world toggle and prefers-reduced-motion, keep the shake off content/dialogs, and keep all Python + Node UI tests green. Branch feat/doomsday-cutscenes off main. Do not push or open a PR.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "No build step (static assets). python3 -m unittest discover -s tests => 44 OK. node tests/test_ui.cjs => exit 0 with both new sections (FEAT-002 ambient blasts, FEAT-003 elimination cutscene) printing. node -c static/app.js parses. Live probe (/projects/sandbox/probe_cutscenes.sh, single invocation) returns HTTP 200 for /, /app.js, /style.css with the #world layer + #world-toggle present. Test quality verified by reading the diff: the new UI assertions exercise real code paths and would fail if reverted - they assert cutsceneActive becomes true only on a settled final submit for round1/final, that the cutscene SVG carries exactly the CUT/rank>3 names and NOT advancing/podium names, that a non-final submit and an unresolved tie do NOT trigger it (normal EXTRA GAMES NEEDED fullscreen shows), that endCutscene() hides the overlay and reveals the standings, that reduced motion yields the static 'ELIMINATED:' caption, and that the ambient blast timer is gated (null) by reduced-motion and world-paused and wired to #world-toggle. No Docker (no Dockerfile). engine.py/app.py unchanged; schema stays version 4."
+  }
+}
