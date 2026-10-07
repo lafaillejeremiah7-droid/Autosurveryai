@@ -1,0 +1,57 @@
+/* 3D headquarters HUD. The room geometry and skyline are drawn in city.js. */
+body{position:relative;min-height:100svh;background:#132d42}
+.city-world{position:absolute;inset:0;min-height:100svh;transform:none!important;filter:none!important;transition:none!important}
+#city-canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
+.city-vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#02132699 0%,transparent 35%,transparent 80%,#03132199 100%)}
+.room-header{height:78px;background:linear-gradient(180deg,#081b2799,transparent);border-bottom-color:#d1f4ff33;max-width:none}
+.room{max-width:1540px;padding:0 40px}
+.command-deck{padding:24px 0 14px;gap:40px;grid-template-columns:minmax(0,1fr) minmax(330px,430px);align-items:start}
+.room-intro{padding:17px 20px 15px;max-width:560px;background:linear-gradient(110deg,#071c2dd9,#071c2d77 70%,transparent);border-left:1px solid #a7e3f070}
+.room-intro h1{font-size:clamp(29px,3vw,44px);margin:16px 0 14px}
+.room-intro p span{display:inline;margin-left:12px}
+.room-stats{margin-top:16px}
+.doomsday-clock{background:#0b2030c9;backdrop-filter:blur(8px);padding-top:18px}
+.countdown{margin-top:17px}
+.countdown strong{font-size:clamp(32px,3.5vw,45px)}
+#doomsday-status{margin-top:14px;margin-bottom:12px;font-size:9px}
+.shelter{padding:14px 0 0;margin-bottom:0;position:relative}
+.shelter-heading{padding:0 14px;position:relative;z-index:2;pointer-events:none;text-shadow:0 2px 8px #051722}
+.shelter-heading h2{font-size:22px}
+.shelter-heading p{background:#081b2c80;padding:8px 10px;border:1px solid #b4dfec26}
+.city-condition{position:absolute;right:14px;top:92px;width:160px;color:#edf8fb;text-shadow:0 1px 8px #000;font:9px monospace;letter-spacing:1px;pointer-events:none}
+.city-condition>span:first-child{display:inline-block;max-width:125px}
+#city-damage{float:right}
+.city-condition>div{height:2px;background:#b7c9cc44;margin-top:9px}
+.city-condition i{height:100%;display:block;width:0;background:#ffb17f;box-shadow:0 0 10px #ff935877;transition:width .6s linear}
+.room-grid{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;height:290px;max-width:none;margin:30px 0 0;isolation:isolate}
+.city-room{--room-width:170px;--room-height:195px;--room-accent:#d1f4fd;position:relative;min-width:0;width:var(--room-width);height:var(--room-height);padding:0;border:0;background:transparent;color:#e1f4f8;text-align:left;transition:opacity .3s;outline-offset:4px}
+.city-ready .city-room{position:absolute;transform:translate(-50%,-100%);left:50%;top:75%}
+.city-room .room-label{position:absolute;display:block;bottom:0;left:0;right:0;padding:11px 13px 10px;border:1px solid #98c6d364;border-left:2px solid var(--room-accent);background:linear-gradient(100deg,#0b2234f2,#0c2536d9);box-shadow:0 7px 18px #03132244;backdrop-filter:blur(8px)}
+.room-label small{display:block;font:8px monospace;letter-spacing:1.4px;color:#bad0d9}
+.room-label strong{display:block;font-size:19px;font-weight:500;letter-spacing:-.4px;line-height:1.3;margin:4px 0}
+.room-label>span{display:block;font:8px monospace;letter-spacing:.7px;color:#a7c4d0}
+.room-entry{position:absolute;top:0;left:50%;transform:translateX(-50%);white-space:nowrap;font:8px monospace;letter-spacing:1px;background:#0b2234df;border:1px solid #b4f3ff80;padding:7px 9px;opacity:0;transition:opacity .2s}
+.city-room:hover .room-entry,.city-room:focus-visible .room-entry{opacity:1}
+.city-room:hover .room-label,.city-room:focus-visible .room-label{border-color:var(--room-accent);background:#153a4bf0}
+.city-room[data-open=round1]{--room-accent:#92efbd}.city-room[data-open=round2]{--room-accent:#ffca87}.city-room[data-open=final]{--room-accent:#ff9b91}.city-room[data-open=overview]{--room-accent:#eed399}
+.entering-room .city-room,.inside-room .city-room{opacity:0;pointer-events:none}
+.entering-room .command-deck,.entering-room .shelter-heading,.entering-room .city-condition,.entering-room .shelter-bottom{opacity:0;pointer-events:none}
+.command-deck,.shelter-heading,.city-condition,.shelter-bottom{transition:opacity .3s}
+.shelter-bottom{padding:16px 14px 0;text-shadow:0 1px 7px #000}
+.room-footer{padding-top:20px;padding-bottom:20px;max-width:none;background:linear-gradient(0deg,#061a28bb,transparent)}
+#screen-dialog::backdrop{backdrop-filter:blur(2px);background:#07131c75}
+.settings-countdown{margin-top:24px}
+#countdown-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+#countdown-form label{flex:1;min-width:220px;display:flex;flex-direction:column;gap:8px;color:#d1e2e8}
+#starts-at{width:100%;min-height:43px;font-size:16px}
+#countdown-form button{min-height:43px}
+#content #start-help{margin-bottom:0;font-size:12px}
+@media(min-width:1600px){.room-grid{height:360px}.command-deck{padding-top:38px}.room{max-width:1700px}}
+@media(min-height:1000px) and (min-width:1000px){.room-grid{height:calc(100svh - 475px)}}
+@media(max-width:999px){.room{padding:0 25px}.room-grid{height:470px;grid-template-columns:repeat(3,minmax(0,1fr))}.command-deck{gap:24px;grid-template-columns:minmax(0,1fr) 330px}.room-intro{padding-left:15px}.room-intro p span{display:block;margin:3px 0 0}.city-condition{top:76px}.room-intro h1{font-size:29px}.shelter-heading{padding:0}}
+@media(max-width:700px){.command-deck{grid-template-columns:1fr;gap:17px}.room-intro{max-width:none}.room-intro h1{font-size:34px}.room-intro p span{display:inline;margin-left:12px}.doomsday-clock{padding-top:15px}.clock-heading{display:flex}.countdown{margin-top:13px}.countdown strong{font-size:35px}.countdown small{margin-top:6px}#doomsday-status{margin:12px 0}.room-stats{margin-top:12px}.room-intro .eyebrow{font-size:8px}}
+@media(max-width:599px){.room{padding:0 18px}.room-header{padding:16px 20px}.command-deck{padding-top:19px}.room-intro{padding:13px 14px}.room-intro h1{font-size:30px;line-height:1.05;margin:12px 0}.room-intro p span{display:block;margin:3px 0 0}.room-grid{height:570px;margin-top:25px;grid-template-columns:repeat(2,minmax(0,1fr))}.shelter-heading h2{font-size:20px}.shelter-heading .eyebrow{font-size:7px;letter-spacing:1px}.shelter-heading p{font-size:7px;padding:7px;max-width:117px}.room-label{padding:9px!important}.room-label strong{font-size:16px;margin:3px 0}.room-label small,.room-label>span{font-size:7px;letter-spacing:.5px}.city-condition{top:77px;right:4px;width:135px;font-size:8px}.shelter-bottom{font-size:7px;padding-left:0;padding-right:0}.room-footer{padding:18px 20px}.city-room .room-entry{display:none}}
+@media(max-width:350px){.room-grid{max-width:none;height:590px}.room-intro h1{font-size:25px}.room-label strong{font-size:14px}.room-label small,.room-label>span{font-size:6px}}
+@media(prefers-reduced-motion:reduce){.city-condition i{transition:none}}
+
+.room-grid{overflow:clip}

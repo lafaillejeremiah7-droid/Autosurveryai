@@ -4,6 +4,7 @@ import argparse, csv, io, json, os, secrets, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
+from datetime import datetime, timezone
 from engine import new_state, validate, evaluate, bind_rosters, round2_draw_action, round1_lineups, round1_lineup_action, has_inputs, validate_goal_changes
 
 ROOT=Path(__file__).resolve().parent
@@ -18,11 +19,20 @@ class Store:
         # Persist initial/migrated draws too; restarting before the first edit
         # must not silently reshuffle the teams that were already displayed.
         round1_lineups(self.state)
-        if loaded!=self.state:self.save(self.state)
+        if loaded!=self.state or (self.state['settings']['start_at'] and not self.state['settings']['disaster_started_at']):self.save(self.state)
         self.revision=0
     def payload(self): return {'state':self.state,'view':evaluate(self.state),'revision':self.revision}
     def save(self,state,allow_draw=False,restore=False):
         state=validate(state)
+        settings=state['settings'];previous_settings=self.state['settings']
+        if not settings['start_at']:
+            settings['disaster_started_at']=''
+        elif restore and settings['disaster_started_at']:
+            pass  # Backups and Undo carry their original countdown window.
+        elif settings['start_at']!=previous_settings['start_at'] or not previous_settings.get('disaster_started_at'):
+            settings['disaster_started_at']=datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
+        else:
+            settings['disaster_started_at']=previous_settings['disaster_started_at']
         round1_lineups(state)  # Keep (or generate once) the cosmetic To Live splits so reloads/backups stay stable.
         previous=self.state['round2']['draw'];incoming=state['round2']['draw']
         reset=not incoming['order'] and not state['round2']['roster'] and not has_inputs(state['round2']) and not has_inputs(state['final'])
@@ -59,7 +69,7 @@ def make_server(store,port=8765):
                         safe="'"+name if name.startswith(('=','+','-','@','\t','\r')) else name
                         writer.writerow([safe,r1.get(p,{}).get('status',''),r2.get(p,{}).get('status',''),r.get('rank',''),r.get('total',''),r.get('prize',''),r.get('status','')])
                     return self.send(200,out.getvalue().encode('utf-8-sig'),'text/csv; charset=utf-8','brawl-hockey-standings.csv')
-            files={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
+            files={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/city.js':('city.js','text/javascript; charset=utf-8'),'/city-timeline.js':('city-timeline.js','text/javascript; charset=utf-8'),'/city.css':('city.css','text/css; charset=utf-8')}
             if route in files:
                 name,kind=files[route];return self.send(200,(ROOT/'static'/name).read_bytes(),kind)
             self.send(404,{'error':'Not found'})

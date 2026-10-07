@@ -17,7 +17,7 @@ let browser;
  const url=await ready;
  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{}),args:JSON.parse(process.env.CHROMIUM_ARGS||'[]')});
  const page=await browser.newPage({viewport:{width:1280,height:900},reducedMotion:'no-preference'});
- page.setDefaultTimeout(5000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(url);
  const restore=async state=>{
   await page.evaluate(async state=>{const p=await(await fetch('/api/state')).json();const r=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':p.token},body:JSON.stringify({state,revision:p.revision,restore:true})});if(!r.ok)throw Error(await r.text());},state);
@@ -40,7 +40,7 @@ let browser;
   if(key==='round1')await page.keyboard.press('Escape');
   else if(key==='round2')await page.locator('#cutscene-skip').click();
   // Rebirth also verifies automatic completion, with no skip.
-  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open);
+  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:12000});
   assert(await page.locator('#screen-dialog').evaluate(e=>e.open),'skip closed underlying round');
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.

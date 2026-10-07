@@ -50,14 +50,18 @@ const clearRoundBlurb={round1:'Clears To Live and every later round (To Die and 
 function clearRoundPanel(key){return panel('Clear this round','<p class="hint">'+clearRoundBlurb[key]+' You can Undo this straight afterwards.</p><button class="danger" data-action="clear-round" data-stage="'+key+'">'+clearRoundCopy[key]+'</button>');}
 function renderRoom(){
  const registered=Object.values(state.names).filter(x=>x.trim()).length;
- $('#room-stats').innerHTML=`<div><b>${registered}<small> / 10</small></b><small>REGISTERED</small></div><div><b>${money(view.pool)}</b><small>PRIZE POOL</small></div>`;
- const config=[
- ['settings','01 / CONFIGURATION','THE<br>ROSTER.',`${registered} / 10 PLAYERS READY`,`<div class="mini-meter">${ids.map((p,i)=>`<i class="${i<registered?'':'off'}"></i>`).join('')}</div>`],
- ['round1','02 / ROUND ONE','TO<br>LIVE.',`${view.round1.games.filter(g=>g.ready).length} / 5 GAMES RECORDED`,'<div class="giant">01</div>'],
- ['round2','03 / ROUND TWO','TO<br>DIE.',`${view.round2.games.filter(g=>g.ready).length} / 8 GAMES RECORDED`,'<div class="giant">02</div>'],
- ['final','04 / THE FINAL','REBIRTH.',`${view.final.games.filter(g=>g.ready).length} / 10 GAMES RECORDED`,'<div class="giant">03</div>'],
- ['overview','05 / LIVE STANDINGS','THE<br>AFTERMATH.',`${money(view.awarded)} / PRIZES ASSIGNED`,'<div class="mini-podium"><span>2</span><span>1</span><span>3</span></div>']];
- $('#monitors').innerHTML=config.map(([k,no,name,sub,art])=>`<button class="monitor monitor-${k}" data-open="${k}" aria-label="Open ${tabs.find(t=>t[0]===k)[1]} monitor"><div class="monitor-face"><div class="screen-ticker"><span>BH / ${no}</span><span>● LIVE</span></div><div class="preview">${art}<h2>${name}</h2><p>${sub}</p></div><div class="screen-bottom"><span>${view[k]?.complete?'TRANSMISSION COMPLETE':'CLICK TO ENTER'}</span><span>↗</span></div></div><span class="bezel-label">BRAWL SYSTEMS / ${no.slice(0,2)}</span></button>`).join('');
+ $('#room-stats').innerHTML='<div><b>'+registered+'<small> / 10</small></b><small>REGISTERED</small></div><div><b>'+money(view.pool)+'</b><small>PRIZE POOL</small></div>';
+ const rooms=[
+  ['settings','01','Players & rules',registered+' / 10 PLAYERS READY'],
+  ['round1','02','To Live',view.round1.games.filter(g=>g.ready).length+' / 5 MATCHES'],
+  ['round2','03','To Die',view.round2.games.filter(g=>g.ready).length+' / 8 MATCHES'],
+  ['final','04','Rebirth',view.final.games.filter(g=>g.ready).length+' / 10 MATCHES'],
+  ['overview','05','Leaderboard',money(view.awarded)+' AWARDED']
+ ];
+ $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room" data-open="'+key+'" aria-label="Enter '+label+' room"><span class="room-entry">ENTER ROOM ↗</span><span class="room-label"><small>ROOM '+no+' / '+(view[key]?.complete?'COMPLETE':'LIVE')+'</small><strong>'+label+'</strong><span>'+sub+'</span></span></button>').join('');
+ window.CityWorld?.refreshRooms();
+ window.CityWorld?.setSettings(state.settings);
+ updateCountdown();
 }
 // (a) A prominent, friendly 'what to do next' callout driven by the existing `next`
 // computation and the current stage's first unmet issue, with a button that opens the
@@ -75,7 +79,7 @@ function nextStepBanner(next,finished){
 function overview(){
  const final=view.final, finished=final.complete; const next=!view.names_ok?'settings':!view.round1.complete?'round1':!view.round2.complete?'round2':'final';
  const done=[view.round1,view.round2,final].filter(r=>r.complete).length;
- let html=title('MONITOR 05 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
+ let html=title('ROOM 05 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
  html+=`<div class="round-path">${[['round1','01 · To Live','10 players → 8 survivors'],['round2','02 · To Die','8 players → 6 survivors'],['final','03 · Rebirth','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
@@ -86,7 +90,38 @@ function overview(){
  if(final.rows.length)html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],final.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  return html;
 }
-function settings(){return title('MONITOR 01 / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
+function playerSettings(){return title('ROOM 01 / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
+
+let countdownDraft=null,roomTransition=false;
+function localStartValue(iso){
+ if(!iso)return '';
+ const d=new Date(iso);if(!Number.isFinite(d.getTime()))return '';
+ const pad=n=>String(n).padStart(2,'0');
+ return String(d.getFullYear()).padStart(4,'0')+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function countdownSettings(){
+ const current=countdownDraft===null?localStartValue(state.settings.start_at):countdownDraft;
+ const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+ return '<section class="panel settings-countdown"><div class="panel-head"><h2>Doomsday countdown</h2></div><form id="countdown-form"><label for="starts-at">Tournament starts · '+esc(zone)+'<input id="starts-at" data-path="settings.start_at" type="datetime-local" required min="1970-01-01T00:00" max="9999-12-31T23:59" step="60" value="'+esc(current)+'" aria-describedby="start-help"></label><button type="submit" class="accent">Save countdown</button><button type="button" class="danger" data-action="clear-start" '+(!state.settings.start_at?'disabled':'')+'>Clear countdown</button></form><p id="start-help">A changed start time begins a clean city. Small changes build throughout the countdown, reaching full destruction at zero. Refreshing preserves the damage. Pause world stops motion, not the timer.</p></section>';
+}
+function settings(){
+ const html=playerSettings(),at=html.indexOf('<div class="settings-grid">');
+ return html.slice(0,at)+countdownSettings()+html.slice(at);
+}
+async function saveStartTime(){
+ const input=$('#starts-at');
+ if(!input||!input.reportValidity())return;
+ const iso=new Date(input.value);
+ if(!Number.isFinite(iso.getTime())||localStartValue(iso.toISOString())!==input.value){error('Choose a valid date and time in your local timezone.');return;}
+ await flush();
+ state.settings.start_at=iso.toISOString();countdownDraft=null;
+ changed();await save();updateCountdown();
+}
+document.addEventListener('submit',e=>{
+ if(e.target.id!=='countdown-form')return;e.preventDefault();
+ saveStartTime().catch(err=>error(err.message));
+});
+
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
  let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Rebirth). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
  stage.extras.forEach((extra,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
@@ -293,7 +328,7 @@ function sitoutCandidates(){
 }
 function sitoutWheelPage(){
  const v=view.round2,g=Math.min(round2Game,Math.max(0,v.draw.revealed-1));
- let html=title('MONITOR 03 / TO DIE','Two sit out. Six play.','Automatic draws keep every player at exactly two sit-outs across eight matches.','BALANCED RANDOM DRAW');
+ let html=title('ROOM 03 / TO DIE','Two sit out. Six play.','Automatic draws keep every player at exactly two sit-outs across eight matches.','BALANCED RANDOM DRAW');
  if(!view.round1.complete)return html+panel('Waiting for survivors','<p>Finish To Live and resolve cut ties. Only the eight survivors participate in this draw.</p>');
  if(v.stale)return html+notice(v.issues)+`<button data-tab="round2">Open To Die</button>`;
  if(!v.draw.order.length)return html+panel('Ready to draw','<p>Start once. The dashboard saves a randomized rotation and reveals two sit-outs for each match. The open name list does not change these eight players.</p><button class="accent" data-action="r2-start" '+(sitoutBusy?'disabled':'')+'>Draw Match 1 sit-outs ↗</button>');
@@ -348,7 +383,7 @@ function render(){
  const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('#content .scroll')].map(e=>e.scrollLeft);
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
- $('#breadcrumb').textContent=tab==='sitout'?'BH / MONITOR 03 / TO DIE':`BH / MONITOR 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
+ $('#breadcrumb').textContent=tab==='sitout'?'BH / ROOM 03 / TO DIE':`BH / ROOM 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
  $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. To Die now uses eight rotating games, so those stages start fresh. To Live, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='sitout'?sitoutWheelPage():round(tab));
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
@@ -357,23 +392,35 @@ function render(){
  restoreInputFocus('#content',focus);
 }
 async function openScreen(key,source){
- if(!state)return;if(spinning||sitoutBusy)return;await flush();tab=key;
- const dialog=$('#screen-dialog'),already=dialog.open;
- if(!already){lastMonitor=key;dialog.showModal();}render();$('#screen-scroll').scrollTop=0;
- if(!already&&source&&!reducedMotion()){
-  const from=source.getBoundingClientRect(),to=dialog.getBoundingClientRect();
-  dialog.animate([{transform:`translate(${from.left+from.width/2-to.left-to.width/2}px,${from.top+from.height/2-to.top-to.height/2}px) scale(${from.width/to.width},${from.height/to.height})`,opacity:.4},{transform:'translate(0,0) scale(1)',opacity:1}],{duration:430,easing:'cubic-bezier(.2,.7,.2,1)'});
- }
- $('#close-screen').focus({preventScroll:true});
+ if(!state||spinning||sitoutBusy||roomTransition||cutsceneActive)return;
+ roomTransition=true;
+ try{
+  await flush();tab=key;
+  const dialog=$('#screen-dialog'),already=dialog.open;
+  lastMonitor=key==='sitout'?'round2':key;
+  if(!already){
+   document.body.classList.add('entering-room');
+   await window.CityWorld?.enterRoom(lastMonitor);
+   dialog.showModal();document.body.classList.add('inside-room');
+  }
+  render();$('#screen-scroll').scrollTop=0;
+  if(!already&&!reducedMotion())dialog.animate([{opacity:0,transform:'translateY(12px)'},{opacity:1,transform:'translateY(0)'}],{duration:230,easing:'ease-out'});
+  $('#close-screen').focus({preventScroll:true});
+ }finally{roomTransition=false;document.body.classList.remove('entering-room');}
 }
 async function closeScreen(){
+ if(roomTransition||cutsceneActive)return;
  if(spinning||sitoutBusy){error('Wait for the wheel to finish its draw.');return;}
- await flush();const dialog=$('#screen-dialog'),target=document.querySelector(`[data-open="${lastMonitor}"]`);
- if(target&&!reducedMotion()){
-  const from=dialog.getBoundingClientRect(),to=target.getBoundingClientRect();
-  await dialog.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${to.left+to.width/2-from.left-from.width/2}px,${to.top+to.height/2-from.top-from.height/2}px) scale(${to.width/from.width},${to.height/from.height})`,opacity:0}],{duration:280,easing:'ease-in'}).finished;
- }
- dialog.close();renderSaveControls();target?.focus({preventScroll:true});
+ const dialog=$('#screen-dialog');if(!dialog.open)return;
+ roomTransition=true;
+ try{
+  await flush();
+  dialog.close();document.body.classList.remove('inside-room');
+  document.body.classList.add('entering-room');
+  renderSaveControls();
+  await window.CityWorld?.leaveRoom();
+  document.querySelector('[data-open="'+lastMonitor+'"]')?.focus({preventScroll:true});
+ }finally{roomTransition=false;document.body.classList.remove('entering-room');}
 }
 function renderSaveControls(){
  const controls=$('#save-controls');if(!controls)return;
@@ -426,7 +473,7 @@ async function performUndo(){
   const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
   undoSnapshot=null;
-  state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();renderResult();$('#save-status').textContent='Undo applied';
+  state=data.state;view=data.view;revision=data.revision;countdownDraft=null;resetWheelResult();error('');render();renderResult();$('#save-status').textContent='Undo applied';
  }catch(err){undoSnapshot=snap;renderUndo();throw err;}
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
@@ -436,9 +483,9 @@ const clearRoundCopy={round1:'Clear To Live (also clears To Die &amp; Rebirth)',
 function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelAngle=0;}
-document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();changed();});
+document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
-document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;worldClick(e);try{
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
  if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
  if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
  if(b.dataset.r2Game!==undefined){if(sitoutBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
@@ -447,6 +494,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.step){const current=value(b.dataset.target);if(!enterGoal(b.dataset.target,Math.max(0,(current??0)+Number(b.dataset.step))))return;refreshGoalControls();changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
+ if(action==='clear-start'){await flush();doDestructive('Undo: Clear countdown',()=>{state.settings.start_at='';state.settings.disaster_started_at='';countdownDraft=null;});await save();return;}
  if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}
  if(action==='r2-start'){await progressRound2('start');return;}
  if(action==='r2-done'){const match=Number(b.dataset.match),completed=await progressRound2('done',match);if(completed)await openMatchResult('round2',match-1);return;}
@@ -465,7 +513,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
@@ -481,21 +529,19 @@ $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}
 $('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});
 function updateCountdown(){
+ if(state)window.CityWorld?.setSettings(state.settings);
  const target=state?.settings?.start_at, box=$('#countdown');
  if(!box)return;
- if(!target){['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});$('#countdown-phase').textContent='AWAITING START TIME';$('#doomsday-status').textContent='Set a start time. Let the countdown begin.';if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');return;}
- const ms=Math.max(0,new Date(target).getTime()-Date.now()), total=Math.floor(ms/1000);
+ if(!target){if($('#schedule-label'))$('#schedule-label').textContent='SET START TIME';const card=$('.doomsday-clock');if(card)card.dataset.phase='unset';['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});$('#countdown-phase').textContent='AWAITING START TIME';$('#doomsday-status').textContent='Set a start time. Let the countdown begin.';if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');return;}
+ const ms=Math.max(0,new Date(target).getTime()-Date.now()), total=Math.ceil(ms/1000);
  const d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),sec=total%60;
  [['days',d],['hours',h],['minutes',m],['seconds',sec]].forEach(([k,v])=>{const e=$('#countdown-'+k);if(e)e.textContent=String(v).padStart(2,'0');});
  const started=ms<=0;$('#countdown-phase').textContent=started?'DOOMSDAY HAS ARRIVED':'COUNTDOWN TO TOURNAMENT';$('#doomsday-status').textContent=started?'TOURNAMENT STARTED — enter the rooms.':'Starts '+new Date(target).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});if(box.setAttribute)box.setAttribute('aria-label',started?'Doomsday has arrived':'Tournament starts in '+d+' days '+h+' hours '+m+' minutes '+sec+' seconds');
  if($('#schedule-label'))$('#schedule-label').textContent='CHANGE START TIME';const card=$('.doomsday-clock');if(card)card.dataset.phase=started?'started':'waiting';
 }
-function setStartTime(){
- const current=state.settings.start_at?new Date(state.settings.start_at):new Date(Date.now()+86400000);
- const value=prompt('Enter tournament start time in local format YYYY-MM-DDTHH:MM',current.toISOString().slice(0,16));
- if(value===null)return;
- if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)){error('Use YYYY-MM-DDTHH:MM.');return;}
- state.settings.start_at=new Date(value).toISOString();changed();updateCountdown();
+async function setStartTime(){
+ await openScreen('settings');
+ const field=$('#starts-at');field?.focus({preventScroll:true});field?.scrollIntoView({block:'center',behavior:reducedMotion()?'instant':'smooth'});
 }
 function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});updateCountdown();}clock();setInterval(clock,1000);
 // FEAT-002: ambient background nukes/explosions on a 1-5s random cadence with a
@@ -542,6 +588,7 @@ function blastTick(){
  blastTimer=setTimeout(blastTick,delay);
 }
 function startWorldBlasts(){
+ if(window.CityWorld)return; // The 3D renderer owns effects, gated by countdown progress.
  if(blastGated())return;        // no-op under reduced motion or when world is paused
  if(blastTimer!==null)return;   // already running
  const delay=1000+Math.floor(Math.random()*4000);
@@ -551,7 +598,7 @@ function stopWorldBlasts(){
  if(blastTimer!==null){clearTimeout(blastTimer);blastTimer=null;}
  if(blastShake&&blastShake.cancel){try{blastShake.cancel();}catch{}blastShake=null;}
 }
-const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';if(paused)stopWorldBlasts();else if(!reducedMotion())startWorldBlasts();}if(b.dataset.action==='edit-start')setStartTime();};
+const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);if(paused)stopWorldBlasts();else if(!reducedMotion())startWorldBlasts();}if(b.dataset.action==='edit-start')setStartTime();};
 
 // FEAT-003: cartoon furnace elimination cutscene. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
@@ -660,6 +707,7 @@ function endCutscene(){
  const overlay=$('#cutscene');
  if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open');}
  cutsceneActive=false;
+ window.CityWorld?.setSuspended(false);
  startWorldBlasts();
  const r=cutsceneResolve;cutsceneResolve=null;if(r)r();
 }
@@ -669,7 +717,7 @@ function playCutscene(names,roundLabel=''){
  return new Promise(resolve=>{
   if(cutsceneActive||!names||!names.length){resolve();return;}
   const overlay=$('#cutscene');if(!overlay){resolve();return;}
-  cutsceneResolve=resolve;cutsceneActive=true;
+  cutsceneResolve=resolve;cutsceneActive=true;window.CityWorld?.setSuspended(true);
   // Suppress the ambient world shake/blasts while the cutscene runs (FEAT-002 guard
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
