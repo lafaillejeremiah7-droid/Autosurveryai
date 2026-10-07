@@ -191,7 +191,11 @@ async function spinWheel(){
  if(state.wheel.remove_winner){names.splice(index,1);state.wheel.text=names.join('\n');wheelLast.removed=true;changed();}
  // Auto-assign a team when the landed entry matches an unassigned tournament player (see NAME->PLAYER MAPPING RULE).
  const landedName=wheelLast.name;
- if(view.names_ok){
+ if(!view.names_ok){
+  // Teams aren't meaningful until the roster is complete; tell the operator so a matching landing isn't a silent no-op.
+  const nameMatch=ids.some(p=>state.names[p].trim().toLowerCase()===String(landedName).trim().toLowerCase());
+  if(nameMatch)wheelLast.note='Finish entering 10 unique player names first to auto-assign To Live teams.';
+ }else{
   const player=round1MatchForName(landedName);
   if(player){
    try{

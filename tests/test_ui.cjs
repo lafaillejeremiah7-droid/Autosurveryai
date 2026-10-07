@@ -78,6 +78,14 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  await vm.runInContext('spinWheel()',context);
  assert.equal(assignCalls,0);
  assert.equal(vm.runInContext("state.round1.assigned.length",context),3);  // Unchanged wheel-drawn teams.
- console.log('Round 1 UI: single Name wheel auto-assigns the landed player, no separate wheel/tab, reset reachable, non-roster names skip assignment.');
+ // (e) When names aren't complete/unique (view.names_ok false), landing on a matching player skips assignment
+ //     but leaves a visible note instead of a silent no-op.
+ vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};view.names_ok=false;revision=5;wheelMode='free';`,context);
+ assignCalls=0;
+ vm.runInContext("crypto={getRandomValues(a){a[0]=6;return a;}};",context);  // Lands on 'Player 7' (an unassigned roster player).
+ await vm.runInContext('spinWheel()',context);
+ assert.equal(assignCalls,0);  // No server assignment while names are incomplete.
+ assert(/unique player names/.test(vm.runInContext("wheelLast.note",context)));  // Operator gets feedback.
+ console.log('Round 1 UI: single Name wheel auto-assigns the landed player, no separate wheel/tab, reset reachable, non-roster names skip assignment, incomplete-names landing shows a note.');
  console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
