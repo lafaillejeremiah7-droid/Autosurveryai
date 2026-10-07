@@ -21,6 +21,11 @@ const notice=issues=>issues.length?`<div class="notice warning">${issues.map(x=>
 function title(eye,name,desc,pill=''){return `<div class="eyebrow">${eye}</div><div class="topline"><h1 id="screen-title">${name}</h1>${pill?`<span class="pill">${pill}</span>`:''}</div><p>${desc}</p>`;}
 function panel(name,body,right=''){return `<section class="panel"><div class="panel-head"><h2>${name}</h2>${right}</div>${body}</section>`;}
 const wheelNames=()=>state.wheel.text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+// A visible, always-available 'Clear this round' .danger panel. The copy states the
+// exact downstream cascade (round1 clears all three, round2 clears round2+final,
+// final clears only final). Clearing routes through doDestructive so it is undoable.
+const clearRoundBlurb={round1:'Clears To Live and every later round (To Die and Rebirth). Earlier rounds do not exist for To Live, so nothing before it is touched.',round2:'Clears To Die and Rebirth. To Live and its results are kept.',final:'Clears Rebirth only. To Live and To Die are kept.'};
+function clearRoundPanel(key){return panel('Clear this round','<p class="hint">'+clearRoundBlurb[key]+' You can Undo this straight afterwards.</p><button class="danger" data-action="clear-round" data-stage="'+key+'">'+clearRoundCopy[key]+'</button>');}
 function renderRoom(){
  const registered=Object.values(state.names).filter(x=>x.trim()).length;
  $('#room-stats').innerHTML=`<div><b>${registered}<small> / 10</small></b><small>REGISTERED</small></div><div><b>${money(view.pool)}</b><small>PRIZE POOL</small></div>`;
@@ -33,10 +38,24 @@ function renderRoom(){
  ['overview','06 / LIVE STANDINGS','THE<br>AFTERMATH.',`${money(view.awarded)} / PRIZES ASSIGNED`,'<div class="mini-podium"><span>2</span><span>1</span><span>3</span></div>']];
  $('#monitors').innerHTML=config.map(([k,no,name,sub,art])=>`<button class="monitor monitor-${k}" data-open="${k}" aria-label="Open ${tabs.find(t=>t[0]===k)[1]} monitor"><div class="monitor-face"><div class="screen-ticker"><span>BH / ${no}</span><span>● LIVE</span></div><div class="preview">${art}<h2>${name}</h2><p>${sub}</p></div><div class="screen-bottom"><span>${view[k]?.complete?'TRANSMISSION COMPLETE':'CLICK TO ENTER'}</span><span>↗</span></div></div><span class="bezel-label">BRAWL SYSTEMS / ${no.slice(0,2)}</span></button>`).join('');
 }
+// (a) A prominent, friendly 'what to do next' callout driven by the existing `next`
+// computation and the current stage's first unmet issue, with a button that opens the
+// relevant screen (reusing data-tab so the normal dispatcher handles it).
+function nextStepBanner(next,finished){
+ if(finished)return `<div class="notice next-step done"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>Tournament complete. Review the podium below.</strong></div></div>`;
+ const tieIn=key=>view[key].rows.some(r=>r.status&&r.status.startsWith('TIE'));
+ let msg,label,target=next;
+ if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
+ else if(next==='round1'){msg=tieIn('round1')?'Resolve the To Live tie (add extra games) before To Die.':(view.round1.issues[0]||'Score the five To Live games, then submit.');label='Open To Live';}
+ else if(next==='round2'){msg=view.round2.issues[0]||'Draw sit-outs and play the eight To Die matches.';label='Open To Die';}
+ else{msg=view.final.issues[0]||'Play the ten Rebirth games to decide the podium.';label='Open Rebirth';}
+ return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
+}
 function overview(){
  const final=view.final, finished=final.complete; const next=!view.names_ok?'settings':!view.round1.complete?'round1':!view.round2.complete?'round2':'final';
  const done=[view.round1,view.round2,final].filter(r=>r.complete).length;
  let html=title('MONITOR 06 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
+ html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
  html+=`<div class="round-path">${[['round1','01 · To Live','10 players → 8 survivors'],['round2','02 · To Die','8 players → 6 survivors'],['final','03 · Rebirth','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  const podium=[1,2,3].map(rank=>{const row=final.rows.find(r=>r.rank===rank&&r.status==='FINAL');return `<div class="card"><label>${['1ST PLACE','2ND PLACE','3RD PLACE'][rank-1]}</label><strong>${row?esc(row.name):'Awaiting result'}</strong><div class="money">${money(state.settings.prizes[rank-1])}</div><small>${row?fmt(row.total)+' points':'Final standings decide this prize'}</small></div>`;}).join('');
@@ -92,7 +111,11 @@ function matchSubmit(key,match){
  const v=view[key],meta=stageMeta[key],last=match===meta.count-1;
  const ready=v.games[match]&&v.games[match].ready,allReady=v.games.every(g=>g.ready);
  const sub=last?(allReady?'Submit the final match to see the full round ranking and resolve any ties.':'Finish every match, then submit to see the round ranking.'):'Submit to see the cumulative round standings so far.';
- return `<div class="panel match-completion"><div><h2>Match ${match+1} of ${meta.count}</h2><p>${sub}</p></div><button class="accent" data-action="submit-match" data-stage="${key}" data-match="${match}" ${v.stale||!ready||(last&&!allReady)?'disabled':''}>${last?`Submit Match ${match+1} of ${meta.count} — show round ranking`:`Submit Match ${match+1} of ${meta.count}`}</button></div>`;
+ const disabled=v.stale||!ready||(last&&!allReady);
+ // Explain WHY the submit is disabled, adjacent to the control (no silent no-op).
+ const reason=v.stale?(v.issues[0]||'This round is out of sync with the roster. Clear it first.'):!ready?`Enter a score for every player in Game ${match+1} first.`:(last&&!allReady)?'Finish every match before submitting the final round ranking.':'';
+ const btn=`<button class="accent" data-action="submit-match" data-stage="${key}" data-match="${match}" ${disabled?`disabled title="${esc(reason)}" aria-disabled="true"`:''}>${last?`Submit Match ${match+1} of ${meta.count} — show round ranking`:`Submit Match ${match+1} of ${meta.count}`}</button>`;
+ return `<div class="panel match-completion"><div><h2>Match ${match+1} of ${meta.count}</h2><p>${sub}</p>${disabled&&reason?`<p class="hint reason">${esc(reason)}</p>`:''}</div>${btn}</div>`;
 }
 function resultPopup(key,match){
  const meta=stageMeta[key],rows=cumulativeStandings(key,match);
@@ -149,63 +172,72 @@ function round(key){
  const g=round1Game,match=v.games[g].teams,rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=`<div class="match-tabs" aria-label="To Live match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p></div><button class="danger" data-action="r1-reroll" data-match="${g}" ${sitoutBusy||spinning||scored?'disabled':''}>Reshuffle teams</button></div><div class="teams-grid">`;
+ const rerollOff=sitoutBusy||spinning||scored;
+ const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':spinning?'Wait for the wheel to finish.':sitoutBusy?'Wait for the current draw to finish.':'';
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button></div><div class="teams-grid">`;
  for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${rowmap[p].played}/5 PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">Teams are reshuffled per game and do not affect scoring. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
  html+=panel('Player scores',table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>Top 8 of 10 advance</small>`);
- return html+extras('round1');
+ return html+extras('round1')+clearRoundPanel('round1');
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
  let html=title('ROUND 02','To Die','Eight rotating 3v3 games. Everyone plays six and sits out two. The top six overall advance.','8 → 6 PLAYERS')+notice(v.issues);
- if(v.stale)html+='<button class="danger" data-action="reset-stage" data-stage="round2">Reset To Die and Rebirth for this roster</button>';
- if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish To Live and resolve cut ties. The eight survivors will appear automatically.</div>');
- if(!v.draw.order.length)return html+panel('Draw the first sit-outs','<p>The dashboard randomly assigns the eight survivors to a balanced rotation. Everyone sits twice and plays six times.</p><button class="accent" data-action="r2-start" '+(v.stale||sitoutBusy?'disabled':'')+'>Draw Match 1 sit-outs ↗</button>');
+ if(v.stale)html+=notice(['This roster changed since To Die was scored. Clearing To Die and Rebirth re-syncs them to the current survivors.']);
+ if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish To Live and resolve cut ties. The eight survivors will appear automatically.</div>')+clearRoundPanel('round2');
+ if(!v.draw.order.length)return html+panel('Draw the first sit-outs',`<p>The dashboard randomly assigns the eight survivors to a balanced rotation. Everyone sits twice and plays six times.</p><button class="accent" data-action="r2-start" ${v.stale||sitoutBusy?'disabled':''}>Draw Match 1 sit-outs ↗</button>${v.stale||sitoutBusy?'<p class="hint">'+(v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.')+'</p>':''}`)+clearRoundPanel('round2');
  html+=`<div class="score-help">AVERAGE = THIS ROUND’S GOALS / MATCHES PLAYED · Six matches each · Wins give no points</div>`;
- html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>`<button data-r2-game="${i}" ${i>=v.draw.revealed||sitoutBusy?'disabled':''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
+ html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||sitoutBusy;const why=i>=v.draw.revealed?`Finish Match ${v.draw.completed+1} before opening Match ${i+1}.`:'Wait for the current draw to finish.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
  const match=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Use the scheduled teams. Enter six goal scores, including zeros.</p></div><button class="danger clear-score" data-action="clear-r2-game" ${v.stale||sitoutBusy?'disabled':''}>Clear this game</button></div>`;
+ const r2ClearOff=v.stale||sitoutBusy,r2ClearWhy=v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.';
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Use the scheduled teams. Enter six goal scores, including zeros.</p>${r2ClearOff?`<p class="hint reason">${esc(r2ClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-r2-game" ${r2ClearOff?`disabled title="${esc(r2ClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div>`;
  html+=`<div class="notice"><b>SITTING OUT:</b> ${match.sit.map(p=>esc(state.names[p])).join(' · ')}. Their goal cells stay blank. <button data-action="r2-wheel" ${sitoutBusy?'disabled':''}>View sit-out wheel ↗</button></div><div class="teams-grid">`;
  for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / ROTATING LINEUP</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${rowmap[p].played}/6 PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">A blank active-player score is still missing. A zero counts as played. Scheduled sit-outs never count as zero-goal matches. Round 1 scores do not carry over.</p>';
- html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===8?'All 8 matches marked done':g<v.draw.completed?'This match is already marked done':`Match ${g+1} of 8`}</h2><p>${v.draw.completed===8?'Resolve any cut ties to open Rebirth.':'Enter the six scores, then draw the next pair of sit-outs.'}</p></div><button class="accent" data-action="r2-done" data-match="${g+1}" ${sitoutBusy||v.stale||g!==v.draw.completed||!v.games[g].ready?'disabled':''}>${g===7?'Match 8 of 8 done — finish round':`Match ${g+1} of 8 done — draw next sit-outs`}</button></div>`;
+ const doneOff=sitoutBusy||v.stale||g!==v.draw.completed||!v.games[g].ready;
+ const doneWhy=v.stale?'Clear To Die first — the roster changed since this draw.':sitoutBusy?'Wait for the current draw to finish.':g<v.draw.completed?`Match ${g+1} is already marked done. Open the latest match to continue.`:g>v.draw.completed?`Finish Match ${v.draw.completed+1} before opening this one.`:!v.games[g].ready?`Enter the six scheduled scores for Game ${g+1} first.`:'';
+ html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===8?'All 8 matches marked done':g<v.draw.completed?'This match is already marked done':`Match ${g+1} of 8`}</h2><p>${v.draw.completed===8?'Resolve any cut ties to open Rebirth.':'Enter the six scores, then draw the next pair of sit-outs.'}</p>${doneOff&&doneWhy?`<p class="hint reason">${esc(doneWhy)}</p>`:''}</div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(doneWhy)}" aria-disabled="true"`:''}>${g===7?'Match 8 of 8 done — finish round':`Match ${g+1} of 8 done — draw next sit-outs`}</button></div>`;
  html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','SIT-OUTS DRAWN','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.played}/6</td><td class="calc">${r.sit_outs}/2</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
  html+=`<details><summary>View revealed rotations and sit-outs</summary><p class="hint">The saved draw guarantees six games and two sit-outs per person, with no consecutive sit-outs. Each player teams up with everyone once or twice and faces everyone two or three times. Refreshing keeps the same draw. ${v.draw.mode==='preserved'?'This round retains its existing schedule because scores were already entered.':''}</p>${table(['GAME','TEAM A','TEAM B','SIT OUT'],v.schedule.slice(0,v.draw.revealed).map(m=>`<tr><td>${m.game}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.sit.map(p=>esc(state.names[p])).join(' · ')}</td></tr>`))}</details>`;
- return html+extras('round2');
+ return html+extras('round2')+clearRoundPanel('round2');
 }
 function counter(path,label,disabled=false){return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
  let html=title('ROUND 03 / THE FINAL','Rebirth','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
- if(v.stale)html+='<button class="danger" data-action="reset-stage" data-stage="final">Reset Rebirth for this roster</button>';
- if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish To Die and resolve cut ties. Your six finalists will appear automatically.</div>');
+ if(v.stale)html+=notice(['This roster changed since Rebirth was scored. Clearing Rebirth re-syncs it to the current finalists.']);
+ if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish To Die and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
  html+=`<div class="score-help">GOAL = ${fmt(state.settings.goal_points)} PTS / WIN = ${fmt(state.settings.win_points)} PTS · Games 1–2 ×${fmt(state.settings.multiplier)} · Games 3–10 ×1</div>`;
  html+=`<div class="match-tabs" aria-label="Final match selector">${v.games.map((m,i)=>`<button data-game="${i}" aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}${i<2?' ×'+fmt(state.settings.multiplier):''}</button>`).join('')}</div>`;
  const schedule=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 10</span></h2><p>Enter each player’s goals, then mark the winning team.</p></div><button class="danger clear-score" data-action="clear-game" ${v.stale||sitoutBusy?'disabled':''}>Clear this game</button></div><div class="teams-grid">`;
+ const fClearOff=v.stale||sitoutBusy,fClearWhy=v.stale?'Clear Rebirth first — the roster changed since these scores.':'Wait for the current draw to finish.';
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 10</span></h2><p>Enter each player’s goals, then mark the winning team.</p>${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
  for(const team of ['A','B']){
   const won=schedule[team].every(p=>state.final.players[p].results[g]==='W'),lost=schedule[team].every(p=>state.final.players[p].results[g]==='L');
-  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?'disabled':''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
+  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear Rebirth first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
  }
  html+='</div><p class="hint">Marking the winner adds one win to each teammate and records a loss for each opponent. Enter 0 for a played game with no goals. Win and goal points calculate as you enter either value. Played counts complete goal/result pairs; prizes wait for all ten games.</p>';
  html+=panel('Live standings',table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],v.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td><td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  html+=matchSubmit('final',g);
  html+=`<details><summary>View all ten team rotations</summary><p class="hint">Every pair are teammates four times and opponents six times. Slots and match order stay fixed. Double games still carry extra weight.</p>${table(['GAME','TEAM A','TEAM B','STATUS'],v.schedule.map(m=>`<tr><td>${m.game}${m.game<=2?' ×'+fmt(state.settings.multiplier):''}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${v.games[m.game-1].ready?'✓ COMPLETE':'PENDING'}</td></tr>`))}</details>`;
  html+=`<details><summary>View points per game</summary>${table(['PLAYER',...Array.from({length:10},(_,i)=>`G${i+1}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
- return html+extras('final');
+ return html+extras('final')+clearRoundPanel('final');
 }
 function wheelPage(){if(wheelMode==='round2')return sitoutWheelPage();const names=wheelNames();
- return title('MONITOR 01 / RANDOM SELECT','Name your fate.','Add, change, or delete names below. Every line is one entry. This wheel has no fixed player limit.',`${names.length} ENTRIES`)+wheelModeTabs()+`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Name selection wheel"></canvas><button class="wheel-hub" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'…':'SPIN'}</button></div><div class="wheel-actions"><button class="accent" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'DRAWING…':'SPIN THE WHEEL ↗'}</button></div><div id="wheel-result" class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>${spinning?'THE WHEEL IS TURNING':wheelLast?'SELECTED ENTRY':'AWAITING YOUR DRAW'}</small><strong>${spinning?'WHO WILL IT BE?':wheelLast?esc(wheelLast.name):names.length?'Your next name awaits.':'Add names to begin.'}</strong>${wheelLast&&!spinning&&wheelLast.note?'<p class="hint">'+esc(wheelLast.note)+'</p>':''}${wheelLast&&!spinning?'<div class="toolbar"><button data-action="remove-winner" '+(wheelLast.removed?'disabled':'')+'>'+(wheelLast.removed?'Removed from wheel':'Remove this entry')+'</button><button data-action="roster-winner">Add to tournament roster</button></div>':''}</div><p class="draw-help">Spin to draw a random entry from the list. Remove the entry or add it to an empty tournament roster slot. To Live teams are split randomly per game on the To Live screen, so this wheel is a plain name draw.</p></section><section class="entry-editor"><div class="panel-head"><h2>The entry list</h2><span id="entry-count" class="count">${names.length} NAMES</span></div><label for="wheel-entries" class="hint">One name per line. Type or paste a list. Delete a line to remove an entry. Repeated names receive extra entries.</label><textarea id="wheel-entries" data-path="wheel.text" spellcheck="false" placeholder="Type a name, then press Enter…" ${spinning?'disabled':''}>${esc(state.wheel.text)}</textarea><div class="toolbar"><button data-action="wheel-roster" ${spinning?'disabled':''}>Use tournament names</button><button data-action="wheel-shuffle" ${spinning||names.length<2?'disabled':''}>Shuffle</button><button class="danger" data-action="wheel-clear" ${spinning||!names.length?'disabled':''}>Clear list</button></div><label class="field hint"><span>Remove each winner automatically</span><input type="checkbox" data-check="wheel.remove_winner" ${state.wheel.remove_winner?'checked':''} ${spinning?'disabled':''}></label><p class="hint">Names save automatically and are included in your tournament backup. Large lists remain selectable even when labels are too small to display.</p></section></div>`;
+ return title('MONITOR 01 / RANDOM SELECT','Name your fate.','Add, change, or delete names below. Every line is one entry. This wheel has no fixed player limit.',`${names.length} ENTRIES`)+wheelModeTabs()+`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Name selection wheel"></canvas><button class="wheel-hub" data-action="spin" ${spinning||!names.length?`disabled${!names.length&&!spinning?' title="Add at least one name to spin." aria-disabled="true"':''}`:''}>${spinning?'…':'SPIN'}</button></div><div class="wheel-actions"><button class="accent" data-action="spin" ${spinning||!names.length?`disabled${!names.length&&!spinning?' title="Add at least one name to spin." aria-disabled="true"':''}`:''}>${spinning?'DRAWING…':'SPIN THE WHEEL ↗'}</button>${!names.length&&!spinning?'<p class="hint reason">Add at least one name to spin.</p>':''}</div><div id="wheel-result" class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>${spinning?'THE WHEEL IS TURNING':wheelLast?'SELECTED ENTRY':'AWAITING YOUR DRAW'}</small><strong>${spinning?'WHO WILL IT BE?':wheelLast?esc(wheelLast.name):names.length?'Your next name awaits.':'Add names to begin.'}</strong>${wheelLast&&!spinning&&wheelLast.note?'<p class="hint">'+esc(wheelLast.note)+'</p>':''}${wheelLast&&!spinning?'<div class="toolbar"><button data-action="remove-winner" '+(wheelLast.removed?'disabled':'')+'>'+(wheelLast.removed?'Removed from wheel':'Remove this entry')+'</button><button data-action="roster-winner">Add to tournament roster</button></div>':''}</div><p class="draw-help">Spin to draw a random entry from the list. Remove the entry or add it to an empty tournament roster slot. To Live teams are split randomly per game on the To Live screen, so this wheel is a plain name draw.</p></section><section class="entry-editor"><div class="panel-head"><h2>The entry list</h2><span id="entry-count" class="count">${names.length} NAMES</span></div><label for="wheel-entries" class="hint">One name per line. Type or paste a list. Delete a line to remove an entry. Repeated names receive extra entries.</label><textarea id="wheel-entries" data-path="wheel.text" spellcheck="false" placeholder="Type a name, then press Enter…" ${spinning?'disabled':''}>${esc(state.wheel.text)}</textarea><div class="toolbar"><button data-action="wheel-roster" ${spinning?'disabled':''}>Use tournament names</button><button data-action="wheel-shuffle" ${spinning||names.length<2?'disabled':''}>Shuffle</button><button class="danger" data-action="wheel-clear" ${spinning||!names.length?'disabled':''}>Clear list</button></div><label class="field hint"><span>Remove each winner automatically</span><input type="checkbox" data-check="wheel.remove_winner" ${state.wheel.remove_winner?'checked':''} ${spinning?'disabled':''}></label><p class="hint">Names save automatically and are included in your tournament backup. Large lists remain selectable even when labels are too small to display.</p></section></div>`;
 }
 function wheelModeTabs(){return `<div class="toolbar wheel-modes"><button data-wheel-mode="free" class="${wheelMode==='free'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>Open name draw</button><button data-wheel-mode="round2" class="${wheelMode==='round2'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>To Die · sit-out draw</button></div>`;}
 async function rerollRound1Game(game){
  if(sitoutBusy||spinning)return;
  sitoutBusy=true;
+ // Snapshot the pre-reroll state so Undo can restore the prior split. The server
+ // echo overwrites state below, so capture before the PUT and keep the snapshot.
+ const snap={state:clone(state),label:'Undo: Reshuffle To Live Game '+(game+1)};
  try{
   await flush();
   const res=await fetch('/api/round1-lineup',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'reroll',game:game+1,revision})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
-  ({state,view,revision}=data);$('#save-status').textContent='Teams reshuffled';error('');
+  ({state,view,revision}=data);undoSnapshot=snap;$('#save-status').textContent='Teams reshuffled';error('');
  }catch(err){error(err.message);}finally{sitoutBusy=false;render();}
 }
 function sitoutCandidates(){
@@ -278,7 +310,7 @@ async function spinWheel(){
  render();
 }
 function render(){
- if(!state)return;renderRoom();
+ if(!state)return;renderRoom();renderUndo();
  if(!$('#screen-dialog').open)return;
  const active=document.activeElement,path=active?.dataset.path,start=active?.selectionStart,end=active?.selectionEnd;
  const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('.scroll')].map(e=>e.scrollLeft),textScroll=active?.scrollTop;
@@ -327,7 +359,32 @@ async function save(){
  })();await saveTask;if(dirty&&!saveFailed)return save();
 }
 async function flush(){clearTimeout(timer);if(saving)await saveTask;await save();if(dirty||saveFailed)throw new Error('Save your changes successfully before continuing.');}
-function resetStage(key){for(const k of key==='round2'?['round2','final']:[key]){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');}}}
+const clone=o=>{try{return structuredClone(o);}catch{return JSON.parse(JSON.stringify(o));}};
+// One-level undo: a single snapshot of state taken BEFORE a destructive action.
+// Taking any new destructive action replaces it; Undo restores it and persists.
+let undoSnapshot=null;
+function doDestructive(label,fn){undoSnapshot={state:clone(state),label};fn();changed();}
+function renderUndo(){
+ const btn=$('#undo-action'),labelEl=$('#undo-label');if(!btn)return;
+ if(undoSnapshot){btn.hidden=false;if(labelEl)labelEl.textContent=undoSnapshot.label;}
+ else btn.hidden=true;
+}
+async function performUndo(){
+ if(!undoSnapshot)return;
+ const prior=undoSnapshot.state;undoSnapshot=null;renderUndo();
+ // Undo may restore a saved sit-out draw that differs from the server's current draw
+ // (e.g. undoing a Clear that blanked the draw). The normal save path rejects an edited
+ // draw, so persist through the restore flag like a backup restore does.
+ await flush();
+ const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
+ const data=await res.json();if(!res.ok)throw new Error(data.error);
+ state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Undo applied';
+}
+const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
+// Human-readable labels for the per-round clear-round controls and their cascade.
+const clearRoundLabel={round1:'Clear To Live',round2:'Clear To Die',final:'Clear Rebirth'};
+const clearRoundCopy={round1:'Clear To Live (also clears To Die &amp; Rebirth)',round2:'Clear To Die (also clears Rebirth)',final:'Clear Rebirth'};
+function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelLast=null;wheelAngle=0;}
 document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,el.type==='number'?(el.value===''?null:Number(el.value)):el.value);if(el.dataset.path==='wheel.text')resetWheelResult();changed();});
@@ -351,10 +408,11 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='r2-scores'){await openScreen('round2');return;}
  if(action==='csv'){await flush();window.location='/api/standings.csv';}
  if(action==='extra'){state[key].extras.push(Object.fromEntries(ids.map(p=>[p,key==='final'?{goals:null,result:''}:null])));changed();await save();}
- if(action==='clear-r2-game'&&confirm('Clear all goal scores for this Round 2 game?')){await flush();for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[round2Game]=null;changed();await save();}
- if(action==='clear-game'&&confirm('Clear goals and results for this game only?')){await flush();for(const p of view.final.schedule[finalGame].A.concat(view.final.schedule[finalGame].B)){state.final.players[p].goals[finalGame]=null;state.final.players[p].results[finalGame]='';}changed();await save();}
- if(action==='reset-stage'&&confirm('Clear this round’s scores and all later scores? Earlier rounds are kept.')){await flush();resetStage(key);changed();await save();}
- if(action==='reset-all'&&confirm('Clear the tournament and wheel? Download a backup first to keep them.')){await flush();state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4]}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();changed();await save();}
+ if(action==='undo'){await performUndo();return;}
+ if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear To Die Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
+ if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear Rebirth Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
+ if(action==='clear-round'||action==='reset-stage'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament and wheel? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4]}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
  if(action==='spin')await spinWheel();
  if(action==='wheel-clear'&&!spinning&&confirm('Remove every name from the wheel? Tournament players stay unchanged.')){state.wheel.text='';resetWheelResult();changed();await save();}
  if(action==='wheel-roster'&&!spinning){if(state.wheel.text.trim()&&!confirm('Replace the wheel list with the current tournament names?'))return;state.wheel.text=Object.values(state.names).filter(n=>n.trim()).join('\n');resetWheelResult();changed();await save();}
@@ -367,6 +425,7 @@ $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen
 $('#result-dialog').addEventListener('cancel',e=>{e.preventDefault();closeResult();});
 $('#home-link').onclick=e=>{e.preventDefault();if($('#screen-dialog').open)closeScreen().catch(err=>error(err.message));};
 $('#retry-save').onclick=()=>save();
+$('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
 $('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament and wheel with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});

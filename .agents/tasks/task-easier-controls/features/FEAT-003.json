@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-003",
+  "type": "test",
+  "description": "Extend tests/test_ui.cjs to cover the FEAT-002 behavior following the harness's existing vm-sandbox + fetch-stub + click-dispatch patterns, and add a single-invocation live-server probe script under /projects/sandbox that exercises a clear-round cascade and an undo-restore through the real save path. Keep all Python unit tests and the Node harness green.",
+  "status": "pending",
+  "steps": [
+    "In tests/test_ui.cjs, add assertions (reusing the existing vm.runInContext / click() helper / fetch-stub patterns; the existing context already stubs confirm:()=>true, so act-then-undo flows run without prompts):",
+    "CLEAR-ROUND CONTROL PER STAGE: render each stage and assert the clear-round control exists with the correct cascade copy and data-stage. For To Live assert the rendered round('round1') HTML contains the clear-round control for data-stage='round1' and copy naming To Die & Rebirth; for To Die assert round2Page() contains data-stage='round2' naming Rebirth; for Rebirth assert finalPage() contains data-stage='final'.",
+    "EXTENDED ROUND1 CASCADE: call resetStage('round1') in the vm context against the fixture state and assert state.round1 / state.round2 / state.final player goals are all cleared (e.g. all null) while array lengths stay 5/8/10, round1 lineups cleared, and round2 draw reset. Mirror the style of the existing `resetStage('round2')` assertions already in the file.",
+    "DISABLED BUTTON SHOWS A REASON (at least one): construct or reuse a view where a primary control is disabled (e.g. a not-ready To Live Submit via view.round1.games[0].ready=false, as the file already does, or a scored game disabling r1-reroll) and assert the rendered HTML contains BOTH the disabled attribute on that control AND an adjacent human-readable reason string.",
+    "NEXT-STEP GUIDE REFLECTS `next`: render overview() under at least two different states so `next` differs (e.g. names not ok -> next='settings'; and a complete-To-Live-but-incomplete-To-Die state -> next='round2') and assert the banner text and the data-tab button target match the expected next stage in each case. Reuse the Python fixture helpers already imported in the harness (e.g. fixture(), new_state, round1_lineups) to build the states, following the existing execFileSync-to-python pattern.",
+    "UNDO FLOW: simulate a destructive action then undo. With render/flush/save stubbed as the file already does for click dispatch, capture a deep copy of state, dispatch a destructive click (e.g. click({action:'clear-round',stage:'round1'}) or click({action:'clear-r2-game'})), assert the state changed AND the undo snapshot is set (assert the module `undoSnapshot` is truthy via vm.runInContext), then dispatch the undo (click({action:'undo'}) or invoke the undo handler) and assert state deep-equals the captured prior copy and undoSnapshot is cleared. If undo persists via fetch, stub fetch to echo back {state,view,revision} like the existing r2-done test does.",
+    "Run `node tests/test_ui.cjs` and ensure it exits 0 with the new assertions; add a console.log summary line for the new coverage mirroring the existing summary lines.",
+    "LIVE PROBE SCRIPT: create a shell script FILE at /projects/sandbox/probe_easier.sh that in a SINGLE invocation: starts `python3 app.py --no-browser --port 8771 --data /tmp/t_easier.json` (flags inside the file, backgrounded), waits for it to come up, GETs /api/state to capture token+revision, PUTs a state that has round1/round2/final scores, then PUTs a cleared state (simulating the clear-round cascade) and confirms via a follow-up GET that downstream is cleared, then PUTs the prior (pre-clear) state back (simulating undo-restore) with the current revision and confirms via GET that the restored scores are present, then kills the server. The whole thing must run as one `bash /projects/sandbox/probe_easier.sh` call because backgrounded servers die across separate bash invocations and a guard trips on literal port/host flags in the command string. Keep the python server launch and all curl/kill logic inside the script file. Make it exit non-zero on any failed assertion.",
+    "Run `bash /projects/sandbox/probe_easier.sh` and confirm it reports success and exits 0.",
+    "Commit the test additions and the probe script on feat/per-match-ranking (note: /projects/sandbox/probe_easier.sh is OUTSIDE the repo working tree, so only tests/test_ui.cjs is committed; leave the probe script in place under /projects/sandbox). Do NOT push."
+  ],
+  "acceptance_criteria": [
+    "tests/test_ui.cjs asserts the clear-round control on each of the three stages with correct cascade copy and data-stage.",
+    "tests/test_ui.cjs asserts resetStage('round1') clears round1+round2+final while preserving array lengths.",
+    "tests/test_ui.cjs has at least one assertion that a disabled control renders with an adjacent reason string.",
+    "tests/test_ui.cjs asserts the next-step guide text and its data-tab target match the expected `next` for at least two different states.",
+    "tests/test_ui.cjs asserts the undo flow: destructive action sets a snapshot and changes state; undo restores the exact prior state and clears the snapshot.",
+    "`node tests/test_ui.cjs` exits 0 and `python3 -m unittest discover -s tests -v` stays green (33 tests).",
+    "/projects/sandbox/probe_easier.sh runs in a single `bash` invocation, exercises a clear-round cascade and an undo-restore through PUT /api/state, and exits 0."
+  ],
+  "verification": [
+    "python3 -m unittest discover -s tests -v",
+    "node tests/test_ui.cjs",
+    "bash /projects/sandbox/probe_easier.sh"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

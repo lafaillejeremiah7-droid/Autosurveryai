@@ -74,6 +74,19 @@ To Die keeps its existing **Match N of 8 done** server flow, which also advances
 
 Normal final points = **1.5 × goals + 1 for a win**. Games 1–2 double the entire score. Rotation balances match counts, but double games mean weighted exposure is not identical. Set the multiplier to 1 before play if all matches should have equal weight.
 
+### Easier controls: clear a round, next-step guide, self-explaining buttons, and Undo
+
+A few quality-of-life controls make the dashboard easier to operate:
+
+- **Clear this round.** Every round screen has a visible **Clear this round** panel, available at any time (not only when a round is out of sync). It clears that round and every later round, but never an earlier one:
+  - **Clear To Live** clears To Live, To Die, and Rebirth.
+  - **Clear To Die** clears To Die and Rebirth, keeping To Live.
+  - **Clear Rebirth** clears Rebirth only, keeping To Live and To Die.
+  The panel copy states exactly which rounds it clears, and the action can be undone immediately afterwards.
+- **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit To Live, resolve a tie, draw and play To Die, play Rebirth, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
+- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the To Live **Reshuffle teams**, the To Die **Draw sit-outs** / **Match N done** / match tabs, the Rebirth **Mark win**, or the wheel **Spin**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", "Finish Match 2 before opening the next.", or "Add at least one name to spin." No control silently does nothing.
+- **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle To Live teams, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
+
 
 ## To Die rotation schedule
 
