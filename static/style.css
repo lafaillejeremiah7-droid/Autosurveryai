@@ -20,3 +20,17 @@
 button[aria-disabled="true"]{cursor:not-allowed}
 #undo-action{background:#301922;border:1px solid #7a334b;color:#ffafc2;border-radius:3px;padding:6px 12px;text-decoration:none;font:inherit}
 #undo-action:hover{border-color:#d85690}
+
+
+/* Keep save status, retry and Undo inside the active modal's top layer. */
+#save-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;font:10px monospace;letter-spacing:0}
+#save-controls button{padding:8px 10px;border:1px solid #705162;border-radius:3px;color:inherit;background:transparent;font:inherit}
+#save-controls button[hidden]{display:none}
+.screen-footer{flex-wrap:wrap;flex-shrink:0}
+#screen-save-slot{flex:1;min-width:160px;justify-content:flex-end}
+#result-dialog[open]{display:flex;flex-direction:column}
+#result-dialog .result-shell{height:auto;min-height:0;flex:1;max-height:none}
+#result-save-slot{flex-shrink:0;border-top:1px solid var(--line);padding:10px 16px;background:#101012;color:var(--text)}
+#result-save-slot:empty{display:none}
+@media(max-width:800px){#screen-save-slot{flex-basis:100%}.screen-footer .backup-controls{justify-content:flex-end;flex-wrap:wrap}#save-controls{width:100%;justify-content:flex-start}.result-head{gap:8px}.result-close{padding:9px}}
+@media(max-width:800px){input,select,.entry-editor textarea{font-size:16px}}

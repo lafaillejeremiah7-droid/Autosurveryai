@@ -7,6 +7,7 @@ const ids=Array.from({length:10},(_,i)=>`p${i+1}`);
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=v=>v===null||v===undefined?'—':Number(v).toLocaleString(undefined,{maximumFractionDigits:3});
+const playedLabel=(n,regulation)=>n>regulation?`${regulation} + ${n-regulation} EXTRA`:`${n}/${regulation}`;
 const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const tabs=[['wheel','Name wheel'],['settings','Players & rules'],['round1','To Live'],['round2','To Die'],['final','Rebirth'],['overview','Leaderboard']];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -67,7 +68,7 @@ function overview(){
 }
 function settings(){return title('MONITOR 02 / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
- let html='<p class="hint">Enter extra-game scores only for tied players. Complete every player in the tied group. If a tie remains, add another extra game. Earlier results are kept; regulation averages and totals stay unchanged. Remove deletes a single extra game. Clear all extra games removes every one for this round. You can Undo either straight afterwards.</p>';
+ let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Rebirth). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
  stage.extras.forEach((extra,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
  const actions=`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>${stage.extras.length?`<button class="danger" data-action="clear-extras" data-stage="${key}">Clear all extra games</button>`:''}`;
  return panel('Extra games',html,actions);
@@ -76,6 +77,11 @@ function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return
 // round standings THROUGH that match (computed client-side); submitting the last match
 // shows the fullscreen total round ranking with ADVANCE/CUT/TIE and the add-extra flow.
 const stageMeta={round1:{count:5,label:'To Live'},round2:{count:8,label:'To Die'},final:{count:10,label:'Rebirth'}};
+function provisionalRanks(rows,compare){
+ rows.sort((a,b)=>compare(a,b)||a.name.localeCompare(b.name));
+ let rank=1;
+ return rows.map((r,i)=>{if(i&&compare(rows[i-1],r)!==0)rank=i+1;return {rank,name:r.name,total:r.total,average:r.average,status:r.played?'PLAYED':'PENDING'};});
+}
 // Cumulative standings through match index n (0-based) for a stage, computed from the
 // per-game data already in state so no server round-trip is needed. round1/round2 use
 // goals + average over games 0..n; the final sums per-game points via view game_points.
@@ -84,11 +90,10 @@ function cumulativeStandings(key,n){
  if(key==='final'){
   const rows=v.rows.map(r=>{
    let total=0,played=0;
-   for(let g=0;g<=n;g++){const pts=r.game_points[g];if(pts!==null&&pts!==undefined){total+=pts;played++;}}
+   for(let g=0;g<=n;g++){const pts=r.game_points[g],d=state.final.players[r.id];if(pts!==null&&pts!==undefined)total+=pts;if(d.goals[g]!==null&&d.results[g])played++;}
    return {id:r.id,name:r.name,total,average:played?total/played:0,played};
   });
-  rows.sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
-  return rows.map((r,i)=>({rank:i+1,name:r.name,total:r.total,average:r.average,status:r.played?'PLAYED':'PENDING'}));
+  return provisionalRanks(rows,(a,b)=>b.total-a.total);
  }
  // To Live has no sit-out schedule; every player plays every game. Derive an
  // {A,B,sit:[]} shape from the per-game cosmetic lineups so the popup grouping
@@ -102,8 +107,7 @@ function cumulativeStandings(key,n){
   }
   return {id:r.id,name:r.name,total,average:played?total/played:0,played};
  });
- rows.sort((a,b)=>b.average-a.average||b.total-a.total||a.name.localeCompare(b.name));
- return rows.map((r,i)=>({rank:i+1,name:r.name,total:r.total,average:r.average,status:r.played?'PLAYED':'PENDING'}));
+ return provisionalRanks(rows,(a,b)=>b.total*(a.played||1)-a.total*(b.played||1));
 }
 // The accent 'Submit Match N of X' panel for To Live and Rebirth (mirrors To Die's
 // .match-completion look). Disabled until that match's view games[match].ready is true
@@ -134,25 +138,39 @@ function resultFullscreen(key){
  // rather than falling back to the total (which would print the total twice).
  const avgOf=r=>key==='final'?(r.played?r.total/r.played:0):(r.average!==undefined?r.average:0);
  const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead,'STATUS'],rowsSorted.map(r=>`<tr><td class="calc">${fmt(r.rank)}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total??r.goals)}</td><td class="calc">${fmt(avgOf(r))}</td><td>${badge(r.status)}</td></tr>`));
- let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div><h1 id="result-title">${meta.label} — total round ranking</h1><p>${tied?'A tie sits across the cut line. Extra games are needed before this round can close.':'Round complete. No ties remain across the cut line.'}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
- html+=`<div class="result-banner ${tied?'tie':'done'}">${tied?'⚠ EXTRA GAMES NEEDED — resolve the tied players below.':'✓ ROUND SETTLED — no extra games needed.'}</div>`;
+ const boundary=key==='final'?'podium':'cut line';
+ let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div><h1 id="result-title">${meta.label} — total round ranking</h1><p>${!v.ready?'This round is incomplete. Finish the missing scores or resolve the roster change.':tied?`A tie affects the ${boundary}. Complete extra games before this round can close.`:`Round complete. No ties affect the ${boundary}.`}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
+ html+=`<div class="result-banner ${v.complete?'done':'tie'}">${v.complete?'✓ ROUND SETTLED — no extra games needed.':tied?'⚠ EXTRA GAMES NEEDED — resolve the tied players below.':'ROUND INCOMPLETE — '+v.issues.map(esc).join(' ')}</div>`;
  html+=panel('Total round ranking',body);
- if(tied)html+=extras(key);
+ if(tied||state[key].extras.length)html+=extras(key);
  return html;
+}
+function captureInputFocus(root){
+ const active=document.activeElement,path=active?.dataset.path;if(!path)return null;
+ const matches=[...document.querySelectorAll(`${root} [data-path]`)].filter(e=>e.dataset.path===path),index=matches.indexOf(active);
+ return index<0?null:{path,index,start:active.selectionStart,end:active.selectionEnd,scrollTop:active.scrollTop};
+}
+function restoreInputFocus(root,focus){
+ if(!focus)return;
+ const el=[...document.querySelectorAll(`${root} [data-path]`)].filter(e=>e.dataset.path===focus.path)[focus.index];
+ if(!el)return;el.focus({preventScroll:true});
+ if(focus.start!=null)try{el.setSelectionRange(focus.start,focus.end);}catch{}
+ el.scrollTop=focus.scrollTop||0;
 }
 function renderResult(){
  const dialog=$('#result-dialog');if(!dialog.open)return;
+ renderSaveControls();
  const scrollTop=$('#result-content').scrollTop||0;
  const openDetails=[...document.querySelectorAll('#result-content details')].map(d=>d.open);
- const active=document.activeElement,path=active?.dataset.path,start=active?.selectionStart,end=active?.selectionEnd;
+ const focus=captureInputFocus('#result-content');
  $('#result-content').innerHTML=resultFinal?resultFullscreen(resultStage):resultPopup(resultStage,resultMatch);
  [...document.querySelectorAll('#result-content details')].forEach((e,i)=>e.open=openDetails[i]||false);
  $('#result-content').scrollTop=scrollTop;
- if(path){const el=[...document.querySelectorAll('#result-content [data-path]')].find(e=>e.dataset.path===path);if(el){el.focus({preventScroll:true});if(start!=null)try{el.setSelectionRange(start,end);}catch{}}}
+ restoreInputFocus('#result-content',focus);
 }
 async function openMatchResult(key,match){
  const v=view[key],meta=stageMeta[key];
- if(!v.games[match]||!v.games[match].ready){error(`Finish entering match ${match+1} scores first.`);return;}
+ if(v.stale||!v.games[match]||!v.games[match].ready){error(v.stale?'Clear this round first — its player roster changed.':`Finish entering match ${match+1} scores and results first.`);return;}
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
  const dialog=$('#result-dialog');
  dialog.classList.toggle('fullscreen',resultFinal);
@@ -163,6 +181,7 @@ async function openMatchResult(key,match){
 }
 function closeResult(){
  const dialog=$('#result-dialog');resultStage=null;resultFinal=false;dialog.classList.remove('fullscreen');dialog.close();
+ renderSaveControls();
 }
 function round(key){
  if(key==='round2')return round2Page();
@@ -176,7 +195,7 @@ function round(key){
  const rerollOff=sitoutBusy||spinning||scored;
  const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':spinning?'Wait for the wheel to finish.':sitoutBusy?'Wait for the current draw to finish.':'';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r1-game">Clear this game</button></div></div><div class="teams-grid">`;
- for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${rowmap[p].played}/5 PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
+ for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">Teams are reshuffled per game and do not affect scoring. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
  html+=panel('Player scores',table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>Top 8 of 10 advance</small>`);
@@ -185,7 +204,7 @@ function round(key){
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
  let html=title('ROUND 02','To Die','Eight rotating 3v3 games. Everyone plays six and sits out two. The top six overall advance.','8 → 6 PLAYERS')+notice(v.issues);
- if(v.stale)html+=notice(['This roster changed since To Die was scored. Clearing To Die and Rebirth re-syncs them to the current survivors.']);
+ if(v.stale)return html+notice(['This roster changed since To Die was scored. Clearing To Die and Rebirth re-syncs them to the current survivors.'])+clearRoundPanel('round2');
  if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish To Live and resolve cut ties. The eight survivors will appear automatically.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw the first sit-outs',`<p>The dashboard randomly assigns the eight survivors to a balanced rotation. Everyone sits twice and plays six times.</p><button class="accent" data-action="r2-start" ${v.stale||sitoutBusy?'disabled':''}>Draw Match 1 sit-outs ↗</button>${v.stale||sitoutBusy?'<p class="hint">'+(v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.')+'</p>':''}`)+clearRoundPanel('round2');
  html+=`<div class="score-help">AVERAGE = THIS ROUND’S GOALS / MATCHES PLAYED · Six matches each · Wins give no points</div>`;
@@ -194,12 +213,12 @@ function round2Page(){
  const r2ClearOff=v.stale||sitoutBusy,r2ClearWhy=v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Use the scheduled teams. Enter six goal scores, including zeros.</p>${r2ClearOff?`<p class="hint reason">${esc(r2ClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-r2-game" ${r2ClearOff?`disabled title="${esc(r2ClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div>`;
  html+=`<div class="notice"><b>SITTING OUT:</b> ${match.sit.map(p=>esc(state.names[p])).join(' · ')}. Their goal cells stay blank. <button data-action="r2-wheel" ${sitoutBusy?'disabled':''}>View sit-out wheel ↗</button></div><div class="teams-grid">`;
- for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / ROTATING LINEUP</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${rowmap[p].played}/6 PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
+ for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / ROTATING LINEUP</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,6)} PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">A blank active-player score is still missing. A zero counts as played. Scheduled sit-outs never count as zero-goal matches. Round 1 scores do not carry over.</p>';
  const doneOff=sitoutBusy||v.stale||g!==v.draw.completed||!v.games[g].ready;
  const doneWhy=v.stale?'Clear To Die first — the roster changed since this draw.':sitoutBusy?'Wait for the current draw to finish.':g<v.draw.completed?`Match ${g+1} is already marked done. Open the latest match to continue.`:g>v.draw.completed?`Finish Match ${v.draw.completed+1} before opening this one.`:!v.games[g].ready?`Enter the six scheduled scores for Game ${g+1} first.`:'';
  html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===8?'All 8 matches marked done':g<v.draw.completed?'This match is already marked done':`Match ${g+1} of 8`}</h2><p>${v.draw.completed===8?'Resolve any cut ties to open Rebirth.':'Enter the six scores, then draw the next pair of sit-outs.'}</p>${doneOff&&doneWhy?`<p class="hint reason">${esc(doneWhy)}</p>`:''}</div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(doneWhy)}" aria-disabled="true"`:''}>${g===7?'Match 8 of 8 done — finish round':`Match ${g+1} of 8 done — draw next sit-outs`}</button></div>`;
- html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','SIT-OUTS DRAWN','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.played}/6</td><td class="calc">${r.sit_outs}/2</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
+ html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','SIT-OUTS DRAWN','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${playedLabel(r.played,6)}</td><td class="calc">${r.sit_outs}/2</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
  html+=`<details><summary>View revealed rotations and sit-outs</summary><p class="hint">The saved draw guarantees six games and two sit-outs per person, with no consecutive sit-outs. Each player teams up with everyone once or twice and faces everyone two or three times. Refreshing keeps the same draw. ${v.draw.mode==='preserved'?'This round retains its existing schedule because scores were already entered.':''}</p>${table(['GAME','TEAM A','TEAM B','SIT OUT'],v.schedule.slice(0,v.draw.revealed).map(m=>`<tr><td>${m.game}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.sit.map(p=>esc(state.names[p])).join(' · ')}</td></tr>`))}</details>`;
  return html+extras('round2')+clearRoundPanel('round2');
 }
@@ -268,16 +287,17 @@ async function animateSitoutPair(){
  }
 }
 async function progressRound2(action,game){
- if(sitoutBusy||spinning)return;sitoutBusy=true;
+ if(sitoutBusy||spinning)return false;sitoutBusy=true;
  try{
   await flush();render();
   const res=await fetch('/api/round2-draw',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action,game,revision})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
   ({state,view,revision}=data);round2Game=Math.min(view.round2.draw.completed,7);
   $('#save-status').textContent='Draw saved';error('');
-  if(action==='done'&&view.round2.draw.completed===8){tab='round2';return;}
+  if(action==='done'&&view.round2.draw.completed===8){tab='round2';return true;}
   wheelMode='round2';tab='wheel';spinning=true;sitoutAnimating=true;render();$('#screen-scroll').scrollTop=0;
   await animateSitoutPair();
+  return true;
  }finally{spinning=false;sitoutAnimating=false;sitoutBusy=false;render();}
 }
 function randomIndex(n){
@@ -299,31 +319,33 @@ function drawWheel(names=wheelNames(),angle=wheelAngle){
  if(n>60){ctx.fillStyle='#18111bc9';ctx.beginPath();ctx.arc(c,c,r*.63,0,2*Math.PI);ctx.fill();ctx.fillStyle='#ffe7f1';ctx.textAlign='center';ctx.font='bold 28px Arial';ctx.fillText(`${n.toLocaleString()} entries`,c,c-120);}
 }
 async function spinWheel(){
- if(spinning)return;await flush();const names=wheelNames();if(!names.length)return;
- const index=randomIndex(names.length);spinning=true;wheelLast=null;render();
+ if(spinning||sitoutBusy)return;spinning=true;
+ try{
+ await flush();const names=wheelNames();if(!names.length)return;
+ const index=randomIndex(names.length);wheelLast=null;render();
  const step=2*Math.PI/names.length;
  const target=((-(index+.5)*step)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
  const start=wheelAngle,end=start+2*Math.PI*6+((target-start%(2*Math.PI)+2*Math.PI)%(2*Math.PI));
  const duration=reducedMotion()?0:4300;const started=performance.now();
  await new Promise(resolve=>{function frame(now){const t=duration?Math.min(1,(now-started)/duration):1;wheelAngle=start+(end-start)*(1-Math.pow(1-t,4));drawWheel(names,wheelAngle);if(t<1)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});
- wheelAngle=target;wheelLast={name:names[index],index,removed:false,note:''};spinning=false;
+ wheelAngle=target;wheelLast={name:names[index],index,removed:false,note:''};
  if(state.wheel.remove_winner){names.splice(index,1);state.wheel.text=names.join('\n');wheelLast.removed=true;changed();}
- render();
+ }finally{spinning=false;render();}
 }
 function render(){
- if(!state)return;renderRoom();renderUndo();
+ if(!state)return;renderRoom();renderUndo();renderSaveControls();
  if(!$('#screen-dialog').open)return;
- const active=document.activeElement,path=active?.dataset.path,start=active?.selectionStart,end=active?.selectionEnd;
- const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('.scroll')].map(e=>e.scrollLeft),textScroll=active?.scrollTop;
+ const focus=captureInputFocus('#content');
+ const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('#content .scroll')].map(e=>e.scrollLeft);
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=`BH / MONITOR 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
  $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. To Die now uses eight rotating games, so those stages start fresh. To Live, names, the wheel, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='wheel'?wheelPage():round(tab));
- [...document.querySelectorAll('.scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
+ [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
  $('#screen-scroll').scrollTop=scrollTop;
  if(tab==='wheel')drawWheel(wheelMode==='round2'?sitoutCandidates().map(p=>state.names[p]):wheelNames());
- if(path){const el=[...document.querySelectorAll('[data-path]')].find(e=>e.dataset.path===path);if(el){el.focus({preventScroll:true});if(start!=null)try{el.setSelectionRange(start,end);el.scrollTop=textScroll||0;}catch{}}}
+ restoreInputFocus('#content',focus);
 }
 async function openScreen(key,source){
  if(!state)return;if(spinning||sitoutBusy)return;await flush();tab=key;
@@ -342,18 +364,24 @@ async function closeScreen(){
   const from=dialog.getBoundingClientRect(),to=target.getBoundingClientRect();
   await dialog.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${to.left+to.width/2-from.left-from.width/2}px,${to.top+to.height/2-from.top-from.height/2}px) scale(${to.width/from.width},${to.height/from.height})`,opacity:0}],{duration:280,easing:'ease-in'}).finished;
  }
- dialog.close();target?.focus({preventScroll:true});
+ dialog.close();renderSaveControls();target?.focus({preventScroll:true});
+}
+function renderSaveControls(){
+ const controls=$('#save-controls');if(!controls)return;
+ const slot=$('#result-dialog').open?$('#result-save-slot'):$('#screen-dialog').open?$('#screen-save-slot'):$('#room-save-slot');
+ if(slot&&controls.parentElement!==slot)slot.appendChild(controls);
+ const undo=$('#undo-action');if(undo)undo.disabled=spinning||sitoutBusy;
 }
 function error(message){$('#error').hidden=!message;$('#error').textContent=message||'';
  // Native dialogs are in the top layer: put errors inside the TOPMOST open one.
- const parent=$('#result-dialog').open?$('#result-content'):$('#screen-dialog').open?$('.screen-shell'):document.body;if($('#error').parentElement!==parent)parent.appendChild($('#error'));
+ const parent=$('#result-dialog').open?$('#result-dialog'):$('#screen-dialog').open?$('.screen-shell'):document.body;if($('#error').parentElement!==parent)parent.appendChild($('#error'));
 }
 function changed(){dirty=true;saveFailed=false;editVersion++;$('#save-status').textContent='Unsaved changes…';clearTimeout(timer);timer=setTimeout(save,250);}
 async function save(){
  clearTimeout(timer);if(saving)return saveTask;if(!dirty)return;
  saving=true;dirty=false;const seq=editVersion;$('#save-status').textContent='Saving…';
  saveTask=(async()=>{
-  try{const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state,revision})});const data=await res.json();if(!res.ok)throw new Error(data.error);revision=data.revision;view=data.view;
+  try{const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state,revision})});const data=await res.json();if(!res.ok)throw new Error(data.error);saveFailed=false;revision=data.revision;view=data.view;
    if(seq===editVersion){state=data.state;render();renderResult();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
   }catch(e){saveFailed=true;dirty=true;error(e.message);$('#save-status').textContent='Not saved';$('#retry-save').hidden=false;}
   finally{saving=false;}
@@ -371,7 +399,7 @@ function renderUndo(){
  else btn.hidden=true;
 }
 async function performUndo(){
- if(!undoSnapshot)return;
+ if(!undoSnapshot||spinning||sitoutBusy)return;
  // Keep the snapshot until the restore has actually persisted. If flush() or the PUT
  // throws, leave undoSnapshot in place and re-render the Undo button so the user can
  // retry instead of losing the restored state.
@@ -384,7 +412,7 @@ async function performUndo(){
   const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
   undoSnapshot=null;
-  state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Undo applied';
+  state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();renderResult();$('#save-status').textContent='Undo applied';
  }catch(err){undoSnapshot=snap;renderUndo();throw err;}
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
@@ -408,7 +436,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  const action=b.dataset.action,key=b.dataset.stage;
  if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}
  if(action==='r2-start'){await progressRound2('start');return;}
- if(action==='r2-done'){const match=Number(b.dataset.match);await progressRound2('done',match);if(view.round2.games[match-1]&&view.round2.games[match-1].ready)await openMatchResult('round2',match-1);return;}
+ if(action==='r2-done'){const match=Number(b.dataset.match),completed=await progressRound2('done',match);if(completed)await openMatchResult('round2',match-1);return;}
  if(action==='submit-match'){await flush();await openMatchResult(key,Number(b.dataset.match));return;}
  if(action==='close-result'){closeResult();return;}
  if(action==='r2-wheel'){wheelMode='round2';await openScreen('wheel');return;}

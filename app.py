@@ -12,8 +12,14 @@ MAX_BODY=2_000_000
 class Store:
     def __init__(self,path):
         self.path=Path(path); self.lock=threading.Lock(); self.revision=0
-        self.state=validate(json.loads(self.path.read_text())) if self.path.exists() else new_state()
-        round1_lineups(self.state)  # Populate cosmetic per-game splits once so they persist and appear in backups.
+        exists=self.path.exists()
+        loaded=json.loads(self.path.read_text(encoding='utf-8')) if exists else None
+        self.state=validate(loaded) if exists else new_state()
+        # Persist initial/migrated draws too; restarting before the first edit
+        # must not silently reshuffle the teams that were already displayed.
+        round1_lineups(self.state)
+        if loaded!=self.state:self.save(self.state)
+        self.revision=0
     def payload(self): return {'state':self.state,'view':evaluate(self.state),'revision':self.revision}
     def save(self,state,allow_draw=False):
         state=validate(state)
@@ -62,6 +68,7 @@ def make_server(store,port=8765):
                 length=int(self.headers.get('Content-Length','0'))
                 if not 0<length<=MAX_BODY:raise ValueError('Backup is empty or too large.')
                 data=json.loads(self.rfile.read(length))
+                if not isinstance(data,dict):raise ValueError('Expected a tournament request object.')
                 with store.lock:
                     if data.get('revision')!=store.revision:return self.send(409,{'error':'Another tab changed this tournament. Reload before editing.'})
                     if self.path=='/api/round2-draw':

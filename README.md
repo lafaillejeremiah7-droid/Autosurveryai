@@ -119,13 +119,14 @@ Extra-game goals fold into the tied players' numbers rather than acting as a sep
 average = (regulation goals + extra goals) / (regulation matches + extra matches)
 ```
 
-So a player's displayed total and average visibly change as extra scores are entered. Re-ranking is contained to the tied bubble, which means a cut or tied player can overtake a tied-advancing player and take their spot, while players who were never in the tie keep their ranks. The Rebirth final folds the same way on points instead of goals: each extra game's points are scored normally, without the games 1–2 multiplier, and added to the bubble players' totals.
+A player's displayed total and average update as extra scores are entered, but the entire unresolved group stays marked **TIE** until everyone has a score (and W/L in Rebirth). Later extra games cannot bypass missing entries. Final win points, goal points, goal/win counts, and games played include the same scored extra games as the total. Re-ranking is contained to the tied bubble, which means a cut or tied player can overtake a tied-advancing player and take their spot, while players who were never in the tie keep their ranks. The Rebirth final folds the same way on points instead of goals: each extra game's points are scored normally, without the games 1–2 multiplier, and added to the bubble players' totals.
 
 If players remain tied after an extra game, add another extra game and score only the remaining tied subgroup; already resolved places are preserved. The fullscreen total ranking recomputes live as extra scores are saved and flips **TIE** to **ADVANCE** or **CUT** as the bubble resolves. Up to 50 extra games per stage are supported.
 
 ## Saving and recovery
 
-- Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser.
+- Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser. Save status, **Retry save**, and **Undo** stay accessible inside whichever monitor or results window is open.
+- Initial and migrated To Live lineups are saved at startup, so restarting before the first score cannot reshuffle them.
 - Existing saves from the old fixed-team Round 2 are upgraded to the eight-match format. To Live, player names, wheel entries, and settings stay intact. Old Round 2 and final records are preserved under `legacy_round2` in the downloadable JSON backup. To Die and Rebirth restart with empty scores because the new rotation changes Round 2 qualification. Saves already using the eight-match format retain all data.
 - Original five-game-final saves also archive their old final under `legacy_final`; scoring defaults become goal 1.5 / win 1. The archived records include the old scoring settings and remain in downloadable backups.
 - **Download backup** saves the full tournament as JSON. **Restore backup** validates and restores it.
@@ -143,6 +144,9 @@ Use a custom save location with `python app.py --data path/to/tournament.json`.
 python -m unittest discover -s tests -v
 ```
 
-If Node.js is available, verify Round 2 UI controls with `node tests/test_ui.cjs`.
+If Node.js is available, verify the dashboard controls with `node tests/test_ui.cjs`.
+
+For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all six monitors at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, all eight Round 2 draws, and overlapping wheel clicks. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
 
 The tests cover advancement, top-eight-of-ten To Live ranking by total goals, the per-game cosmetic 5v5 splits (valid 5/5 partitions, idempotent generation, advancement independent of the A/B grouping, and the reshuffle guard that refuses a scored game), per-game readiness requiring all ten scores, blank versus zero, exact averages, multiple extra games, the 8th/9th boundary-bubble fold, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration (including old fixed-team To Live saves that drop their per-player team and assignment fields), large wheel lists, wheel persistence, independent live goal/win points, eight-match Round 2 balance, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.
+
