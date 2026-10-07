@@ -154,6 +154,71 @@ def order_groups(ids, scores, extras):
         return result
     return [sub for group in groups for sub in split(group,0)]
 
+def goal_fold(p, reg_total, reg_played, extras):
+    """Effective (total, played, average) folding entered extra-game goals in.
+
+    total = regulation goals + sum of that player's non-null extra-game goals;
+    played = regulation matches + count of extra games the player scored in;
+    average = Fraction(total, played) (0 when no matches). Fraction keeps the
+    comparison exact so no float rounding manufactures a tie.
+    """
+    total=reg_total[p]; played=reg_played[p]
+    for e in extras:
+        v=e.get(p)
+        if v is None: continue
+        total+=v; played+=1
+    return total, played, (Fraction(total,played) if played else Fraction(0))
+
+def rank_bubble(ids, reg_scores, extras, cut, straddle_only, resolve):
+    """Rank players, folding extra games only for the tied cut-line bubble.
+
+    reg_scores maps id -> regulation primary score. Players are first grouped by
+    EXACT regulation score (descending). A group is the 'bubble' when its rank
+    range crosses the cut: rank r with r<=cut<r+size-1 (straddle_only=True), or,
+    for the podium final, any multi-member group with rank<=cut
+    (straddle_only=False). Safe players outside the bubble keep regulation
+    ranks/status. For the bubble, resolve(group, start_rank) folds extras into an
+    effective score and re-ranks ONLY within [start_rank, start_rank+size-1].
+
+    Returns {id: {'rank','status','bubble'}}; bubble members also carry whatever
+    extra keys resolve() set (e.g. folded total/played/average).
+    """
+    order=sorted(ids,key=lambda p:reg_scores[p],reverse=True)
+    groups=[list(g) for _,g in groupby(order,key=lambda p:reg_scores[p])]
+    out={}; rank=1
+    for group in groups:
+        size=len(group)
+        is_bubble=size>1 and (rank<=cut<rank+size-1 if straddle_only else rank<=cut)
+        if is_bubble:
+            out.update(resolve(group, rank))
+        else:
+            for p in group:
+                out[p]={'rank':rank,'status':'ADVANCE' if rank<=cut else 'CUT','bubble':False}
+        rank+=size
+    return out
+
+def resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start_rank, cut):
+    """Fold extra goals into the bubble, write folded row data, re-rank the bubble.
+
+    The displayed goals/played/average of each bubble player become the folded
+    (effective) values so the UI visibly changes as extra scores are entered;
+    safe players keep their regulation values. Re-ranking stays within
+    [start_rank, start_rank+len(group)-1]; a sub-cluster still exactly tied on
+    effective average across the internal cut boundary is marked TIE.
+    """
+    eff={}
+    for p in group:
+        total,played,avg=goal_fold(p,reg_total,reg_played,extras)
+        eff[p]=avg
+        rowmap[p]['goals']=total; rowmap[p]['played']=played; rowmap[p]['average']=float(avg)
+    out={}; rank=start_rank
+    for sub in order_groups(group,eff,extras):
+        tied=rank<=cut<rank+len(sub)-1
+        for p in sub:
+            out[p]={'rank':rank,'status':TIE if tied else ('ADVANCE' if rank<=cut else 'CUT'),'bubble':True}
+        rank+=len(sub)
+    return out
+
 def round1_view(s, names_ok):
     stage=s['round1'];roster=IDS;size=5;cut=4;stale=False
     rows=[]; scores={}; issues=[]
@@ -174,14 +239,20 @@ def round1_view(s, names_ok):
     if not all(g['ready'] for g in games): issues.append('Complete all five games: 5 scores per team per game. Enter 0 for no goals.')
     ready=not issues
     rowmap={r['id']:r for r in rows}
+    reg_total={r['id']:r['goals'] for r in rows}; reg_played={r['id']:r['played'] for r in rows}
+    extras=stage['extras']
+    def resolve_avg(group, start):
+        return resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start, cut)
     for t in ['A','B']:
-        ids=[r['id'] for r in rows if r['team']==t]; rank=1
-        for group in order_groups(ids,scores,stage['extras']):
-            tied=rank<=cut<rank+len(group)-1
-            for p in group:
-                rowmap[p]['rank']=rank
-                rowmap[p]['status']=('TIE - EXTRA GAMES NEEDED' if tied else 'ADVANCE' if rank<=cut else 'CUT') if ready else 'PENDING'
-            rank+=len(group)
+        ids=[r['id'] for r in rows if r['team']==t]
+        if ready:
+            for p,info in rank_bubble(ids,scores,extras,cut,True,resolve_avg).items():
+                rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
+        else:
+            rank=1
+            for group in order_groups(ids,scores,extras):
+                for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
+                rank+=len(group)
     tied=any(r['status']==TIE for r in rows)
     if tied: issues.append('Play extra games for the highlighted tied players.')
     survivors=[r['id'] for r in rows if r['status']=='ADVANCE'] if ready and not tied else []
@@ -211,13 +282,19 @@ def round2_view(s, roster, names_ok, upstream=True):
         rows.append({'id':p,'name':s['names'][p], 'goals':total,'played':played,'average':float(scores[p]),
                      'rank':None,'status':'PENDING','sit_outs':sum(p in g['sit'] for g in schedule[:draw['revealed']])})
     if draw['completed']<8: issues.append('Mark each match done after entering its six scores.')
-    ready=not issues;rowmap={r['id']:r for r in rows};rank=1
-    for group in order_groups(roster,scores,stage['extras']):
-        tied=rank<=6<rank+len(group)-1
-        for p in group:
-            rowmap[p]['rank']=rank
-            rowmap[p]['status']=(TIE if tied else 'ADVANCE' if rank<=6 else 'CUT') if ready else 'PENDING'
-        rank+=len(group)
+    ready=not issues;rowmap={r['id']:r for r in rows}
+    reg_total={r['id']:r['goals'] for r in rows}; reg_played={r['id']:r['played'] for r in rows}
+    extras=stage['extras']
+    if ready:
+        def resolve_avg(group, start):
+            return resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start, 6)
+        for p,info in rank_bubble(roster,scores,extras,6,True,resolve_avg).items():
+            rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
+    else:
+        rank=1
+        for group in order_groups(roster,scores,extras):
+            for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
+            rank+=len(group)
     tied=any(r['status']==TIE for r in rows)
     if tied: issues.append('Tie across 6th and 7th: play extra games for the highlighted players.')
     survivors=[p for p in roster if rowmap[p]['status']=='ADVANCE'] if ready and not tied else []
@@ -256,15 +333,39 @@ def evaluate(s):
     if roster and not all(g['ready'] for g in games): issues.append('Complete all ten games: six goal scores each, with W for the scheduled winning team and L for its opponents.')
     ready=not issues; extra_scores=[]
     for extra in stage['extras']:
-        extra_scores.append({p:sum(points(d['goals'],d['result'],settings)) if d['goals'] is not None and d['result'] else None for p,d in extra.items()})
-    rank=1; rowmap={r['id']:r for r in rows}
-    for group in order_groups(roster,scores,extra_scores):
-        tied=rank<=3 and len(group)>1
-        for p in group:
-            r=rowmap[p];r['rank']=rank
-            r['status']=(TIE if tied else 'FINAL') if ready else 'PENDING'
-            r['prize']=settings['prizes'][rank-1] if ready and not tied and rank<=3 else (0 if ready and not tied else None)
-        rank+=len(group)
+        extra_scores.append({p:sum(points(extra[p]['goals'],extra[p]['result'],settings)) if extra[p]['goals'] is not None and extra[p]['result'] else None for p in roster})
+    rowmap={r['id']:r for r in rows}
+    if ready:
+        def resolve_final(group, start):
+            # Fold each extra game's points (normal scoring, no games 1-2 multiplier)
+            # into the bubble players' total points, write folded totals, re-rank.
+            eff={}
+            for p in group:
+                total=scores[p]
+                for row in extra_scores:
+                    if row[p] is not None: total+=row[p]
+                eff[p]=total; rowmap[p]['total']=float(total)
+            out={}; rank=start
+            for sub in order_groups(group,eff,extra_scores):
+                tied=rank<=3 and len(sub)>1
+                for p in sub:
+                    out[p]={'rank':rank,'status':TIE if tied else 'FINAL','bubble':True,
+                            'prize':None if tied else (settings['prizes'][rank-1] if rank<=3 else 0)}
+                rank+=len(sub)
+            return out
+        placing=rank_bubble(roster,scores,extra_scores,3,False,resolve_final)
+        for p,info in placing.items():
+            r=rowmap[p];r['rank']=info['rank']
+            if info['bubble']:
+                r['status']=info['status']; r['prize']=info['prize']
+            else:
+                r['status']='FINAL'; r['prize']=settings['prizes'][info['rank']-1] if info['rank']<=3 else 0
+    else:
+        rank=1
+        for group in order_groups(roster,scores,extra_scores):
+            for p in group:
+                r=rowmap[p];r['rank']=rank;r['status']='PENDING';r['prize']=None
+            rank+=len(group)
     rows.sort(key=lambda r:r['rank'])
     if any(r['status']==TIE for r in rows): issues.append('Podium tie: play extra games for the highlighted players. Those prizes stay unassigned.')
     final={'schedule':schedule,'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not any(r['status']==TIE for r in rows),'stale':stale}
