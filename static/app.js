@@ -1,7 +1,7 @@
 'use strict';
-let state,view,revision,token,tab='wheel',timer,dirty=false,saving=false,editVersion=0,saveFailed=false;
-let wheelMode='free',sitoutBusy=false,sitoutAnimating=false;
-let finalGame=0,round2Game=0,round1Game=0,wheelAngle=0,spinning=false,wheelLast=null,lastMonitor=null,saveTask=null;
+let state,view,revision,token,tab='settings',timer,dirty=false,saving=false,editVersion=0,saveFailed=false;
+let sitoutBusy=false,sitoutAnimating=false;
+let finalGame=0,round2Game=0,round1Game=0,wheelAngle=0,spinning=false,lastMonitor=null,saveTask=null;
 let resultStage=null,resultMatch=null,resultFinal=false;
 const ids=Array.from({length:10},(_,i)=>`p${i+1}`);
 const $=s=>document.querySelector(s);
@@ -9,7 +9,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fmt=v=>v===null||v===undefined?'—':Number(v).toLocaleString(undefined,{maximumFractionDigits:3});
 const playedLabel=(n,regulation)=>n>regulation?`${regulation} + ${n-regulation} EXTRA`:`${n}/${regulation}`;
 const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
-const tabs=[['wheel','Name wheel'],['settings','Players & rules'],['round1','To Live'],['round2','To Die'],['final','Rebirth'],['overview','Leaderboard']];
+const tabs=[['settings','Players & rules'],['round1','To Live'],['round2','To Die'],['final','Rebirth'],['overview','Leaderboard']];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const value=path=>path.split('.').reduce((a,k)=>a[k],state);
 const setValue=(path,v)=>{const a=path.split('.');const k=a.pop();a.reduce((o,p)=>o[p],state)[k]=v;};
@@ -43,7 +43,6 @@ const card=(label,n,sub)=>`<div class="card"><label>${label}</label><strong>${n}
 const notice=issues=>issues.length?`<div class="notice warning">${issues.map(x=>`<div>${esc(x)}</div>`).join('')}</div>`:'';
 function title(eye,name,desc,pill=''){return `<div class="eyebrow">${eye}</div><div class="topline"><h1 id="screen-title">${name}</h1>${pill?`<span class="pill">${pill}</span>`:''}</div><p>${desc}</p>`;}
 function panel(name,body,right=''){return `<section class="panel"><div class="panel-head"><h2>${name}</h2>${right}</div>${body}</section>`;}
-const wheelNames=()=>state.wheel.text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
 // A visible, always-available 'Clear this round' .danger panel. The copy states the
 // exact downstream cascade (round1 clears all three, round2 clears round2+final,
 // final clears only final). Clearing routes through doDestructive so it is undoable.
@@ -53,12 +52,11 @@ function renderRoom(){
  const registered=Object.values(state.names).filter(x=>x.trim()).length;
  $('#room-stats').innerHTML=`<div><b>${registered}<small> / 10</small></b><small>REGISTERED</small></div><div><b>${money(view.pool)}</b><small>PRIZE POOL</small></div>`;
  const config=[
- ['wheel','01 / RANDOM SELECT','NAME<br>YOUR FATE.',`${wheelNames().length} ENTRIES / NO FIXED LIMIT`,'<div class="wheel-mini"></div>'],
- ['settings','02 / CONFIGURATION','THE<br>ROSTER.',`${registered} / 10 PLAYERS READY`,`<div class="mini-meter">${ids.map((p,i)=>`<i class="${i<registered?'':'off'}"></i>`).join('')}</div>`],
- ['round1','03 / ROUND ONE','TO<br>LIVE.',`${view.round1.games.filter(g=>g.ready).length} / 5 GAMES RECORDED`,'<div class="giant">01</div>'],
- ['round2','04 / ROUND TWO','TO<br>DIE.',`${view.round2.games.filter(g=>g.ready).length} / 8 GAMES RECORDED`,'<div class="giant">02</div>'],
- ['final','05 / THE FINAL','REBIRTH.',`${view.final.games.filter(g=>g.ready).length} / 10 GAMES RECORDED`,'<div class="giant">03</div>'],
- ['overview','06 / LIVE STANDINGS','THE<br>AFTERMATH.',`${money(view.awarded)} / PRIZES ASSIGNED`,'<div class="mini-podium"><span>2</span><span>1</span><span>3</span></div>']];
+ ['settings','01 / CONFIGURATION','THE<br>ROSTER.',`${registered} / 10 PLAYERS READY`,`<div class="mini-meter">${ids.map((p,i)=>`<i class="${i<registered?'':'off'}"></i>`).join('')}</div>`],
+ ['round1','02 / ROUND ONE','TO<br>LIVE.',`${view.round1.games.filter(g=>g.ready).length} / 5 GAMES RECORDED`,'<div class="giant">01</div>'],
+ ['round2','03 / ROUND TWO','TO<br>DIE.',`${view.round2.games.filter(g=>g.ready).length} / 8 GAMES RECORDED`,'<div class="giant">02</div>'],
+ ['final','04 / THE FINAL','REBIRTH.',`${view.final.games.filter(g=>g.ready).length} / 10 GAMES RECORDED`,'<div class="giant">03</div>'],
+ ['overview','05 / LIVE STANDINGS','THE<br>AFTERMATH.',`${money(view.awarded)} / PRIZES ASSIGNED`,'<div class="mini-podium"><span>2</span><span>1</span><span>3</span></div>']];
  $('#monitors').innerHTML=config.map(([k,no,name,sub,art])=>`<button class="monitor monitor-${k}" data-open="${k}" aria-label="Open ${tabs.find(t=>t[0]===k)[1]} monitor"><div class="monitor-face"><div class="screen-ticker"><span>BH / ${no}</span><span>● LIVE</span></div><div class="preview">${art}<h2>${name}</h2><p>${sub}</p></div><div class="screen-bottom"><span>${view[k]?.complete?'TRANSMISSION COMPLETE':'CLICK TO ENTER'}</span><span>↗</span></div></div><span class="bezel-label">BRAWL SYSTEMS / ${no.slice(0,2)}</span></button>`).join('');
 }
 // (a) A prominent, friendly 'what to do next' callout driven by the existing `next`
@@ -77,7 +75,7 @@ function nextStepBanner(next,finished){
 function overview(){
  const final=view.final, finished=final.complete; const next=!view.names_ok?'settings':!view.round1.complete?'round1':!view.round2.complete?'round2':'final';
  const done=[view.round1,view.round2,final].filter(r=>r.complete).length;
- let html=title('MONITOR 06 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
+ let html=title('MONITOR 05 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
  html+=`<div class="round-path">${[['round1','01 · To Live','10 players → 8 survivors'],['round2','02 · To Die','8 players → 6 survivors'],['final','03 · Rebirth','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
@@ -88,7 +86,7 @@ function overview(){
  if(final.rows.length)html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],final.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  return html;
 }
-function settings(){return title('MONITOR 02 / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
+function settings(){return title('MONITOR 01 / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
  let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Rebirth). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
  stage.extras.forEach((extra,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
@@ -268,10 +266,6 @@ function finalPage(){const v=view.final,g=finalGame;
  html+=`<details><summary>View points per game</summary>${table(['PLAYER',...Array.from({length:10},(_,i)=>`G${i+1}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
  return html+extras('final')+clearRoundPanel('final');
 }
-function wheelPage(){if(wheelMode==='round2')return sitoutWheelPage();const names=wheelNames();
- return title('MONITOR 01 / RANDOM SELECT','Name your fate.','Add, change, or delete names below. Every line is one entry. This wheel has no fixed player limit.',`${names.length} ENTRIES`)+wheelModeTabs()+`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Name selection wheel"></canvas><button class="wheel-hub" data-action="spin" ${spinning||!names.length?`disabled${!names.length&&!spinning?' title="Add at least one name to spin." aria-disabled="true"':''}`:''}>${spinning?'…':'SPIN'}</button></div><div class="wheel-actions"><button class="accent" data-action="spin" ${spinning||!names.length?`disabled${!names.length&&!spinning?' title="Add at least one name to spin." aria-disabled="true"':''}`:''}>${spinning?'DRAWING…':'SPIN THE WHEEL ↗'}</button>${!names.length&&!spinning?'<p class="hint reason">Add at least one name to spin.</p>':''}</div><div id="wheel-result" class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>${spinning?'THE WHEEL IS TURNING':wheelLast?'SELECTED ENTRY':'AWAITING YOUR DRAW'}</small><strong>${spinning?'WHO WILL IT BE?':wheelLast?esc(wheelLast.name):names.length?'Your next name awaits.':'Add names to begin.'}</strong>${wheelLast&&!spinning&&wheelLast.note?'<p class="hint">'+esc(wheelLast.note)+'</p>':''}${wheelLast&&!spinning?'<div class="toolbar"><button data-action="remove-winner" '+(wheelLast.removed?'disabled':'')+'>'+(wheelLast.removed?'Removed from wheel':'Remove this entry')+'</button><button data-action="roster-winner">Add to tournament roster</button></div>':''}</div><p class="draw-help">Spin to draw a random entry from the list. Remove the entry or add it to an empty tournament roster slot. To Live teams are split randomly per game on the To Live screen, so this wheel is a plain name draw.</p></section><section class="entry-editor"><div class="panel-head"><h2>The entry list</h2><span id="entry-count" class="count">${names.length} NAMES</span></div><label for="wheel-entries" class="hint">One name per line. Type or paste a list. Delete a line to remove an entry. Repeated names receive extra entries.</label><textarea id="wheel-entries" data-path="wheel.text" spellcheck="false" placeholder="Type a name, then press Enter…" ${spinning?'disabled':''}>${esc(state.wheel.text)}</textarea><div class="toolbar"><button data-action="wheel-roster" ${spinning?'disabled':''}>Use tournament names</button><button data-action="wheel-shuffle" ${spinning||names.length<2?'disabled':''}>Shuffle</button><button class="danger" data-action="wheel-clear" ${spinning||!names.length?'disabled':''}>Clear list</button></div><label class="field hint"><span>Remove each winner automatically</span><input type="checkbox" data-check="wheel.remove_winner" ${state.wheel.remove_winner?'checked':''} ${spinning?'disabled':''}></label><p class="hint">Names save automatically and are included in your tournament backup. Large lists remain selectable even when labels are too small to display.</p></section></div>`;
-}
-function wheelModeTabs(){return `<div class="toolbar wheel-modes"><button data-wheel-mode="free" class="${wheelMode==='free'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>Open name draw</button><button data-wheel-mode="round2" class="${wheelMode==='round2'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>To Die · sit-out draw</button></div>`;}
 async function rerollRound1Game(game){
  if(sitoutBusy||spinning)return;
  sitoutBusy=true;
@@ -291,7 +285,7 @@ function sitoutCandidates(){
 }
 function sitoutWheelPage(){
  const v=view.round2,g=Math.min(round2Game,Math.max(0,v.draw.revealed-1));
- let html=title('MONITOR 01 / TO DIE','Two sit out. Six play.','Automatic draws keep every player at exactly two sit-outs across eight matches.','BALANCED RANDOM DRAW')+wheelModeTabs();
+ let html=title('MONITOR 03 / TO DIE','Two sit out. Six play.','Automatic draws keep every player at exactly two sit-outs across eight matches.','BALANCED RANDOM DRAW');
  if(!view.round1.complete)return html+panel('Waiting for survivors','<p>Finish To Live and resolve cut ties. Only the eight survivors participate in this draw.</p>');
  if(v.stale)return html+notice(v.issues)+`<button data-tab="round2">Open To Die</button>`;
  if(!v.draw.order.length)return html+panel('Ready to draw','<p>Start once. The dashboard saves a randomized rotation and reveals two sit-outs for each match. The open name list does not change these eight players.</p><button class="accent" data-action="r2-start" '+(sitoutBusy?'disabled':'')+'>Draw Match 1 sit-outs ↗</button>');
@@ -320,16 +314,12 @@ async function progressRound2(action,game){
   ({state,view,revision}=data);round2Game=Math.min(view.round2.draw.completed,7);
   $('#save-status').textContent='Draw saved';error('');
   if(action==='done'&&view.round2.draw.completed===8){tab='round2';return true;}
-  wheelMode='round2';tab='wheel';spinning=true;sitoutAnimating=true;render();$('#screen-scroll').scrollTop=0;
+  tab='sitout';spinning=true;sitoutAnimating=true;render();$('#screen-scroll').scrollTop=0;
   await animateSitoutPair();
   return true;
  }finally{spinning=false;sitoutAnimating=false;sitoutBusy=false;render();}
 }
-function randomIndex(n){
- if(!Number.isSafeInteger(n)||n<1||n>4294967296)throw new Error('Invalid entry count.');
- const limit=4294967296-(4294967296%n),a=new Uint32Array(1);do{crypto.getRandomValues(a);}while(a[0]>=limit);return a[0]%n;
-}
-function drawWheel(names=wheelNames(),angle=wheelAngle){
+function drawWheel(names=[],angle=wheelAngle){
  const canvas=$('#wheel-canvas');if(!canvas)return;
  const ctx=canvas.getContext('2d');if(!ctx)return;
  const size=canvas.width,c=size/2,r=c-12,palette=['#d73076','#eadcbb','#672e50','#ada5b5','#ed84b3','#3c334d'];
@@ -343,20 +333,6 @@ function drawWheel(names=wheelNames(),angle=wheelAngle){
  ctx.beginPath();ctx.arc(0,0,r,0,2*Math.PI);ctx.strokeStyle='#806076';ctx.lineWidth=8;ctx.stroke();ctx.restore();
  if(n>60){ctx.fillStyle='#18111bc9';ctx.beginPath();ctx.arc(c,c,r*.63,0,2*Math.PI);ctx.fill();ctx.fillStyle='#ffe7f1';ctx.textAlign='center';ctx.font='bold 28px Arial';ctx.fillText(`${n.toLocaleString()} entries`,c,c-120);}
 }
-async function spinWheel(){
- if(spinning||sitoutBusy)return;spinning=true;
- try{
- await flush();const names=wheelNames();if(!names.length)return;
- const index=randomIndex(names.length);wheelLast=null;render();
- const step=2*Math.PI/names.length;
- const target=((-(index+.5)*step)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
- const start=wheelAngle,end=start+2*Math.PI*6+((target-start%(2*Math.PI)+2*Math.PI)%(2*Math.PI));
- const duration=reducedMotion()?0:4300;const started=performance.now();
- await new Promise(resolve=>{function frame(now){const t=duration?Math.min(1,(now-started)/duration):1;wheelAngle=start+(end-start)*(1-Math.pow(1-t,4));drawWheel(names,wheelAngle);if(t<1)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});
- wheelAngle=target;wheelLast={name:names[index],index,removed:false,note:''};
- if(state.wheel.remove_winner){names.splice(index,1);state.wheel.text=names.join('\n');wheelLast.removed=true;changed();}
- }finally{spinning=false;render();}
-}
 function render(){
  if(!state)return;renderRoom();renderUndo();renderSaveControls();
  if(!$('#screen-dialog').open)return;
@@ -364,12 +340,12 @@ function render(){
  const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('#content .scroll')].map(e=>e.scrollLeft);
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
- $('#breadcrumb').textContent=`BH / MONITOR 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
- $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. To Die now uses eight rotating games, so those stages start fresh. To Live, names, the wheel, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='wheel'?wheelPage():round(tab));
+ $('#breadcrumb').textContent=tab==='sitout'?'BH / MONITOR 03 / TO DIE':`BH / MONITOR 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
+ $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. To Die now uses eight rotating games, so those stages start fresh. To Live, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='sitout'?sitoutWheelPage():round(tab));
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
  $('#screen-scroll').scrollTop=scrollTop;
- if(tab==='wheel')drawWheel(wheelMode==='round2'?sitoutCandidates().map(p=>state.names[p]):wheelNames());
+ if(tab==='sitout')drawWheel(sitoutCandidates().map(p=>state.names[p]));
  restoreInputFocus('#content',focus);
 }
 async function openScreen(key,source){
@@ -446,13 +422,12 @@ const clearRoundLabel={round1:'Clear To Live',round2:'Clear To Die',final:'Clear
 const clearRoundCopy={round1:'Clear To Live (also clears To Die &amp; Rebirth)',round2:'Clear To Die (also clears Rebirth)',final:'Clear Rebirth'};
 function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
-function resetWheelResult(){wheelLast=null;wheelAngle=0;}
-document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();if(el.dataset.path==='wheel.text')resetWheelResult();changed();});
+function resetWheelResult(){wheelAngle=0;}
+document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;worldClick(e);try{
  if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
  if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
- if(b.dataset.wheelMode){if(spinning||sitoutBusy)return;await flush();wheelMode=b.dataset.wheelMode;render();return;}
  if(b.dataset.r2Game!==undefined){if(sitoutBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
  if(b.dataset.r1Game!==undefined){await flush();round1Game=Number(b.dataset.r1Game);render();return;}
  if(b.dataset.game!==undefined){await flush();finalGame=Number(b.dataset.game);render();return;}
@@ -464,7 +439,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='r2-done'){const match=Number(b.dataset.match),completed=await progressRound2('done',match);if(completed)await openMatchResult('round2',match-1);return;}
  if(action==='submit-match'){await flush();await openMatchResult(key,Number(b.dataset.match));return;}
  if(action==='close-result'){closeResult();return;}
- if(action==='r2-wheel'){wheelMode='round2';await openScreen('wheel');return;}
+ if(action==='r2-wheel'){await openScreen('sitout');return;}
  if(action==='r2-scores'){await openScreen('round2');return;}
  if(action==='csv'){await flush();window.location='/api/standings.csv';}
  if(action==='extra'){state[key].extras.push(Object.fromEntries(ids.map(p=>[p,key==='final'?{goals:null,result:''}:null])));changed();await save();}
@@ -477,13 +452,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament and wheel? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
- if(action==='spin')await spinWheel();
- if(action==='wheel-clear'&&!spinning&&confirm('Remove every name from the wheel? Tournament players stay unchanged.')){state.wheel.text='';resetWheelResult();changed();await save();}
- if(action==='wheel-roster'&&!spinning){if(state.wheel.text.trim()&&!confirm('Replace the wheel list with the current tournament names?'))return;state.wheel.text=Object.values(state.names).filter(n=>n.trim()).join('\n');resetWheelResult();changed();await save();}
- if(action==='wheel-shuffle'&&!spinning){const names=wheelNames();for(let i=names.length-1;i>0;i--){const j=randomIndex(i+1);[names[i],names[j]]=[names[j],names[i]];}state.wheel.text=names.join('\n');resetWheelResult();changed();await save();}
- if(action==='remove-winner'&&wheelLast&&!wheelLast.removed){const names=wheelNames();names.splice(wheelLast.index,1);state.wheel.text=names.join('\n');wheelLast.removed=true;wheelAngle=0;changed();await save();}
- if(action==='roster-winner'&&wheelLast){const name=wheelLast.name;if(name.length>40)throw new Error('Tournament names must be 40 characters or fewer. Shorten this wheel entry first.');if(Object.values(state.names).some(n=>n.trim().toLowerCase()===name.toLowerCase()))throw new Error('That name is already on the tournament roster.');const p=ids.find(p=>!state.names[p].trim());if(!p)throw new Error('All ten tournament slots are filled. Change the roster in Players & rules.');state.names[p]=name;changed();await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
@@ -492,7 +461,7 @@ $('#home-link').onclick=e=>{e.preventDefault();if($('#screen-dialog').open)close
 $('#retry-save').onclick=()=>save();
 $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
-$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament and wheel with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
+$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});
 function updateCountdown(){
  const target=state?.settings?.start_at, box=$('#countdown');
