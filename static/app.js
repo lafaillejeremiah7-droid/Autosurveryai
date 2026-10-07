@@ -56,6 +56,8 @@ function round(key){
  const v=view.round1;
  let html=title('ROUND 01','To Live','5v5 · Five games · Top four from each team advance.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
+ const assignedCount=state.round1.assigned.length;
+ html+=panel('Assign teams',`<p>Spin the wheel to assign each player a random Team A or B (unbiased coin flip, capped at 5 per side so it ends 5 / 5). Assigned players leave the wheel. You can still override any team in the table below; “Reset spin” on the wheel clears only the wheel-drawn teams.</p><div class="wheel-actions"><button class="accent" data-action="r1-wheel" ${sitoutBusy||spinning?'disabled':''}>Open team wheel ↗</button></div><p class="hint">${assignedCount} player${assignedCount===1?'':'s'} assigned by the wheel so far.</p>`);
  html+=panel('Player scores',table(['PLAYER','TEAM',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','TEAM RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${select(`round1.players.${r.id}.team`,['A','B'],`${r.name} team`)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>5 players per team</small>`);
  return html+'<div class="notice">All ten players play every game. Enter 0 for a game played with no goals.</div>'+extras('round1');
 }
@@ -96,10 +98,51 @@ function finalPage(){const v=view.final,g=finalGame;
  html+=`<details><summary>View points per game</summary>${table(['PLAYER',...Array.from({length:10},(_,i)=>`G${i+1}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
  return html+extras('final');
 }
-function wheelPage(){if(wheelMode==='round2')return sitoutWheelPage();const names=wheelNames();
+function wheelPage(){if(wheelMode==='round2')return sitoutWheelPage();if(wheelMode==='round1')return round1WheelPage();const names=wheelNames();
  return title('MONITOR 01 / RANDOM SELECT','Name your fate.','Add, change, or delete names below. Every line is one entry. This wheel has no fixed player limit.',`${names.length} ENTRIES`)+wheelModeTabs()+`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Name selection wheel"></canvas><button class="wheel-hub" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'…':'SPIN'}</button></div><div class="wheel-actions"><button class="accent" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'DRAWING…':'SPIN THE WHEEL ↗'}</button></div><div id="wheel-result" class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>${spinning?'THE WHEEL IS TURNING':wheelLast?'SELECTED ENTRY':'AWAITING YOUR DRAW'}</small><strong>${spinning?'WHO WILL IT BE?':wheelLast?esc(wheelLast.name):names.length?'Your next name awaits.':'Add names to begin.'}</strong>${wheelLast&&!spinning?'<div class="toolbar"><button data-action="remove-winner" '+(wheelLast.removed?'disabled':'')+'>'+(wheelLast.removed?'Removed from wheel':'Remove this entry')+'</button><button data-action="roster-winner">Add to tournament roster</button></div>':''}</div><p class="draw-help">The wheel and tournament roster are separate. You can add a drawn player to an empty tournament slot.</p></section><section class="entry-editor"><div class="panel-head"><h2>The entry list</h2><span id="entry-count" class="count">${names.length} NAMES</span></div><label for="wheel-entries" class="hint">One name per line. Type or paste a list. Delete a line to remove an entry. Repeated names receive extra entries.</label><textarea id="wheel-entries" data-path="wheel.text" spellcheck="false" placeholder="Type a name, then press Enter…" ${spinning?'disabled':''}>${esc(state.wheel.text)}</textarea><div class="toolbar"><button data-action="wheel-roster" ${spinning?'disabled':''}>Use tournament names</button><button data-action="wheel-shuffle" ${spinning||names.length<2?'disabled':''}>Shuffle</button><button class="danger" data-action="wheel-clear" ${spinning||!names.length?'disabled':''}>Clear list</button></div><label class="field hint"><span>Remove each winner automatically</span><input type="checkbox" data-check="wheel.remove_winner" ${state.wheel.remove_winner?'checked':''} ${spinning?'disabled':''}></label><p class="hint">Names save automatically and are included in your tournament backup. Large lists remain selectable even when labels are too small to display.</p></section></div>`;
 }
-function wheelModeTabs(){return `<div class="toolbar wheel-modes"><button data-wheel-mode="free" class="${wheelMode==='free'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>Open name draw</button><button data-wheel-mode="round2" class="${wheelMode==='round2'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>To Die · sit-out draw</button></div>`;}
+function wheelModeTabs(){return `<div class="toolbar wheel-modes"><button data-wheel-mode="free" class="${wheelMode==='free'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>Open name draw</button><button data-wheel-mode="round1" class="${wheelMode==='round1'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>To Live · team draw</button><button data-wheel-mode="round2" class="${wheelMode==='round2'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>To Die · sit-out draw</button></div>`;}
+function round1Candidates(){return ids.filter(p=>state.round1.players[p].team==='');}
+function round1WheelPage(){
+ const candidates=round1Candidates(),names=candidates.map(p=>state.names[p]||'Player '+(ids.indexOf(p)+1));
+ const counts={A:ids.filter(p=>state.round1.players[p].team==='A').length,B:ids.filter(p=>state.round1.players[p].team==='B').length};
+ const done=candidates.length===0;
+ let html=title('MONITOR 01 / TO LIVE','Spin to pick a team.','Each spin lands on one unassigned player and the app flips an unbiased coin for Team A or B. Teams are capped at five, so the draw always ends five A and five B.','CAPPED COIN FLIP · 5 / 5')+wheelModeTabs();
+ if(!view.names_ok)return html+panel('Name your players first','<p>Enter 10 unique player names in Players & rules before drawing teams.</p><button data-tab="settings">Open Players & rules ↗</button>');
+ html+=`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Round 1 team assignment wheel"></canvas><button class="wheel-hub" data-action="r1-spin" ${spinning||sitoutBusy||done?'disabled':''}>${spinning?'…':done?'DONE':'SPIN'}</button></div>`;
+ html+=`<div class="wheel-actions"><button class="accent" data-action="r1-spin" ${spinning||sitoutBusy||done?'disabled':''}>${spinning?'ASSIGNING…':done?'ALL PLAYERS ASSIGNED':'SPIN TO ASSIGN ↗'}</button><button class="danger" data-action="r1-reset" ${spinning||sitoutBusy||!state.round1.assigned.length?'disabled':''}>Reset spin</button></div>`;
+ html+=`<div class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>TEAM A ${counts.A}/5 · TEAM B ${counts.B}/5 / ${spinning?'FLIPPING THE COIN':done?'TEAMS COMPLETE':candidates.length+' STILL ON THE WHEEL'}</small><strong>${spinning?'Which team will it be?':done?'All ten players have a team.':'Spin to assign the next player.'}</strong></div>`;
+ html+=`<p class="draw-help">Spinning assigns a random Team A or B (unbiased coin flip, capped at 5 per side so it always ends 5 / 5). Assigned players leave the wheel and cannot be landed on again. “Reset spin” is the only way to undo wheel draws — manual team picks in the To Live table are kept.</p></section>`;
+ html+=`<section>${panel('Team assignments',table(['PLAYER','TEAM','SOURCE'],ids.map(p=>{const t=state.round1.players[p].team;const src=t===''?'—':state.round1.assigned.includes(p)?'Wheel':'Manual';return `<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${t?'Team '+t:'<span class="hint">Unassigned</span>'}</td><td>${src}</td></tr>`;})))}<p class="hint">Change any team manually from the To Live score table. A manual pick is kept when you Reset spin; only wheel-drawn teams clear.</p><div class="notice"><button data-tab="round1">Open To Live scores ↗</button></div></section></div>`;
+ return html;
+}
+async function animateRound1Assign(player){
+ const candidates=round1Candidates(),names=candidates.map(p=>state.names[p]||'Player '+(ids.indexOf(p)+1));
+ if(!names.length)return;
+ const index=Math.max(0,candidates.indexOf(player)),step=2*Math.PI/names.length;
+ const target=((-(index+.5)*step)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+ const start=wheelAngle,end=start+2*Math.PI*6+((target-start%(2*Math.PI)+2*Math.PI)%(2*Math.PI));
+ const duration=reducedMotion()?0:4300,started=performance.now();
+ await new Promise(resolve=>{function frame(now){const t=duration?Math.min(1,(now-started)/duration):1;wheelAngle=start+(end-start)*(1-Math.pow(1-t,4));drawWheel(names,wheelAngle);if(t<1)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});
+ wheelAngle=target;
+}
+async function progressRound1(action){
+ if(sitoutBusy||spinning)return;
+ if(action==='reset'&&!confirm('Clear all wheel-assigned Round 1 teams? Manual team picks are kept.'))return;
+ sitoutBusy=true;
+ try{
+  await flush();
+  if(action==='spin'){
+   const player=round1Candidates()[0];
+   if(!player)return;
+   wheelMode='round1';tab='wheel';spinning=true;render();$('#screen-scroll').scrollTop=0;
+   await animateRound1Assign(player);
+  }
+  const res=await fetch('/api/round1-assign',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action,revision})});
+  const data=await res.json();if(!res.ok)throw new Error(data.error);
+  ({state,view,revision}=data);$('#save-status').textContent=action==='reset'?'Teams cleared':'Team assigned';error('');
+ }finally{spinning=false;sitoutBusy=false;render();}
+}
 function sitoutCandidates(){
  const v=view.round2,g=Math.min(round2Game,Math.max(0,v.draw.revealed-1));
  return view.round1.survivors.filter(p=>v.schedule.slice(0,g).filter(m=>m.sit.includes(p)).length<2 && (g===0||!v.schedule[g-1].sit.includes(p)));
@@ -181,7 +224,7 @@ function render(){
  [...document.querySelectorAll('.scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
  $('#screen-scroll').scrollTop=scrollTop;
- if(tab==='wheel')drawWheel(wheelMode==='round2'?sitoutCandidates().map(p=>state.names[p]):wheelNames());
+ if(tab==='wheel')drawWheel(wheelMode==='round2'?sitoutCandidates().map(p=>state.names[p]):wheelMode==='round1'?round1Candidates().map(p=>state.names[p]||'Player '+(ids.indexOf(p)+1)):wheelNames());
  if(path){const el=[...document.querySelectorAll('[data-path]')].find(e=>e.dataset.path===path);if(el){el.focus({preventScroll:true});if(start!=null)try{el.setSelectionRange(start,end);el.scrollTop=textScroll||0;}catch{}}}
 }
 async function openScreen(key,source){
@@ -233,6 +276,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.step){const current=value(b.dataset.target);setValue(b.dataset.target,Math.max(0,Math.min(100000,(current??0)+Number(b.dataset.step))));changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
+ if(action==='r1-spin'){await progressRound1('spin');return;}
+ if(action==='r1-reset'){await progressRound1('reset');return;}
+ if(action==='r1-wheel'){wheelMode='round1';await openScreen('wheel');return;}
  if(action==='r2-start'){await progressRound2('start');return;}
  if(action==='r2-done'){await progressRound2('done',Number(b.dataset.match));return;}
  if(action==='r2-wheel'){wheelMode='round2';await openScreen('wheel');return;}

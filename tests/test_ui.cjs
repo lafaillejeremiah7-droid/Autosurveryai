@@ -45,5 +45,22 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  const lockedHTML=vm.runInContext('round2Page()',context);
  assert(lockedHTML.includes('data-r2-game="2" disabled'));assert(lockedHTML.includes('Match 2 of 8 done'));
  const wheelHTML=vm.runInContext("state=fixture.state;wheelMode='round2';sitoutWheelPage()",context);assert(wheelHTML.includes('Two sit out. Six play.'));
+ // Round 1 team-assignment wheel: only unassigned players are candidates.
+ const r1=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};\nfor i,p in enumerate(IDS[:3]):\n s['round1']['players'][p]['team']='A' if i<2 else 'B';s['round1']['assigned'].append(p)\nprint(json.dumps({'state':s,'view':evaluate(s),'revision':5}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;wheelMode='round1';`,context);
+ assert.equal(vm.runInContext('JSON.stringify(round1Candidates())',context),JSON.stringify(['p4','p5','p6','p7','p8','p9','p10']));
+ const r1HTML=vm.runInContext('round1WheelPage()',context);
+ assert(r1HTML.includes('Spin to pick a team.'));assert(r1HTML.includes('data-action="r1-spin"'));assert(r1HTML.includes('data-action="r1-reset"'));
+ assert(r1HTML.includes('TEAM A 2/5 · TEAM B 1/5'));assert(!r1HTML.includes('undefined'));
+ const r1Round=vm.runInContext('round(\'round1\')',context);assert(r1Round.includes('data-action="r1-wheel"'));assert(r1Round.includes('Assign teams'));
+ // Spin assigns the next unassigned player (p4) via the server endpoint, no client-side coin flip.
+ const spun=JSON.parse(JSON.stringify(r1));spun.state.round1.players.p4.team='A';spun.state.round1.assigned.push('p4');spun.revision=6;
+ vm.runInContext('render=()=>{};flush=async()=>{};animateRound1Assign=async()=>{};',context);
+ context.fetch=async(url,options)=>{assert.equal(url,'/api/round1-assign');const body=JSON.parse(options.body);assert.equal(body.action,'spin');return {ok:true,json:async()=>spun};};
+ await click({action:'r1-spin'});
+ assert.equal(vm.runInContext("state.round1.players.p4.team",context),'A');
+ assert(!vm.runInContext('round1Candidates()',context).includes('p4'));
+ console.log('Round 1 UI: team wheel candidate pool, spin control, reset button and server assignment passed.');
  console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

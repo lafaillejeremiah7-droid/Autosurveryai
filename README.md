@@ -33,6 +33,16 @@ Type or paste one name per line. Edit a line to rename it; delete the line to re
 
 Spin, optionally remove each winner automatically, remove a selected entry manually, shuffle the list, or copy the tournament names. **Add to tournament roster** fills the next empty tournament slot without changing the wheel. The tournament format itself remains ten players. The wheel list and removal preference are saved and included in backups.
 
+## To Live team wheel
+
+Assign the ten players to Team A and Team B by spinning instead of picking by hand. Open **To Live** and click **Open team wheel**, or switch the wheel to its **To Live · team draw** mode.
+
+1. Each **Spin to assign** lands on one player who still has no team. The server flips an unbiased coin for Team A or B, saves it, and returns the result; the coin flip is never computed in the browser.
+2. The assigned player leaves the wheel immediately, so later spins can never land on them again.
+3. Teams are capped at five. Once a side already has five players, every remaining spin goes to the other side, so the draw always finishes exactly five A and five B.
+
+You can still change any team by hand from the dropdown in the To Live score table; a manual pick simply removes that player from the wheel. **Reset spin** is the only way to undo wheel draws: it clears every wheel-assigned team but keeps teams you set manually. The wheel assignments are saved and included in backups.
+
 ## Automatic Round 2 sit-out wheel
 
 1. After To Live is complete, open **To Die** and click **Draw Match 1 sit-outs**. The wheel automatically uses the eight survivors.
@@ -48,7 +58,7 @@ Previously entered eight-match Round 2 scores keep their original schedule when 
 ## Tournament flow
 
 1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
-2. **To Live:** assign five players per team and enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
+2. **To Live:** assign five players per team, by spinning the team wheel or picking teams by hand, then enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
 3. **To Die:** the eight survivors enter the automatic sit-out draw and follow its eight-game rotation. Six play 3v3 and two sit out each match. Everyone plays six games and sits twice, with three appearances in each four-game half and no consecutive rests. Each pair are teammates once or twice and opponents two or three times. Enter all six scheduled goal scores, including zeroes; sit-out cells stay blank. A missing score for an active player prevents completion. Rank all eight together using only this round's goals per match: top six overall advance, bottom two are cut. A tie across sixth and seventh requires extra games. There are no permanent Round 2 teams. The app saves and locks the random slots before scoring.
 4. **Rebirth:** the six survivors start at zero. Follow the displayed schedule of all ten unique 3v3 splits once each. Every player plays ten matches; each pair are teammates four times and opponents six times. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–10 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all ten games are complete.
 5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
