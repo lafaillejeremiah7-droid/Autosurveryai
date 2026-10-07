@@ -26,7 +26,7 @@ for(let g=0;g<8;g++){
 }
 vm.runInContext("resetStage('round2')",context);
 assert.equal(vm.runInContext("state.round2.players.p1.goals.length",context),8);
-assert.equal(vm.runInContext("state.final.players.p1.goals.length",context),10);
+assert.equal(vm.runInContext("state.final.players.p1.goals.length",context),8);
 assert.equal(vm.runInContext("state.round1.players.p1.goals[0]",context),2);
 // Exercise actual delegated match-selector and goal-counter handlers.
 vm.runInContext('state=fixture.state;render=()=>{};flush=async()=>{};save=async()=>{};',context);
@@ -112,7 +112,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(liveHTML.includes('data-action="submit-match" data-stage="round1" data-match="0"'));
  assert((liveHTML.match(/data-r1-game=/g)||[]).length===5,'To Live has a 5-match selector');
  const rebirthHTML=vm.runInContext('finalGame=0;finalPage()',context);
- assert(rebirthHTML.includes('Submit Match 1 of 10'),'Rebirth shows a per-match submit control');
+ assert(rebirthHTML.includes('Submit Match 1 of 8'),'Rebirth shows a per-match submit control');
  assert(rebirthHTML.includes('data-action="submit-match" data-stage="final" data-match="0"'));
  // (1b) The submit control is DISABLED until that match's view games[N].ready is true.
  vm.runInContext('view=JSON.parse(JSON.stringify(fixture.view));view.round1.games[0].ready=false;',context);
@@ -160,7 +160,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  //      (total/played), NOT a second copy of the total. Verify the computed value appears
  //      and that it differs from the total for a player whose total != average.
  vm.runInContext('state=fixture.state;view=fixture.view;',context);
- const finalSubmit=click({action:'submit-match',stage:'final',match:'9'});
+ const finalSubmit=click({action:'submit-match',stage:'final',match:'7'});
  await flushMicro();
  assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled Rebirth final triggers the elimination cutscene');
  // Rebirth throws the NON-PODIUM finishers (rank>3); the top-3 podium is spared.
@@ -173,7 +173,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  for(const n of finalPodium)assert(!finalStage.includes(`data-name="${n}"`),'podium finisher '+n+' is spared the furnace');
  vm.runInContext('endCutscene();',context);
  await finalSubmit;
- assert(vm.runInContext('resultFinal',context)===true,'final match 10 opens the fullscreen');
+ assert(vm.runInContext('resultFinal',context)===true,'final match 8 opens the fullscreen');
  assert(/AVG PTS \/ GAME/.test(resultEl.innerHTML),'final fullscreen labels the average column as points per game');
  assert(/FINAL/.test(resultEl.innerHTML),'final fullscreen shows FINAL podium badges');
  const topFinal=payload.view.final.rows.find(r=>r.played>0&&r.total!==r.total/r.played);
@@ -199,7 +199,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  // Apply a resolving extra game (p8 outscores p4) and re-render: TIE flips, folded totals update.
  const folded=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import cut_tie_state;from engine import IDS,evaluate;s=cut_tie_state('round2');e=dict.fromkeys(IDS);e['p8']=3;e['p4']=1;s['round2']['extras']=[e];print(json.dumps({'state':s,'view':evaluate(s),'revision':10}))"],{cwd:root,encoding:'utf8'}));
- vm.runInContext(`state=${JSON.stringify(folded.state)};view=${JSON.stringify(folded.view)};revision=10;`,context);
+ vm.runInContext(`state=${JSON.stringify(folded.state)};view=${JSON.stringify(folded.view)};revision=8;`,context);
  vm.runInContext('renderResult()',context);
  assert(resultEl.innerHTML.includes('ROUND SETTLED'),'after folding the round settles');
  assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'folded fullscreen shows ADVANCE/CUT');
@@ -223,13 +223,13 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(/>Clear Rebirth</.test(rebirthClear),'Rebirth clear copy is Clear Rebirth');
  assert(/clears Rebirth only/i.test(rebirthClear),'Rebirth clear panel states it clears only Rebirth');
  // (B) EXTENDED ROUND1 CASCADE: resetStage('round1') clears round1 + round2 + final
- //     goals while array lengths stay 5/8/10, lineups cleared, round2 draw reset.
+ //     goals while array lengths stay 5/8/8, lineups cleared, round2 draw reset.
  vm.runInContext('state=fixture.state;',context);
  assert.equal(vm.runInContext('state.round1.players.p1.goals[0]',context),2);  // Sanity: scores present before.
  vm.runInContext("resetStage('round1')",context);
  assert.equal(vm.runInContext('state.round1.players.p1.goals.length',context),5,'round1 keeps 5 slots');
  assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),8,'round2 keeps 8 slots');
- assert.equal(vm.runInContext('state.final.players.p1.goals.length',context),10,'final keeps 10 slots');
+ assert.equal(vm.runInContext('state.final.players.p1.goals.length',context),8,'final keeps 8 slots');
  assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'round1 goals all cleared');
  assert(vm.runInContext('Object.values(state.round2.players).every(d=>d.goals.every(x=>x===null))',context),'round2 goals all cleared');
  assert(vm.runInContext('Object.values(state.final.players).every(d=>d.goals.every(x=>x===null)&&d.results.every(r=>r===""))',context),'final goals and results all cleared');
@@ -253,7 +253,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(ovSettings.includes('data-tab="settings"'),'next-step button targets settings when names are missing');
  assert(ovSettings.includes('enter 10 unique player names'),'next-step wording names the settings action');
  const r2Next=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
-  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();\nfor p in list(s['round2']['players']):s['round2']['players'][p]['goals']=[None]*8\nfor p in list(s['final']['players']):\n s['final']['players'][p]['goals']=[None]*10\n s['final']['players'][p]['results']=['']*10\nprint(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();\nfor p in list(s['round2']['players']):s['round2']['players'][p]['goals']=[None]*8\nfor p in list(s['final']['players']):\n s['final']['players'][p]['goals']=[None]*8\n s['final']['players'][p]['results']=['']*8\nprint(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
  assert.equal(r2Next.view.names_ok,true);assert.equal(r2Next.view.round1.complete,true);assert.equal(r2Next.view.round2.complete,false);
  vm.runInContext(`state=${JSON.stringify(r2Next.state)};view=${JSON.stringify(r2Next.view)};tab='overview';`,context);
  const ovR2=vm.runInContext('overview()',context);
@@ -587,4 +587,3 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext('cutsceneActive',context),false,'playCutscene with no names resolves without showing the overlay');
  console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, throwers CARRY each victim (escort markup) into the furnace, skippable single-dismiss path, reduced-motion static ELIMINATED summary, and empty-list skip passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-

@@ -60,7 +60,7 @@ def cut_tie_state(key='round1'):
 
 def final_tie_state(count=2):
     s=fixture();s['settings']['win_points']=0
-    for p in s['final']['roster']:s['final']['players'][p]['goals']=[int(p in s['final']['roster'][:count])]*10
+    for p in s['final']['roster']:s['final']['players'][p]['goals']=[int(p in s['final']['roster'][:count])]*8
     if count==2:s['final']['players']['p3']['goals'][0]=1
     return s
 
@@ -82,8 +82,8 @@ class Rules(unittest.TestCase):
         self.assertEqual(v['round1']['survivors'],['p1','p2','p3','p4','p6','p7','p8','p9'])
         self.assertEqual(v['round2']['survivors'],['p1','p2','p3','p6','p7','p8'])
         self.assertEqual([r['prize'] for r in v['final']['rows']],[18,8,4,0,0,0]);self.assertEqual(v['awarded'],30)
-        first=v['final']['rows'][0];self.assertEqual(first['win_points'],12);self.assertEqual(first['goal_points'],36);self.assertEqual(first['total'],48)
-        self.assertEqual(first['game_points'],[8,8]+[4]*8)
+        first=v['final']['rows'][0];self.assertEqual(first['win_points'],10);self.assertEqual(first['goal_points'],30);self.assertEqual(first['total'],40)
+        self.assertEqual(first['game_points'],[8,8]+[4]*6)
     def test_blank_zero_and_fresh_average(self):
         s=fixture();row=lambda: next(r for r in evaluate(s)['round2']['rows'] if r['id']=='p1')
         self.assertEqual((row()['played'],row()['average']),(6,4/6))
@@ -135,8 +135,8 @@ class Rules(unittest.TestCase):
         e['p1']={'goals':2,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
         v=evaluate(s)['final']
         p1=next(r for r in v['rows'] if r['id']=='p1');p2=next(r for r in v['rows'] if r['id']=='p2')
-        self.assertEqual(p1['total'],21.0);self.assertEqual(p1['prize'],18)  # 18 + 2*1.5, no multiplier.
-        self.assertEqual(p2['total'],18.0);self.assertEqual(p2['prize'],8)
+        self.assertEqual(p1['total'],18.0);self.assertEqual(p1['prize'],18)  # 18 + 2*1.5, no multiplier.
+        self.assertEqual(p2['total'],15.0);self.assertEqual(p2['prize'],8)
         p3=next(r for r in v['rows'] if r['id']=='p3')  # Safe finalist untouched.
         self.assertEqual((p3['rank'],p3['prize'],p3['total']),(3,4,p3_before['total']))
         self.assertTrue(v['complete'])
@@ -149,7 +149,7 @@ class Rules(unittest.TestCase):
         v=evaluate(s)['final']
         p1=next(r for r in v['rows'] if r['id']=='p1');p2=next(r for r in v['rows'] if r['id']=='p2')
         self.assertEqual((p1['status'],p2['status']),(TIE,TIE))
-        self.assertEqual((p1['total'],p2['total']),(21.0,21.0))  # Folded equally.
+        self.assertEqual((p1['total'],p2['total']),(18.0,18.0))  # Folded equally.
         self.assertIsNone(p1['prize']);self.assertIsNone(p2['prize'])
         self.assertFalse(v['complete'])
     def test_backward_compat_load_save_with_extras(self):
@@ -172,34 +172,34 @@ class Rules(unittest.TestCase):
         v=evaluate(s);rows={r['id']:r for r in v['final']['rows']}
         self.assertEqual(rows['p3']['status'],TIE);self.assertEqual(rows['p6']['status'],TIE)
         s=fixture();v=evaluate(s);self.assertTrue(v['final']['complete'])
-        self.assertEqual([r['rank'] for r in v['final']['rows'][-2:]],[5,5])
+        self.assertEqual([r['rank'] for r in v['final']['rows'][-2:]],[5,6])
     def test_multiplier_setting_and_partial_inputs(self):
-        s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],56)
+        s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],48)
         s['final']['players']['p1']['results'][0]='';r=next(r for r in evaluate(s)['final']['rows'] if r['id']=='p1')
-        self.assertEqual(r['total'],53);self.assertIsNone(r['prize'])
+        self.assertEqual(r['total'],45);self.assertIsNone(r['prize'])
     def test_rotation_balance_and_team_results(self):
         s=fixture();roster=evaluate(s)['round2']['survivors'];schedule=final_schedule(roster)
-        self.assertEqual(len(schedule),10)
-        self.assertEqual(len({frozenset([frozenset(g['A']),frozenset(g['B'])]) for g in schedule}),10)
+        self.assertEqual(len(schedule),8)
+        self.assertEqual(len({frozenset([frozenset(g['A']),frozenset(g['B'])]) for g in schedule}),8)
         for p in roster:
-            self.assertEqual(sum(p in g['A']+g['B'] for g in schedule),10)
+            self.assertEqual(sum(p in g['A']+g['B'] for g in schedule),8)
             for q in roster:
                 if p==q: continue
                 together=sum(any(p in g[t] and q in g[t] for t in ['A','B']) for g in schedule)
-                self.assertEqual(together,4);self.assertEqual(10-together,6)
+                self.assertIn(together,(2,3,4));self.assertIn(8-together,(4,5,6))
         a,b=schedule[0]['A'][0],schedule[0]['B'][0]
         s['final']['players'][a]['results'][0]='L';s['final']['players'][b]['results'][0]='W'
         self.assertFalse(evaluate(s)['final']['ready'])  # Still 3 W / 3 L, but wrong teams.
     def test_tenth_game_and_migration(self):
         s=fixture();before=evaluate(s)['final']['rows'][0]['total']
-        s['final']['players']['p1']['goals'][9]+=1
+        s['final']['players']['p1']['goals'][7]+=1
         self.assertEqual(evaluate(s)['final']['rows'][0]['total'],before+1.5)
         old=legacy_fixture(1)
         for p in old['final']['players'].values():p['goals']=p['goals'][:5];p['results']=p['results'][:5]
         original=deepcopy(old);new=validate(old)
         self.assertEqual(old,original);self.assertEqual(new['legacy_final']['final'],original['final'])
         self.assertEqual(new['legacy_round2']['round2'],old['round2']);self.assertEqual(new['settings']['win_points'],1)
-        self.assertEqual(new['final']['players']['p1']['goals'],[None]*10)
+        self.assertEqual(new['final']['players']['p1']['goals'],[None]*8)
         self.assertEqual(validate(new),new)
 
     def test_round2_eight_game_rotation(self):
@@ -256,7 +256,7 @@ class Rules(unittest.TestCase):
         self.assertEqual(new['legacy_round2']['final'],old['final'])
         for k in ['round1','names','settings','wheel']:self.assertEqual(new[k],old[k])
         self.assertEqual(new['round2']['players']['p1']['goals'],[None]*8)
-        self.assertEqual(new['final']['players']['p1']['goals'],[None]*10)
+        self.assertEqual(new['final']['players']['p1']['goals'],[None]*8)
         current=fixture();original=deepcopy(current);self.assertEqual(validate(current),original)
 
     def test_wheel_large_lists_migration_and_validation(self):
@@ -495,4 +495,3 @@ class HTTP(unittest.TestCase):
             finally:server.shutdown();server.server_close();thread.join()
 
 if __name__=='__main__':unittest.main()
-

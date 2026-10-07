@@ -99,7 +99,7 @@ let browser,page;
  const fresh=copy(fixture);
  for(const key of ['round2','final']){
   fresh[key].extras=[];fresh[key].roster=[];
-  for(const p of Object.keys(fresh.names)){fresh[key].players[p].goals=Array(key==='round2'?8:10).fill(null);if(key==='final')fresh[key].players[p].results=Array(10).fill('');}
+  for(const p of Object.keys(fresh.names)){fresh[key].players[p].goals=Array(key==='round2'?8:8).fill(null);if(key==='final')fresh[key].players[p].results=Array(8).fill('');}
  }
  fresh.round2.draw={order:[],revealed:0,completed:0,mode:'random'};
  await restore(fresh);await open('round2');await page.locator('[data-action="r2-start"]').click();

@@ -1,7 +1,0 @@
-{
-  "task_id": "task-easier-controls",
-  "task_description": "Make the Brawl Hockey dashboard easier to operate (stacked onto open PR #4 / branch feat/per-match-ranking): (c) a visible 'Clear this round' control on every round screen (To Live, To Die, Rebirth) with a downstream-only cascade matching the extended resetStage (To Live clears all three, To Die clears To Die+Rebirth, Rebirth clears only Rebirth); (d) self-explaining disabled controls that state WHY they are disabled; (a) a prominent 'what to do next' guide on the Leaderboard driven by the existing `next` computation and stage issues; (g) one-level client-side Undo for all destructive actions that snapshots prior state, offers an obvious Undo affordance, and persists the restore through the normal save path. Frontend/UX only: engine.py untouched, schema stays version 4, no third-party deps. Extend tests/test_ui.cjs and add a single-invocation live-server probe. Do NOT push or open/merge PRs.",
-  "status": "in_progress",
-  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
-  "blocked_reason": null
-}

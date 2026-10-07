@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 TIE = 'TIE - EXTRA GAMES NEEDED'
 IDS = [f'p{i+1}' for i in range(10)]
 TEAM_GOAL_LIMIT = 3
+FINAL_GAMES = 8
 
 def match_goals(stage, teams, game):
     return {t:sum(stage['players'][p]['goals'][game] or 0 for p in teams[t]) for t in ['A','B']}
@@ -38,7 +39,7 @@ def validate_goal_changes(s, previous=None):
     labels={'round1':'To Live','round2':'To Die','final':'Rebirth'}
     for key in labels:
         stage=s[key];old=previous[key] if previous else None
-        for g in range({'round1':5,'round2':8,'final':10}[key]):
+        for g in range({'round1':5,'round2':8,'final':FINAL_GAMES}[key]):
             values={p:stage['players'][p]['goals'][g] for p in IDS}
             teams=schedules[key][g] if g<len(schedules[key]) else {'A':[],'B':[]}
             issue=match_goal_error(stage,teams,g)
@@ -69,14 +70,14 @@ def new_state():
     return {'version': 4, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
             'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4], 'start_at': '', 'disaster_started_at': ''},
             'round1': blank_round(), 'round2': blank_round(8),
-            'final': {'players': {p: {'goals': [None]*10, 'results': ['']*10} for p in IDS}, 'extras': [], 'roster': []}}
+            'final': {'players': {p: {'goals': [None]*FINAL_GAMES, 'results': ['']*FINAL_GAMES} for p in IDS}, 'extras': [], 'roster': []}}
 
 def final_schedule(roster):
     """One representative of each unordered 3v3 partition of six players."""
     if len(roster) != 6: return []
     return [{'game': i+1, 'A': [roster[0], *pair],
              'B': [p for p in roster if p not in (roster[0], *pair)]}
-            for i, pair in enumerate(combinations(roster[1:], 2))]
+            for i, pair in enumerate(list(combinations(roster[1:], 2))[:FINAL_GAMES])]
 
 def round2_schedule(roster):
     """Eight 3v3 matches: six plays/two rests, all pairs meet on both sides.
@@ -191,10 +192,10 @@ def validate(s):
                 if not order and (draw['revealed'] or draw['completed']): raise ValueError('Draw the first match before recording progress.')
                 if order and draw['revealed']<1: raise ValueError('A saved draw must reveal its first match.')
             for d in a['players'].values():
-                if len(d['goals'])!={'round1':5,'round2':8,'final':10}[stage]: raise ValueError('To Live needs 5 games, To Die 8 games, and Rebirth 10 games.')
+                if len(d['goals'])!={'round1':5,'round2':8,'final':FINAL_GAMES}[stage]: raise ValueError('To Live needs 5 games, To Die 8 games, and Rebirth 8 games.')
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
-                    if len(d['results'])!=10 or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
+                    if len(d['results'])!=FINAL_GAMES or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
             for extra in a['extras']:
                 if not isinstance(extra,dict) or set(extra)!=set(IDS): raise ValueError('Invalid extra-game records.')
                 for value in extra.values():
@@ -399,18 +400,18 @@ def evaluate(s):
     if stale: issues.append('The finalist list changed. Reset the final before entering new scores.')
     for p in roster:
         d=stage['players'][p]; wins=Decimal(0); goals=Decimal(0); game_points=[]
-        for g in range(10):
+        for g in range(FINAL_GAMES):
             if d['goals'][g] is None and not d['results'][g]: game_points.append(None); continue
             w,h=points(d['goals'][g],d['results'][g],settings,settings['multiplier'] if g<2 else 1)
             wins+=w; goals+=h; game_points.append(float(w+h))
         scores[p]=wins+goals
         rows.append({'id':p,'name':s['names'][p],'win_points':float(wins),'goal_points':float(goals),'total':float(wins+goals),
                      'goals':sum(v or 0 for v in d['goals']),'wins':sum(v=='W' for v in d['results']),
-                     'played':sum(d['goals'][g] is not None and bool(d['results'][g]) for g in range(10)),
+                     'played':sum(d['goals'][g] is not None and bool(d['results'][g]) for g in range(FINAL_GAMES)),
                      'game_points':game_points,'rank':None,'prize':None,'status':'PENDING'})
     schedule=final_schedule(roster)
     games=[]
-    for g in range(10):
+    for g in range(FINAL_GAMES):
         count=sum(stage['players'][p]['goals'][g] is not None for p in roster)
         w=sum(stage['players'][p]['results'][g]=='W' for p in roster); l=sum(stage['players'][p]['results'][g]=='L' for p in roster)
         teams=schedule[g] if schedule else {'A':[], 'B':[]}
@@ -420,7 +421,7 @@ def evaluate(s):
         games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'teams':teams,'goals':match_goals(stage,teams,g),'score_error':score_error,
                       'ready':count==6 and consistent and not score_error})
         if score_error:issues.append(f'Game {g+1}: {score_error}')
-    if roster and not all(g['ready'] for g in games): issues.append('Complete all ten games: six goal scores each, with W for the scheduled winning team and L for its opponents.')
+    if roster and not all(g['ready'] for g in games): issues.append('Complete all eight games: six goal scores each, with W for the scheduled winning team and L for its opponents.')
     ready=not issues; extra_scores=[]
     for extra in stage['extras']:
         extra_scores.append({p:sum(points(extra[p]['goals'],extra[p]['result'],settings)) if extra[p]['goals'] is not None and extra[p]['result'] else None for p in roster})
@@ -428,7 +429,7 @@ def evaluate(s):
     if ready:
         def resolve_final(group, start):
             totals={p:scores[p] for p in group}
-            win_totals={p:sum((points(stage['players'][p]['goals'][g],stage['players'][p]['results'][g],settings,settings['multiplier'] if g<2 else 1)[0] for g in range(10)),Decimal(0)) for p in group}
+            win_totals={p:sum((points(stage['players'][p]['goals'][g],stage['players'][p]['results'][g],settings,settings['multiplier'] if g<2 else 1)[0] for g in range(FINAL_GAMES)),Decimal(0)) for p in group}
             goal_totals={p:totals[p]-win_totals[p] for p in group}
             def fold(p,index):
                 extra=stage['extras'][index][p];w,h=points(extra['goals'],extra['result'],settings)

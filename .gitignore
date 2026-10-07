@@ -1,7 +1,0 @@
-__pycache__/
-*.pyc
-.venv/
-tournament.json
-tournament.tmp
-*-backup.json
-.DS_Store

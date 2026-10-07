@@ -32,7 +32,7 @@ class Regressions(unittest.TestCase):
         for p in ['p1','p2']:
             self.assertEqual(rows[p]['status'],TIE);self.assertIsNone(rows[p]['prize'])
         p1=rows['p1']
-        self.assertEqual((p1['goals'],p1['played'],p1['wins']),(12,11,11))
+        self.assertEqual((p1['goals'],p1['played'],p1['wins']),(10,9,9))
         self.assertEqual(p1['total'],p1['win_points']+p1['goal_points'])
         e['p2']={'goals':0,'result':''}
         self.assertFalse(evaluate(s)['final']['complete'])
@@ -56,8 +56,8 @@ class Regressions(unittest.TestCase):
         s['final']['extras']=[extra({'p1':1,'p2':0,'p3':0}),extra({'p2':3,'p3':1})]
         v=evaluate(s)['final'];rows={r['id']:r for r in v['rows']}
         self.assertTrue(v['complete'])
-        self.assertEqual((rows['p1']['rank'],rows['p1']['prize'],rows['p1']['played']),(1,18,11))
-        self.assertEqual((rows['p2']['rank'],rows['p2']['prize'],rows['p2']['played']),(2,8,12))
+        self.assertEqual((rows['p1']['rank'],rows['p1']['prize'],rows['p1']['played']),(1,18,9))
+        self.assertEqual((rows['p2']['rank'],rows['p2']['prize'],rows['p2']['played']),(2,8,10))
         for row in v['rows']:self.assertEqual(row['total'],row['win_points']+row['goal_points'])
 
     def test_startup_persists_new_and_migrated_lineups(self):
