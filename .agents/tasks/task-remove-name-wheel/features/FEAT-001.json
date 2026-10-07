@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Establish and record the green baseline before any edits, on branch feat/remove-name-wheel. Confirms the exact test counts and the live-probe procedure so later regressions are detectable. No source changes.",
+  "status": "completed",
+  "steps": [
+    "Confirm current branch is feat/remove-name-wheel (git branch --show-current). Do not create or switch branches; it already exists off main.",
+    "Run: python3 -m unittest discover -s tests  and record the result (expect OK, 44 tests).",
+    "Run: node tests/test_ui.cjs  and record exit code (expect 0) and the final pass lines.",
+    "Run: node --check static/app.js  and confirm no syntax error.",
+    "Write a small live-probe script FILE at /projects/sandbox/probe_wheel.sh that: starts `python3 app.py --no-browser --port 8799 --data /tmp/wheel_probe.json` in the background from the repo root, waits for readiness, curls / and /app.js, then kills the server. Run it once (single bash invocation) and confirm the app serves. Note: the port/host flags must live inside this script file, not in a direct command string, because of the server-start guard; and the whole start+curl+kill must happen in one bash invocation because each call gets a fresh PID namespace.",
+    "Record all observed counts/outputs in this feature's findings."
+  ],
+  "acceptance_criteria": [
+    "python3 -m unittest discover -s tests reports OK with 44 tests before any code change.",
+    "node tests/test_ui.cjs exits 0 before any code change.",
+    "node --check static/app.js passes.",
+    "The live probe script starts the app, serves / and /app.js, and shuts down cleanly in a single invocation."
+  ],
+  "verification": [
+    "python3 -m unittest discover -s tests",
+    "node tests/test_ui.cjs; echo exit=$?",
+    "node --check static/app.js",
+    "bash /projects/sandbox/probe_wheel.sh"
+  ],
+  "blocked_reason": null,
+  "findings": "Green baseline established on branch feat/remove-name-wheel (HEAD ec1b309). (1) python3 -m unittest discover -s tests => 'Ran 44 tests in ~1.7s' + 'OK', exit 0. (2) node tests/test_ui.cjs => exit 0; final pass lines included 'Round 2 UI: ... passed.', 'FEAT-003 UI: ... passed.', 'Easier-controls UI: ... passed.', 'Settings clear controls: ... passed.', 'To Live per-game clear control: ... passed.', 'Extra-games delete controls: ... passed.'. (3) node --check static/app.js => no output, exit 0 (prints 'app.js OK' guard). (4) Live probe: created /projects/sandbox/probe_wheel.sh (port/host flags inside the file; start+curl+kill in one bash invocation). Ran once -> 'SERVER READY', 'GET / -> 200', 'GET /app.js -> 200', 'PROBE OK', script exit 0. No source files changed; git status shows only the untracked .agents task-state dir."
+}
