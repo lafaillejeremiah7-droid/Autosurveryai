@@ -69,6 +69,15 @@ Previously entered eight-match Round 2 scores keep their original schedule when 
 
 Yellow controls are editable. Gray cells are calculated. Advance is green, cut is red, and relevant ties display **TIE - EXTRA GAMES NEEDED**. Rankings during incomplete rounds are provisional; nobody advances until the round is complete.
 
+### Per-match submit, standings popup, and final fullscreen
+
+Each round has a per-match **Submit Match N of X** control: To Live has five games, To Die has eight matches, and Rebirth has ten games. The control stays disabled until that match is ready (every active player in it has a score, including explicit zeroes) and the stage is not stale.
+
+- **Submitting a non-final match** opens a dismissible popup with the cumulative round standings through that match. It lists each player's rank, name, running total, average, and provisional status. The totals and averages are summed over the matches played so far, not just the one match you submitted. Close the popup to continue to the next match.
+- **Submitting the final match** of a round opens a fullscreen total round ranking for all players, with totals, averages, and an **ADVANCE**, **CUT**, or **TIE** badge each. When no tie exists the fullscreen reports that the round is settled. When a tie sits across the cut line, the fullscreen states that extra games are needed and hosts the **Add extra game** controls directly. As you enter and save extra scores the fullscreen recomputes live and flips **TIE** to **ADVANCE** or **CUT** as the bubble resolves; if players stay tied it asks for another extra game. Close the fullscreen to return to the dashboard.
+
+To Die keeps its existing **Match N of 8 done** server flow, which also advances the sit-out draw, and then shows the same popup or fullscreen. To Live and Rebirth use client-side submit controls that read the already-entered per-game scores, so no extra server round-trip is needed to show their standings.
+
 Normal final points = **1.5 × goals + 1 for a win**. Games 1–2 double the entire score. Rotation balances match counts, but double games mean weighted exposure is not identical. Set the multiplier to 1 before play if all matches should have equal weight.
 
 
@@ -89,9 +98,19 @@ Slots 1–8 are randomly assigned once when the first sit-out draw starts. The t
 
 ## Extra games
 
-Click **Add extra game** after regulation play for tied cut or podium groups. Enter a score for every player in that tied group. For a final extra game, enter both goals and W/L; it uses normal scoring without the games 1–2 multiplier.
+Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 4th and 5th within one team in To Live, the cluster straddling 6th and 7th in To Die, and the tied podium group in Rebirth. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
 
-If players remain tied, add another extra game and score only the remaining tied subgroup. Extra games are compared in sequence, so an already resolved place is preserved. Regulation totals and averages do not change. Up to 50 extra games per stage are supported.
+Click **Add extra game** after regulation play for the tied group. Enter a score for every player in that tied group. For a final extra game, enter both goals and W/L; it uses normal scoring without the games 1–2 multiplier.
+
+Extra-game goals fold into the tied players' numbers rather than acting as a separate tiebreak. For each bubble player the average recomputes with the exact formula:
+
+```
+average = (regulation goals + extra goals) / (regulation matches + extra matches)
+```
+
+So a player's displayed total and average visibly change as extra scores are entered. Re-ranking is contained to the tied bubble, which means a cut or tied player can overtake a tied-advancing player and take their spot, while players who were never in the tie keep their ranks. The Rebirth final folds the same way on points instead of goals: each extra game's points are scored normally, without the games 1–2 multiplier, and added to the bubble players' totals.
+
+If players remain tied after an extra game, add another extra game and score only the remaining tied subgroup; already resolved places are preserved. The fullscreen total ranking recomputes live as extra scores are saved and flips **TIE** to **ADVANCE** or **CUT** as the bubble resolves. Up to 50 extra games per stage are supported.
 
 ## Saving and recovery
 
