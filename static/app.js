@@ -427,6 +427,7 @@ async function openScreen(key,source){
   lastMonitor=key==='sitout'?'round2':key;
   if(!already){
    document.body.classList.add('entering-room');
+   $('#walkway-view')?.scrollIntoView?.({block:'center',behavior:'instant'});
    await window.CityWorld?.enterRoom(lastMonitor);
    dialog.showModal();document.body.classList.add('inside-room');
   }
@@ -521,6 +522,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.step){const current=value(b.dataset.target);if(!enterGoal(b.dataset.target,Math.max(0,(current??0)+Number(b.dataset.step))))return;refreshGoalControls();changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
+ if(['street-home','visit-towers','visit-podium'].includes(action)){if(roomTransition||cutsceneActive)return;await flush();roomTransition=true;try{$('#walkway-view')?.scrollIntoView?.({block:'center',behavior:'instant'});if(action==='street-home')await window.CityWorld?.home();else await window.CityWorld?.visit(action==='visit-towers'?'towers':'podium');}finally{roomTransition=false;}return;}
  if(action==='clear-start'){await flush();doDestructive('Undo: Clear countdown',()=>{state.settings.start_at='';state.settings.disaster_started_at='';countdownDraft=null;});await save();return;}
  if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}
  if(action==='r2-start'){await progressRound2('start');return;}
@@ -808,3 +810,5 @@ function playCutscene(names,roundLabel=''){
 }
 
 fetch('/api/state').then(r=>r.json()).then(data=>{({state,view,revision,token}=data);round2Game=Math.min(view.round2.draw.completed,7);render();$('#save-status').textContent='All changes saved';startWorldBlasts();}).catch(e=>error('Cannot reach the Python app. '+e.message));
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!cutsceneActive&&!roomTransition&&!$('#screen-dialog').open&&!$('#result-dialog').open){window.CityWorld?.home();}});

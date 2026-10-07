@@ -113,3 +113,16 @@ body{position:relative;min-height:100svh;background:#132d42}
 .city-room.sealed:hover .room-label{background:#05080bf5;border-color:#30363c}
 #nav button:disabled,.round-path button:disabled{background:#080c10;color:#737d87;cursor:not-allowed;opacity:.7}
 @media(max-width:700px){.survival-route{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.survival-route:before{display:none}}
+#walkway-view{position:relative;height:720px;overflow:hidden;margin-top:18px;border:1px solid #9ed6e333;background:#06131c}
+#walkway-view .city-world{position:absolute;inset:0;min-height:0}
+#door-labels{position:absolute;inset:0;pointer-events:none;z-index:4}
+.door-marker{position:absolute;transform:translate(-50%,-100%);padding:7px 10px;background:#071c2bea;border:1px solid #91dccc;color:#ddf7ee;font:10px monospace;letter-spacing:.5px;white-space:nowrap;text-shadow:0 1px 5px #000}
+.door-marker.locked{border-color:#444b52;color:#808891;background:#05080bf0}
+.walkway-caption{position:absolute;left:18px;bottom:14px;right:18px;display:flex;justify-content:space-between;color:#b9d2d5;font:9px monospace;letter-spacing:1px;pointer-events:none;z-index:5}
+.street-controls{display:flex;gap:10px;align-items:center;margin:10px 0 18px;color:#91adb4;font:10px monospace;letter-spacing:.6px}
+.street-controls button{padding:8px 12px;background:#092131dd;border:1px solid #658692;color:#d2e7e9;cursor:pointer}
+@media(max-width:599px){#walkway-view{height:620px}.walkway-caption{font-size:7px}.street-controls{flex-wrap:wrap}.street-controls span{width:100%}}
+/* First-person mode keeps room controls in a normal card row below the street; the
+   actual door markers are projected inside the 3D walkway. */
+#monitors{position:relative;z-index:8;display:grid}
+#monitors .city-room{position:relative!important;left:auto!important;top:auto!important;transform:none!important;z-index:9}
