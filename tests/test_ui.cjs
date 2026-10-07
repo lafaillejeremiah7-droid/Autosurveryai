@@ -151,4 +151,91 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  const p8=folded.view.round2.rows.find(r=>r.id==='p8');assert.equal(p8.goals,23);  // Folded total used by the view.
  assert(resultEl.innerHTML.includes('>23<'),'folded total goals (23) render in the fullscreen');
  console.log('FEAT-003 UI: per-match submit controls on all stages, cumulative popup, final fullscreen with ADVANCE/CUT/TIE and the live extra-game fold passed.');
+
+ // ---- Easier-controls: clear-round controls, extended cascade, self-explaining
+ //      disabled buttons, next-step guide, and one-level undo (FEAT-002 behaviour) ----
+ vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
+ // (A) CLEAR-ROUND CONTROL ON EVERY STAGE with the correct cascade copy + data-stage.
+ const liveClear=vm.runInContext("round1Game=0;round('round1')",context);
+ assert(liveClear.includes('data-action="clear-round" data-stage="round1"'),'To Live renders the clear-round control for round1');
+ assert(liveClear.includes('Clear To Live (also clears To Die &amp; Rebirth)'),'To Live clear copy names To Die and Rebirth');
+ assert(/clears To Live and every later round/i.test(liveClear),'To Live clear panel explains the full cascade');
+ const dieClear=vm.runInContext('round2Page()',context);
+ assert(dieClear.includes('data-action="clear-round" data-stage="round2"'),'To Die renders the clear-round control for round2');
+ assert(dieClear.includes('Clear To Die (also clears Rebirth)'),'To Die clear copy names Rebirth');
+ const rebirthClear=vm.runInContext('finalGame=0;finalPage()',context);
+ assert(rebirthClear.includes('data-action="clear-round" data-stage="final"'),'Rebirth renders the clear-round control for final');
+ assert(/>Clear Rebirth</.test(rebirthClear),'Rebirth clear copy is Clear Rebirth');
+ assert(/clears Rebirth only/i.test(rebirthClear),'Rebirth clear panel states it clears only Rebirth');
+ // (B) EXTENDED ROUND1 CASCADE: resetStage('round1') clears round1 + round2 + final
+ //     goals while array lengths stay 5/8/10, lineups cleared, round2 draw reset.
+ vm.runInContext('state=fixture.state;',context);
+ assert.equal(vm.runInContext('state.round1.players.p1.goals[0]',context),6);  // Sanity: scores present before.
+ vm.runInContext("resetStage('round1')",context);
+ assert.equal(vm.runInContext('state.round1.players.p1.goals.length',context),5,'round1 keeps 5 slots');
+ assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),8,'round2 keeps 8 slots');
+ assert.equal(vm.runInContext('state.final.players.p1.goals.length',context),10,'final keeps 10 slots');
+ assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'round1 goals all cleared');
+ assert(vm.runInContext('Object.values(state.round2.players).every(d=>d.goals.every(x=>x===null))',context),'round2 goals all cleared');
+ assert(vm.runInContext('Object.values(state.final.players).every(d=>d.goals.every(x=>x===null)&&d.results.every(r=>r===""))',context),'final goals and results all cleared');
+ assert.equal(vm.runInContext('state.round1.lineups.length',context),0,'round1 lineups cleared');
+ assert.equal(vm.runInContext('state.round2.draw.revealed',context),0,'round2 draw reset');
+ assert.equal(vm.runInContext('state.round2.draw.order.length',context),0,'round2 draw order cleared');
+ // (C) DISABLED BUTTON SHOWS A REASON: a not-ready To Live submit renders disabled
+ //     AND carries an adjacent human-readable reason string.
+ vm.runInContext('state=fixture.state;view=JSON.parse(JSON.stringify(fixture.view));view.round1.games[0].ready=false;',context);
+ const disabledHTML=vm.runInContext("round1Game=0;round('round1')",context);
+ assert(/data-match="0" disabled/.test(disabledHTML),'the not-ready submit control carries the disabled attribute');
+ assert(disabledHTML.includes('class="hint reason"'),'a .hint.reason sits adjacent to the disabled control');
+ assert(disabledHTML.includes('Enter a score for every player in Game 1 first.'),'the reason explains why submit is disabled');
+ vm.runInContext('view=fixture.view;',context);
+ // (D) NEXT-STEP GUIDE reflects `next` for two different states.
+ const settingsNext=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from engine import new_state,evaluate;s=new_state();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(settingsNext.state)};view=${JSON.stringify(settingsNext.view)};tab='overview';`,context);
+ const ovSettings=vm.runInContext('overview()',context);
+ assert(ovSettings.includes('WHAT TO DO NEXT'),'overview shows the next-step banner');
+ assert(ovSettings.includes('data-tab="settings"'),'next-step button targets settings when names are missing');
+ assert(ovSettings.includes('enter 10 unique player names'),'next-step wording names the settings action');
+ const r2Next=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();\nfor p in list(s['round2']['players']):s['round2']['players'][p]['goals']=[None]*8\nfor p in list(s['final']['players']):\n s['final']['players'][p]['goals']=[None]*10\n s['final']['players'][p]['results']=['']*10\nprint(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+ assert.equal(r2Next.view.names_ok,true);assert.equal(r2Next.view.round1.complete,true);assert.equal(r2Next.view.round2.complete,false);
+ vm.runInContext(`state=${JSON.stringify(r2Next.state)};view=${JSON.stringify(r2Next.view)};tab='overview';`,context);
+ const ovR2=vm.runInContext('overview()',context);
+ assert(ovR2.includes('WHAT TO DO NEXT'),'overview shows the next-step banner for round2');
+ assert(/data-tab="round2">Open To Die/.test(ovR2),'next-step button targets To Die when round2 is the next step');
+ assert(!/data-tab="settings"/.test(ovR2.split('round-path')[0]),'the next-step banner does not point at settings once names are set');
+ // (E) UNDO FLOW: a destructive clear-round sets a snapshot and changes state; undo
+ //     restores the exact prior state and clears the snapshot. performUndo persists via
+ //     a direct PUT /api/state {restore:true}; stub fetch to echo the restored payload.
+ // Build a pristine fixture: earlier sections mutated fixture.state in place (resetStage).
+ const undoFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(undoFix.state)};view=${JSON.stringify(undoFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};`,context);
+ vm.runInContext('token="T";revision=1;undoSnapshot=null;',context);
+ const priorState=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(priorState.round1.players.p1.goals[0],6,'pristine fixture has To Live scores before the destructive action');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'no undo snapshot before any destructive action');
+ await click({action:'clear-round',stage:'round1'});
+ assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-round sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear To Live','the snapshot carries a human label');
+ assert.equal(vm.runInContext('undoSnapshot.state.round1.players.p1.goals[0]',context),6,'the snapshot preserved the pre-clear scores');
+ assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'clear-round mutated state (round1 cleared)');
+ const changed=vm.runInContext('JSON.stringify(state)',context);
+ assert.notEqual(changed,JSON.stringify(priorState),'state changed after the destructive action');
+ // Stub fetch so performUndo's PUT echoes back the restored (prior) state.
+ let undoPut=null;
+ context.fetch=async(url,options)=>{
+  assert.equal(url,'/api/state','undo persists through PUT /api/state');
+  const body=JSON.parse(options.body);undoPut=body;
+  assert.equal(body.restore,true,'undo PUT sets restore:true to bypass the draw guard');
+  // Echo the restored state back, mirroring the server's /api/state response shape.
+  return {ok:true,json:async()=>({state:body.state,view:undoFix.view,revision:(body.revision||1)+1})};
+ };
+ await click({action:'undo'});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),priorState,'undo restored the exact prior state');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the one-level snapshot');
+ assert(undoPut&&undoPut.restore===true,'the undo PUT carried restore:true');
+ context.fetch=()=>new Promise(()=>{});
+ console.log('Easier-controls UI: per-stage clear-round controls, extended round1 cascade, disabled-reason hint, next-step guide for two states, and one-level undo passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
