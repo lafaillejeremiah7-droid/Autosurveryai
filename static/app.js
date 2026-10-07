@@ -189,6 +189,7 @@ function renderResult(){
  restoreInputFocus('#result-content',focus);
 }
 async function openMatchResult(key,match){
+ if(cutsceneActive)return;
  const v=view[key],meta=stageMeta[key];
  if(v.stale||!v.games[match]||!v.games[match].ready){error(v.stale?'Clear this round first — its player roster changed.':`Finish entering match ${match+1} scores and results first.`);return;}
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
@@ -197,7 +198,7 @@ async function openMatchResult(key,match){
  // An unresolved tie (v.complete false) falls through to the normal extra-game fullscreen.
  if(resultFinal&&v.complete){
   const names=eliminatedNames(key);
-  if(names.length)await playCutscene(names);
+  if(names.length)await playCutscene(names,meta.label);
  }
  const dialog=$('#result-dialog');
  dialog.classList.toggle('fullscreen',resultFinal);
@@ -389,8 +390,13 @@ async function save(){
  clearTimeout(timer);if(saving)return saveTask;if(!dirty)return;
  saving=true;dirty=false;const seq=editVersion;$('#save-status').textContent='Saving…';
  saveTask=(async()=>{
-  try{const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state,revision})});const data=await res.json();if(!res.ok)throw new Error(data.error);saveFailed=false;revision=data.revision;view=data.view;
+  try{const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state,revision})});const data=await res.json();if(!res.ok)throw new Error(data.error);
+   // Extra games may settle a submitted round after its last scheduled match.
+   // Trigger only on that round's incomplete -> complete save, never on unrelated edits.
+   const settledStage=seq===editVersion&&$('#result-dialog').open&&resultFinal&&resultStage&&!view[resultStage].complete&&data.view[resultStage].complete?resultStage:null;
+   saveFailed=false;revision=data.revision;view=data.view;
    if(seq===editVersion){state=data.state;render();renderResult();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
+   if(settledStage&&!cutsceneActive)playCutscene(eliminatedNames(settledStage),stageMeta[settledStage].label);
   }catch(e){saveFailed=true;dirty=true;error(e.message);$('#save-status').textContent='Not saved';$('#retry-save').hidden=false;}
   finally{saving=false;}
  })();await saveTask;if(dirty&&!saveFailed)return save();
@@ -469,6 +475,7 @@ $('#retry-save').onclick=()=>save();
 // FEAT-003: Skip button and click-anywhere both route through the single endCutscene path.
 $('#cutscene-skip').onclick=e=>{e.stopPropagation();endCutscene();};
 $('#cutscene').onclick=()=>endCutscene();
+$('#cutscene').addEventListener('cancel',e=>{e.preventDefault();endCutscene();});
 $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
 $('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
@@ -624,25 +631,28 @@ function endCutscene(){
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
  const overlay=$('#cutscene');
- if(overlay){overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open');}
+ if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open');}
  cutsceneActive=false;
+ startWorldBlasts();
  const r=cutsceneResolve;cutsceneResolve=null;if(r)r();
 }
 // Play the cutscene for `names`; resolves when it ends (naturally or via skip). If there
 // is nothing to show, resolves immediately so standings appear directly.
-function playCutscene(names){
+function playCutscene(names,roundLabel=''){
  return new Promise(resolve=>{
-  if(!names||!names.length){resolve();return;}
+  if(cutsceneActive||!names||!names.length){resolve();return;}
   const overlay=$('#cutscene');if(!overlay){resolve();return;}
   cutsceneResolve=resolve;cutsceneActive=true;
   // Suppress the ambient world shake/blasts while the cutscene runs (FEAT-002 guard
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
   buildCutscene(names);
+  $('#cutscene-label').textContent=roundLabel?roundLabel+' — Into the furnace':'Into the furnace';
   overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
+  // Native top layer keeps the cutscene above both scoring and tie-result dialogs.
+  overlay.showModal();
   if(overlay.focus)overlay.focus({preventScroll:true});
-  // Esc dismisses; capture phase so it fires before the dialogs' own cancel handlers
-  // (the overlay is not a <dialog>, so it would otherwise fall through to #result-dialog).
+  // Capture Esc so skipping does not also close the scoring/results window underneath.
   cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();endCutscene();}};
   if(document.addEventListener)document.addEventListener('keydown',cutsceneKeyHandler,true);
   if(reducedMotion()){
