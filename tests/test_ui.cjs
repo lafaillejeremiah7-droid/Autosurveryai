@@ -8,7 +8,7 @@ const root=path.resolve(__dirname,'..');
 const payload=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
 const elements={},events={};
-const element=()=>({dataset:{},scrollTop:0,innerHTML:'',textContent:'',addEventListener(){},focus(){},appendChild(e){e.parentElement=this;}});
+const element=()=>({dataset:{},scrollTop:0,innerHTML:'',textContent:'',open:false,classList:{toggle(){},remove(){},add(){}},addEventListener(){},focus(){},appendChild(e){e.parentElement=this;},showModal(){this.open=true;},close(){this.open=false;},animate(){return {finished:Promise.resolve()};},querySelector(){return null;}});
 const document={querySelector:s=>elements[s]??=(element()),querySelectorAll:()=>[],addEventListener:(type,fn)=>events[type]=fn,body:element()};
 const context={document,window:{addEventListener(){},matchMedia:()=>({matches:true})},fetch:()=>new Promise(()=>{}),setTimeout:()=>1,clearTimeout(){},setInterval(){},console,fixture:payload,confirm:()=>true};
 vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'static/app.js'),'utf8'),context);
@@ -88,4 +88,58 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert(/unique player names/.test(vm.runInContext("wheelLast.note",context)));  // Operator gets feedback.
  console.log('Round 1 UI: single Name wheel auto-assigns the landed player, no separate wheel/tab, reset reachable, non-roster names skip assignment, incomplete-names landing shows a note.');
  console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
+
+ // ---- FEAT-003: per-match submit control, cumulative popup, final fullscreen + extra-game fold ----
+ // (1) To Live and Rebirth each render a 'Submit Match N of X' control.
+ vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
+ const liveHTML=vm.runInContext("round1Game=0;round('round1')",context);
+ assert(liveHTML.includes('Submit Match 1 of 5'),'To Live shows a per-match submit control');
+ assert(liveHTML.includes('data-action="submit-match" data-stage="round1" data-match="0"'));
+ assert((liveHTML.match(/data-r1-game=/g)||[]).length===5,'To Live has a 5-match selector');
+ const rebirthHTML=vm.runInContext('finalGame=0;finalPage()',context);
+ assert(rebirthHTML.includes('Submit Match 1 of 10'),'Rebirth shows a per-match submit control');
+ assert(rebirthHTML.includes('data-action="submit-match" data-stage="final" data-match="0"'));
+ // (1b) The submit control is DISABLED until that match's view games[N].ready is true.
+ vm.runInContext('view=JSON.parse(JSON.stringify(fixture.view));view.round1.games[0].ready=false;',context);
+ const notReady=vm.runInContext("round1Game=0;round('round1')",context);
+ assert(/data-match="0" disabled/.test(notReady),'Submit is disabled while the match is not ready');
+ vm.runInContext('view=fixture.view;',context);
+ // (2) Submitting a NON-final match opens the popup with cumulative standings through that match.
+ const resultEl=context.document.querySelector('#result-content');
+ await click({action:'submit-match',stage:'round1',match:'0'});
+ assert(vm.runInContext('resultStage',context)==='round1');
+ assert(vm.runInContext('resultFinal',context)===false,'match 0 of 5 is not the final match');
+ assert(resultEl.innerHTML.includes('Match 1 of 5 standings'),'popup names the match');
+ assert(resultEl.innerHTML.includes('Standings so far'));
+ assert(resultEl.innerHTML.includes('RANK')&&resultEl.innerHTML.includes('TOTAL GOALS'),'popup shows cumulative columns');
+ for(const r of payload.view.round1.rows)assert(resultEl.innerHTML.includes(r.name),'popup lists every player name');
+ await click({action:'close-result'});
+ assert.equal(vm.runInContext('resultStage',context),null,'close-result dismisses the popup');
+ // (3) Submitting the LAST match (match 5 of To Live, index 4) opens the fullscreen total ranking.
+ await click({action:'submit-match',stage:'round1',match:'4'});
+ assert(vm.runInContext('resultFinal',context)===true,'last match opens the fullscreen');
+ assert(resultEl.innerHTML.includes('total round ranking'));
+ assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'fullscreen shows ADVANCE/CUT badges');
+ assert(resultEl.innerHTML.includes('ROUND SETTLED'),'a complete round reports no extra games needed');
+ await click({action:'close-result'});
+ // (4) With a TIE, the fullscreen offers the add-extra-game control and folds live after an extra score.
+ const tie=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();d=s['round2']['players']['p4'];d['goals']=[3 if n is not None else None for n in d['goals']];print(json.dumps({'state':s,'view':evaluate(s),'revision':9}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(tie.state)};view=${JSON.stringify(tie.view)};revision=9;`,context);
+ assert(tie.view.round2.rows.some(r=>r.status&&r.status.startsWith('TIE')),'tie fixture has a TIE row');
+ await click({action:'submit-match',stage:'round2',match:'7'});
+ assert(vm.runInContext('resultFinal',context)===true,'round2 last match opens the fullscreen');
+ assert(resultEl.innerHTML.includes('EXTRA GAMES NEEDED'),'fullscreen announces extra games are needed');
+ assert(/TIE/.test(resultEl.innerHTML),'fullscreen shows the TIE badge');
+ assert(resultEl.innerHTML.includes('data-action="extra" data-stage="round2"'),'fullscreen embeds the add-extra control');
+ // Apply a resolving extra game (p8 outscores p4) and re-render: TIE flips, folded totals update.
+ const folded=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import IDS,evaluate;s=fixture();d=s['round2']['players']['p4'];d['goals']=[3 if n is not None else None for n in d['goals']];e=dict.fromkeys(IDS);e['p8']=5;e['p4']=1;s['round2']['extras']=[e];print(json.dumps({'state':s,'view':evaluate(s),'revision':10}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(folded.state)};view=${JSON.stringify(folded.view)};revision=10;`,context);
+ vm.runInContext('renderResult()',context);
+ assert(resultEl.innerHTML.includes('ROUND SETTLED'),'after folding the round settles');
+ assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'folded fullscreen shows ADVANCE/CUT');
+ const p8=folded.view.round2.rows.find(r=>r.id==='p8');assert.equal(p8.goals,23);  // Folded total used by the view.
+ assert(resultEl.innerHTML.includes('>23<'),'folded total goals (23) render in the fullscreen');
+ console.log('FEAT-003 UI: per-match submit controls on all stages, cumulative popup, final fullscreen with ADVANCE/CUT/TIE and the live extra-game fold passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

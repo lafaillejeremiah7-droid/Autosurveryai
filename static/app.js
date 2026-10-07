@@ -1,7 +1,8 @@
 'use strict';
 let state,view,revision,token,tab='wheel',timer,dirty=false,saving=false,editVersion=0,saveFailed=false;
 let wheelMode='free',sitoutBusy=false,sitoutAnimating=false;
-let finalGame=0,round2Game=0,wheelAngle=0,spinning=false,wheelLast=null,lastMonitor=null,saveTask=null;
+let finalGame=0,round2Game=0,round1Game=0,wheelAngle=0,spinning=false,wheelLast=null,lastMonitor=null,saveTask=null;
+let resultStage=null,resultMatch=null,resultFinal=false;
 const ids=Array.from({length:10},(_,i)=>`p${i+1}`);
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -51,6 +52,87 @@ function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return
  stage.extras.forEach((extra,i)=>{html+=`<h3>Extra game ${i+1}</h3><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
  return panel('Extra games',html,`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>`);
 }
+// Per-match submit + popup/fullscreen. Submitting a non-final match shows cumulative
+// round standings THROUGH that match (computed client-side); submitting the last match
+// shows the fullscreen total round ranking with ADVANCE/CUT/TIE and the add-extra flow.
+const stageMeta={round1:{count:5,label:'To Live'},round2:{count:8,label:'To Die'},final:{count:10,label:'Rebirth'}};
+// Cumulative standings through match index n (0-based) for a stage, computed from the
+// per-game data already in state so no server round-trip is needed. round1/round2 use
+// goals + average over games 0..n; the final sums per-game points via view game_points.
+function cumulativeStandings(key,n){
+ const v=view[key];
+ if(key==='final'){
+  const rows=v.rows.map(r=>{
+   let total=0,played=0;
+   for(let g=0;g<=n;g++){const pts=r.game_points[g];if(pts!==null&&pts!==undefined){total+=pts;played++;}}
+   return {id:r.id,name:r.name,total,average:played?total/played:0,played};
+  });
+  rows.sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
+  return rows.map((r,i)=>({rank:i+1,name:r.name,total:r.total,average:r.average,status:r.played?'PLAYED':'PENDING'}));
+ }
+ const schedule=v.schedule||v.games.map((_,g)=>({A:ids,B:[],sit:[]}));
+ const rows=v.rows.map(r=>{
+  const d=state[key].players[r.id];let total=0,played=0;
+  for(let g=0;g<=n;g++){
+   if(schedule[g]&&schedule[g].sit&&schedule[g].sit.includes(r.id))continue;
+   const val=d.goals[g];if(val!==null&&val!==undefined){total+=val;played++;}
+  }
+  return {id:r.id,name:r.name,total,average:played?total/played:0,played};
+ });
+ rows.sort((a,b)=>b.average-a.average||b.total-a.total||a.name.localeCompare(b.name));
+ return rows.map((r,i)=>({rank:i+1,name:r.name,total:r.total,average:r.average,status:r.played?'PLAYED':'PENDING'}));
+}
+// The accent 'Submit Match N of X' panel for To Live and Rebirth (mirrors To Die's
+// .match-completion look). Disabled until that match's view games[match].ready is true
+// and the stage is not stale. Client-side: validates readiness then opens the popup.
+function matchSubmit(key,match){
+ const v=view[key],meta=stageMeta[key],last=match===meta.count-1;
+ const ready=v.games[match]&&v.games[match].ready,allReady=v.games.every(g=>g.ready);
+ const sub=last?(allReady?'Submit the final match to see the full round ranking and resolve any ties.':'Finish every match, then submit to see the round ranking.'):'Submit to see the cumulative round standings so far.';
+ return `<div class="panel match-completion"><div><h2>Match ${match+1} of ${meta.count}</h2><p>${sub}</p></div><button class="accent" data-action="submit-match" data-stage="${key}" data-match="${match}" ${v.stale||!ready||(last&&!allReady)?'disabled':''}>${last?`Submit Match ${match+1} of ${meta.count} — show round ranking`:`Submit Match ${match+1} of ${meta.count}`}</button></div>`;
+}
+function resultPopup(key,match){
+ const meta=stageMeta[key],rows=cumulativeStandings(key,match);
+ const avgHead=key==='final'?'AVG PTS':'AVG / MATCH';
+ const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead],rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${fmt(r.average)}</td></tr>`));
+ return `<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / CUMULATIVE</div><h1 id="result-title">Match ${match+1} of ${meta.count} standings</h1><p>Cumulative round standings through match ${match+1}. Provisional only — the full round ranking appears after the last match.</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>${panel('Standings so far',body)}`;
+}
+function resultFullscreen(key){
+ const v=view[key],meta=stageMeta[key];
+ const tied=v.rows.some(r=>r.status&&r.status.startsWith('TIE'));
+ const avgHead=key==='final'?'AVG PTS':'AVG / MATCH';
+ const rowsSorted=[...v.rows].sort((a,b)=>(a.rank||99)-(b.rank||99));
+ const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead,'STATUS'],rowsSorted.map(r=>`<tr><td class="calc">${fmt(r.rank)}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total??r.goals)}</td><td class="calc">${fmt(r.average!==undefined?r.average:r.total)}</td><td>${badge(r.status)}</td></tr>`));
+ let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div><h1 id="result-title">${meta.label} — total round ranking</h1><p>${tied?'A tie sits across the cut line. Extra games are needed before this round can close.':'Round complete. No ties remain across the cut line.'}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
+ html+=`<div class="result-banner ${tied?'tie':'done'}">${tied?'⚠ EXTRA GAMES NEEDED — resolve the tied players below.':'✓ ROUND SETTLED — no extra games needed.'}</div>`;
+ html+=panel('Total round ranking',body);
+ if(tied)html+=extras(key);
+ return html;
+}
+function renderResult(){
+ const dialog=$('#result-dialog');if(!dialog.open)return;
+ const scrollTop=$('#result-content').scrollTop||0;
+ const openDetails=[...document.querySelectorAll('#result-content details')].map(d=>d.open);
+ const active=document.activeElement,path=active?.dataset.path,start=active?.selectionStart,end=active?.selectionEnd;
+ $('#result-content').innerHTML=resultFinal?resultFullscreen(resultStage):resultPopup(resultStage,resultMatch);
+ [...document.querySelectorAll('#result-content details')].forEach((e,i)=>e.open=openDetails[i]||false);
+ $('#result-content').scrollTop=scrollTop;
+ if(path){const el=[...document.querySelectorAll('#result-content [data-path]')].find(e=>e.dataset.path===path);if(el){el.focus({preventScroll:true});if(start!=null)try{el.setSelectionRange(start,end);}catch{}}}
+}
+async function openMatchResult(key,match){
+ const v=view[key],meta=stageMeta[key];
+ if(!v.games[match]||!v.games[match].ready){error(`Finish entering match ${match+1} scores first.`);return;}
+ resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
+ const dialog=$('#result-dialog');
+ dialog.classList.toggle('fullscreen',resultFinal);
+ if(!dialog.open)dialog.showModal();
+ renderResult();
+ if(!reducedMotion())dialog.animate([{opacity:0,transform:'scale(.97)'},{opacity:1,transform:'scale(1)'}],{duration:resultFinal?360:220,easing:'cubic-bezier(.2,.7,.2,1)'});
+ const first=$('#result-content').querySelector('.result-close');first?.focus({preventScroll:true});
+}
+function closeResult(){
+ const dialog=$('#result-dialog');resultStage=null;resultFinal=false;dialog.classList.remove('fullscreen');dialog.close();
+}
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
@@ -59,6 +141,9 @@ function round(key){
  const assignedCount=state.round1.assigned.length;
  html+=panel('Assign teams',`<p>Spin the main <b>Name wheel</b> to assign teams: whenever it lands on a tournament player who still has no team, that player instantly gets a random Team A or B (unbiased coin flip, capped at 5 per side so it ends 5 / 5). No extra click, no separate wheel. You can still override any team in the table below. “Reset spin” clears only the wheel-drawn teams; manual picks are kept.</p><div class="wheel-actions"><button data-tab="wheel">Open the Name wheel ↗</button><button class="danger" data-action="r1-reset" ${sitoutBusy||spinning||!state.round1.assigned.length?'disabled':''}>Reset spin</button></div><p class="hint">${assignedCount} player${assignedCount===1?'':'s'} assigned by the wheel so far.</p>`);
  html+=panel('Player scores',table(['PLAYER','TEAM',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','TEAM RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${select(`round1.players.${r.id}.team`,['A','B'],`${r.name} team`)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>5 players per team</small>`);
+ round1Game=Math.min(round1Game,4);
+ html+=`<div class="match-tabs" aria-label="To Live match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
+ html+=matchSubmit('round1',round1Game);
  return html+'<div class="notice">All ten players play every game. Enter 0 for a game played with no goals.</div>'+extras('round1');
 }
 function round2Page(){
@@ -94,6 +179,7 @@ function finalPage(){const v=view.final,g=finalGame;
  }
  html+='</div><p class="hint">Marking the winner adds one win to each teammate and records a loss for each opponent. Enter 0 for a played game with no goals. Win and goal points calculate as you enter either value. Played counts complete goal/result pairs; prizes wait for all ten games.</p>';
  html+=panel('Live standings',table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],v.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td><td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
+ html+=matchSubmit('final',g);
  html+=`<details><summary>View all ten team rotations</summary><p class="hint">Every pair are teammates four times and opponents six times. Slots and match order stay fixed. Double games still carry extra weight.</p>${table(['GAME','TEAM A','TEAM B','STATUS'],v.schedule.map(m=>`<tr><td>${m.game}${m.game<=2?' ×'+fmt(state.settings.multiplier):''}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${v.games[m.game-1].ready?'✓ COMPLETE':'PENDING'}</td></tr>`))}</details>`;
  html+=`<details><summary>View points per game</summary>${table(['PLAYER',...Array.from({length:10},(_,i)=>`G${i+1}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
  return html+extras('final');
@@ -250,8 +336,8 @@ async function closeScreen(){
  dialog.close();target?.focus({preventScroll:true});
 }
 function error(message){$('#error').hidden=!message;$('#error').textContent=message||'';
- // Native dialogs are in the top layer: put errors inside while one is open.
- const parent=$('#screen-dialog').open?$('.screen-shell'):document.body;if($('#error').parentElement!==parent)parent.appendChild($('#error'));
+ // Native dialogs are in the top layer: put errors inside the TOPMOST open one.
+ const parent=$('#result-dialog').open?$('#result-content'):$('#screen-dialog').open?$('.screen-shell'):document.body;if($('#error').parentElement!==parent)parent.appendChild($('#error'));
 }
 function changed(){dirty=true;saveFailed=false;editVersion++;$('#save-status').textContent='Unsaved changes…';clearTimeout(timer);timer=setTimeout(save,250);}
 async function save(){
@@ -259,7 +345,7 @@ async function save(){
  saving=true;dirty=false;const seq=editVersion;$('#save-status').textContent='Saving…';
  saveTask=(async()=>{
   try{const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state,revision})});const data=await res.json();if(!res.ok)throw new Error(data.error);revision=data.revision;view=data.view;
-   if(seq===editVersion){state=data.state;render();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
+   if(seq===editVersion){state=data.state;render();renderResult();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
   }catch(e){saveFailed=true;dirty=true;error(e.message);$('#save-status').textContent='Not saved';$('#retry-save').hidden=false;}
   finally{saving=false;}
  })();await saveTask;if(dirty&&!saveFailed)return save();
@@ -275,13 +361,16 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
  if(b.dataset.wheelMode){if(spinning||sitoutBusy)return;await flush();wheelMode=b.dataset.wheelMode;render();return;}
  if(b.dataset.r2Game!==undefined){if(sitoutBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
+ if(b.dataset.r1Game!==undefined){await flush();round1Game=Number(b.dataset.r1Game);render();return;}
  if(b.dataset.game!==undefined){await flush();finalGame=Number(b.dataset.game);render();return;}
  if(b.dataset.step){const current=value(b.dataset.target);setValue(b.dataset.target,Math.max(0,Math.min(100000,(current??0)+Number(b.dataset.step))));changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
  if(action==='r1-reset'){await resetRound1Spin();return;}
  if(action==='r2-start'){await progressRound2('start');return;}
- if(action==='r2-done'){await progressRound2('done',Number(b.dataset.match));return;}
+ if(action==='r2-done'){const match=Number(b.dataset.match);await progressRound2('done',match);if(view.round2.games[match-1]&&view.round2.games[match-1].ready)await openMatchResult('round2',match-1);return;}
+ if(action==='submit-match'){await flush();await openMatchResult(key,Number(b.dataset.match));return;}
+ if(action==='close-result'){closeResult();return;}
  if(action==='r2-wheel'){wheelMode='round2';await openScreen('wheel');return;}
  if(action==='r2-scores'){await openScreen('round2');return;}
  if(action==='csv'){await flush();window.location='/api/standings.csv';}
@@ -299,6 +388,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
+$('#result-dialog').addEventListener('cancel',e=>{e.preventDefault();closeResult();});
 $('#home-link').onclick=e=>{e.preventDefault();if($('#screen-dialog').open)closeScreen().catch(err=>error(err.message));};
 $('#retry-save').onclick=()=>save();
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
