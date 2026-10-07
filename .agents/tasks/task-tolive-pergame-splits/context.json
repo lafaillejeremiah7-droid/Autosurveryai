@@ -1,0 +1,24 @@
+{
+  "project_type": "Brawl Hockey local tournament dashboard: Python stdlib http.server backend + pure-Python rules engine + vanilla JS frontend (no framework, no third-party deps)",
+  "language": "Python 3 (3.9.25 in sandbox) and vanilla JavaScript (ES2020)",
+  "build_system": "None. No package manager, no build step. Run directly: python3 app.py serves http://127.0.0.1:8765 and static files from static/.",
+  "test_framework": "Python unittest (tests/test_tournament.py, 40 tests currently) + a Node VM harness (tests/test_ui.cjs) that runs static/app.js in a mocked DOM and shells out to python3 for fixtures. Node v22 available.",
+  "build_command": "No build. Syntax-check with: python3 -c 'import engine, app' and node --check static/app.js",
+  "test_command": "python3 -m unittest discover -s tests -v  AND  node tests/test_ui.cjs",
+  "verification_instructions": "1) python3 -m unittest discover -s tests -v (must stay green, currently 40 tests). 2) node tests/test_ui.cjs (must exit 0). 3) Live end-to-end probe: write a SINGLE shell script FILE under /projects/sandbox that starts `python3 app.py --no-browser --port <P> --data /tmp/t.json` in background, curls /api/state, drives To Live through the per-game splits + goals, inspects advancement, then kills the server. The probe MUST be one bash invocation running a script file, because each execute_bash call gets a fresh PID namespace that kills backgrounded servers, and a guard trips on literal port/host flags in the command string (keep those flags inside the script file).",
+  "snapshot_or_generated_files": "None checked in. tournament.json is runtime data and gitignored.",
+  "setup_instructions": "No setup. Python 3 and Node are preinstalled. git branch feat/per-match-ranking is checked out; add commits on top of it.",
+  "environment_constraints": "INTEGRATIONS_ONLY network assumed (no external packages needed anyway; project is stdlib-only). Do NOT push or open/merge PRs. Do NOT branch off main or start a fresh branch; commit onto feat/per-match-ranking so open PR #4 picks the commits up. Background servers die across separate bash calls, so live probes must be a single script-file invocation.",
+  "contribution_requirements": "No third-party dependencies ever. Schema version stays 4. validate()/migrate() must still load old v4 and migrated legacy saves. Keep backups loadable. Keep Decimal/Fraction exact math (no float-manufactured ties). Keep ALL Round 2/Rebirth and FEAT-003 per-match-ranking tests green.",
+  "key_patterns": "engine.py: blank_round(games) builds per-stage player dicts; round1_view/round2_view/evaluate compute views with rows/games/issues/ready/complete/survivors. order_groups() groups by exact score then folds extras lexicographically. rank_bubble() + resolve_average_bubble() + goal_fold() implement the boundary-bubble cut-line tie resolution (added by FEAT-002 on this branch) folding extra goals into total/average with Fraction. round2 stores a 'draw' with order/revealed/completed/mode and uses secrets.SystemRandom().shuffle; round2_draw_action guards against rerolling a scored draw. Frontend app.js is a single-file state-render loop; matchSubmit()/openMatchResult()/resultPopup()/resultFullscreen() implement FEAT-003 per-match submit UI; CSS classes .teams-grid/.team-score/.player-score/.match-tabs/.match-completion/.status/.advance/.cut/.tie/counter() exist already (used by round2Page/finalPage).",
+  "relevant_files": [
+    "engine.py (blank_round, new_state, migrate, validate, order_groups, goal_fold, rank_bubble, resolve_average_bubble, round1_view, round2_draw_action, round1_assign_action)",
+    "app.py (Store.save draw-guard pattern, do_PUT routes /api/state /api/round2-draw /api/round1-assign)",
+    "static/app.js (round() aka To Live page, round1MatchForName, resetRound1Spin, spinWheel To-Live auto-assign branch, matchSubmit/cumulativeStandings/resultPopup/resultFullscreen, resetStage, reset-all handler, wheel draw-help copy)",
+    "static/index.html, static/style.css (reuse .teams-grid/.team-score/.player-score/.match-tabs/.match-completion/.danger/.accent)",
+    "tests/test_tournament.py (fixture(), legacy_fixture(), class Round1Assign, test_incorrect_team_counts, test_full_tournament survivors expectations, HTTP.test_round1_assign_endpoint)",
+    "tests/test_ui.cjs (Round 1 single-wheel assertions to remove; To Live per-game lineup + submit assertions to add)",
+    "README.md (To Live teams-from-wheel section, Tournament flow step 2, Extra games section)"
+  ],
+  "directory_structure": "Repo root /projects/sandbox/Autosurveryai: engine.py (rules), app.py (server), static/{app.js,index.html,style.css} (frontend), tests/{test_tournament.py,test_ui.cjs}, README.md, tournament.json (runtime, gitignored), .agents/tasks/ (plans)."
+}

@@ -13,7 +13,7 @@ def blank_draw():
     return {'order':[], 'revealed':0, 'completed':0, 'mode':'random'}
 
 def blank_round(games=5):
-    return {'players': {p: {**({'team': ''} if games==5 else {}), 'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'assigned':[]} if games==5 else {}), **({'draw':blank_draw()} if games==8 else {})}
+    return {'players': {p: {'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'lineups':[]} if games==5 else {}), **({'draw':blank_draw()} if games==8 else {})}
 
 def new_state():
     return {'version': 4, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
@@ -42,6 +42,21 @@ def round2_schedule(roster):
 def has_inputs(stage):
     return bool(stage['extras']) or any(d.get('team') or any(v is not None for v in d['goals']) or any(d.get('results',[])) for d in stage['players'].values())
 
+def _normalize_round1(s):
+    """Strip the retired fixed-team fields from a round1 stage in place.
+
+    Old v4 saves carried a per-player 'team' and a round1 'assigned' list from
+    the retired wheel-assignment model. Teams are now cosmetic per-game splits,
+    so drop both (preserving goals) and default 'lineups' (regenerated lazily).
+    """
+    r1=s.get('round1')
+    if isinstance(r1,dict):
+        r1.pop('assigned',None)
+        r1.setdefault('lineups',[])
+        for d in r1.get('players',{}).values():
+            if isinstance(d,dict): d.pop('team',None)
+    return s
+
 def migrate(s):
     if s.get('version')==3:
         s=deepcopy(s);stage=s['round2'];draw=blank_draw()
@@ -56,8 +71,8 @@ def migrate(s):
                 if any(d['goals'][i] is not None for d in stage['players'].values()): last=i+1
             draw={'order':list(roster),'revealed':max(last,min(completed+1,8)),'completed':completed,'mode':'preserved'}
         stage['draw']=draw;s['version']=4
-        return s
-    if s.get('version') not in (1,2): return s
+        return _normalize_round1(s)
+    if s.get('version') not in (1,2): return _normalize_round1(deepcopy(s))
     s=deepcopy(s)
     if s['version']==1:
         old=s['final']
@@ -93,12 +108,10 @@ def validate(s):
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
         if len(s['settings']['prizes']) != 3: raise ValueError('Enter exactly three prizes.')
         for v in s['settings']['prizes']: numeric(v)
-        s['round1'].setdefault('assigned',[])
-        assigned=s['round1']['assigned']
-        if not isinstance(assigned,list) or len(assigned)!=len(set(assigned)) or any(p not in IDS for p in assigned):
-            raise ValueError('Invalid wheel-assigned player list.')
-        for p in assigned:
-            if s['round1']['players'][p]['team'] not in ['A','B']: raise ValueError('Wheel-assigned players must have a team.')
+        s['round1'].setdefault('lineups',[])
+        lineups=s['round1']['lineups']
+        if not isinstance(lineups,list) or (lineups and not _valid_lineups(lineups)):
+            raise ValueError('Invalid To Live game teams.')
         for stage in ['round1','round2','final']:
             a=s[stage]
             if set(a['players'])!=set(IDS) or len(a['extras'])>50: raise ValueError('Invalid player records or too many extra games.')
@@ -119,7 +132,6 @@ def validate(s):
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
                     if len(d['results'])!=10 or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
-                elif stage=='round1' and d['team'] not in ['','A','B']: raise ValueError('Teams must be A or B.')
             for extra in a['extras']:
                 if not isinstance(extra,dict) or set(extra)!=set(IDS): raise ValueError('Invalid extra-game records.')
                 for value in extra.values():
@@ -154,36 +166,107 @@ def order_groups(ids, scores, extras):
         return result
     return [sub for group in groups for sub in split(group,0)]
 
+def goal_fold(p, reg_total, reg_played, extras):
+    """Effective (total, played, average) folding entered extra-game goals in.
+
+    total = regulation goals + sum of that player's non-null extra-game goals;
+    played = regulation matches + count of extra games the player scored in;
+    average = Fraction(total, played) (0 when no matches). Fraction keeps the
+    comparison exact so no float rounding manufactures a tie.
+    """
+    total=reg_total[p]; played=reg_played[p]
+    for e in extras:
+        v=e.get(p)
+        if v is None: continue
+        total+=v; played+=1
+    return total, played, (Fraction(total,played) if played else Fraction(0))
+
+def rank_bubble(ids, reg_scores, extras, cut, straddle_only, resolve):
+    """Rank players, folding extra games only for the tied cut-line bubble.
+
+    reg_scores maps id -> regulation primary score. Players are first grouped by
+    EXACT regulation score (descending). A group is the 'bubble' when its rank
+    range crosses the cut: rank r with r<=cut<r+size-1 (straddle_only=True), or,
+    for the podium final, any multi-member group with rank<=cut
+    (straddle_only=False). Safe players outside the bubble keep regulation
+    ranks/status. For the bubble, resolve(group, start_rank) folds extras into an
+    effective score and re-ranks ONLY within [start_rank, start_rank+size-1].
+
+    Returns {id: {'rank','status','bubble'}}; bubble members also carry whatever
+    extra keys resolve() set (e.g. folded total/played/average).
+    """
+    order=sorted(ids,key=lambda p:reg_scores[p],reverse=True)
+    groups=[list(g) for _,g in groupby(order,key=lambda p:reg_scores[p])]
+    out={}; rank=1
+    for group in groups:
+        size=len(group)
+        is_bubble=size>1 and (rank<=cut<rank+size-1 if straddle_only else rank<=cut)
+        if is_bubble:
+            out.update(resolve(group, rank))
+        else:
+            for p in group:
+                out[p]={'rank':rank,'status':'ADVANCE' if rank<=cut else 'CUT','bubble':False}
+        rank+=size
+    return out
+
+def resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start_rank, cut):
+    """Fold extra goals into the bubble, write folded row data, re-rank the bubble.
+
+    The displayed goals/played/average of each bubble player become the folded
+    (effective) values so the UI visibly changes as extra scores are entered;
+    safe players keep their regulation values. Re-ranking stays within
+    [start_rank, start_rank+len(group)-1]; a sub-cluster still exactly tied on
+    effective average across the internal cut boundary is marked TIE.
+    """
+    eff={}
+    for p in group:
+        total,played,avg=goal_fold(p,reg_total,reg_played,extras)
+        eff[p]=avg
+        rowmap[p]['goals']=total; rowmap[p]['played']=played; rowmap[p]['average']=float(avg)
+    out={}; rank=start_rank
+    for sub in order_groups(group,eff,extras):
+        tied=rank<=cut<rank+len(sub)-1
+        for p in sub:
+            out[p]={'rank':rank,'status':TIE if tied else ('ADVANCE' if rank<=cut else 'CUT'),'bubble':True}
+        rank+=len(sub)
+    return out
+
 def round1_view(s, names_ok):
-    stage=s['round1'];roster=IDS;size=5;cut=4;stale=False
+    stage=s['round1'];roster=IDS;cut=8;stale=False
     rows=[]; scores={}; issues=[]
     for p in roster:
         d=stage['players'][p]; played=sum(v is not None for v in d['goals']); total=sum(v or 0 for v in d['goals'])
         scores[p]=Fraction(total,played) if played else Fraction(0)
-        rows.append({'id':p,'name':s['names'][p] or f'Player {IDS.index(p)+1}', 'team':d['team'], 'goals':total,'played':played,
+        rows.append({'id':p,'name':s['names'][p] or f'Player {IDS.index(p)+1}', 'goals':total,'played':played,
                      'average':float(scores[p]),'rank':None,'status':'PENDING'})
     if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
-    for t in ['A','B']:
-        n=sum(r['team']==t for r in rows)
-        if n!=size: issues.append(f'Team {t}: assign {size} players ({n} assigned).')
+    # Read cosmetic per-game splits without mutating s (pure view). Empty => not
+    # yet generated: the server calls round1_lineups(s) to persist them.
+    lineups=stage.get('lineups') if _valid_lineups(stage.get('lineups')) else []
     games=[]
     for g in range(5):
-        counts={t:sum(stage['players'][p]['team']==t and stage['players'][p]['goals'][g] is not None for p in roster) for t in ['A','B']}
-        required=5
-        games.append({'game':g+1,'counts':counts,'ready':all(v==required for v in counts.values())})
-    if not all(g['ready'] for g in games): issues.append('Complete all five games: 5 scores per team per game. Enter 0 for no goals.')
+        split=lineups[g] if lineups else None
+        counts={t:sum(stage['players'][p]['goals'][g] is not None for p in split[t]) for t in ['A','B']} if split else {'A':0,'B':0}
+        ready=bool(lineups) and all(stage['players'][p]['goals'][g] is not None for p in roster)
+        games.append({'game':g+1,'teams':split or {'A':[],'B':[]},'counts':counts,'ready':ready})
+    if not lineups: issues.append('Generating game teams. Reload To Live to shuffle the first split.')
+    if not all(g['ready'] for g in games): issues.append('Complete all five games: enter a score for every player each game. Enter 0 for no goals.')
     ready=not issues
     rowmap={r['id']:r for r in rows}
-    for t in ['A','B']:
-        ids=[r['id'] for r in rows if r['team']==t]; rank=1
-        for group in order_groups(ids,scores,stage['extras']):
-            tied=rank<=cut<rank+len(group)-1
-            for p in group:
-                rowmap[p]['rank']=rank
-                rowmap[p]['status']=('TIE - EXTRA GAMES NEEDED' if tied else 'ADVANCE' if rank<=cut else 'CUT') if ready else 'PENDING'
+    reg_total={r['id']:r['goals'] for r in rows}; reg_played={r['id']:r['played'] for r in rows}
+    extras=stage['extras']
+    def resolve_avg(group, start):
+        return resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start, cut)
+    if ready:
+        for p,info in rank_bubble(roster,scores,extras,cut,True,resolve_avg).items():
+            rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
+    else:
+        rank=1
+        for group in order_groups(roster,scores,extras):
+            for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
             rank+=len(group)
     tied=any(r['status']==TIE for r in rows)
-    if tied: issues.append('Play extra games for the highlighted tied players.')
+    if tied: issues.append('Tie across 8th and 9th: play extra games for the highlighted players.')
     survivors=[r['id'] for r in rows if r['status']=='ADVANCE'] if ready and not tied else []
     return {'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
@@ -211,13 +294,19 @@ def round2_view(s, roster, names_ok, upstream=True):
         rows.append({'id':p,'name':s['names'][p], 'goals':total,'played':played,'average':float(scores[p]),
                      'rank':None,'status':'PENDING','sit_outs':sum(p in g['sit'] for g in schedule[:draw['revealed']])})
     if draw['completed']<8: issues.append('Mark each match done after entering its six scores.')
-    ready=not issues;rowmap={r['id']:r for r in rows};rank=1
-    for group in order_groups(roster,scores,stage['extras']):
-        tied=rank<=6<rank+len(group)-1
-        for p in group:
-            rowmap[p]['rank']=rank
-            rowmap[p]['status']=(TIE if tied else 'ADVANCE' if rank<=6 else 'CUT') if ready else 'PENDING'
-        rank+=len(group)
+    ready=not issues;rowmap={r['id']:r for r in rows}
+    reg_total={r['id']:r['goals'] for r in rows}; reg_played={r['id']:r['played'] for r in rows}
+    extras=stage['extras']
+    if ready:
+        def resolve_avg(group, start):
+            return resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start, 6)
+        for p,info in rank_bubble(roster,scores,extras,6,True,resolve_avg).items():
+            rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
+    else:
+        rank=1
+        for group in order_groups(roster,scores,extras):
+            for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
+            rank+=len(group)
     tied=any(r['status']==TIE for r in rows)
     if tied: issues.append('Tie across 6th and 7th: play extra games for the highlighted players.')
     survivors=[p for p in roster if rowmap[p]['status']=='ADVANCE'] if ready and not tied else []
@@ -256,15 +345,39 @@ def evaluate(s):
     if roster and not all(g['ready'] for g in games): issues.append('Complete all ten games: six goal scores each, with W for the scheduled winning team and L for its opponents.')
     ready=not issues; extra_scores=[]
     for extra in stage['extras']:
-        extra_scores.append({p:sum(points(d['goals'],d['result'],settings)) if d['goals'] is not None and d['result'] else None for p,d in extra.items()})
-    rank=1; rowmap={r['id']:r for r in rows}
-    for group in order_groups(roster,scores,extra_scores):
-        tied=rank<=3 and len(group)>1
-        for p in group:
-            r=rowmap[p];r['rank']=rank
-            r['status']=(TIE if tied else 'FINAL') if ready else 'PENDING'
-            r['prize']=settings['prizes'][rank-1] if ready and not tied and rank<=3 else (0 if ready and not tied else None)
-        rank+=len(group)
+        extra_scores.append({p:sum(points(extra[p]['goals'],extra[p]['result'],settings)) if extra[p]['goals'] is not None and extra[p]['result'] else None for p in roster})
+    rowmap={r['id']:r for r in rows}
+    if ready:
+        def resolve_final(group, start):
+            # Fold each extra game's points (normal scoring, no games 1-2 multiplier)
+            # into the bubble players' total points, write folded totals, re-rank.
+            eff={}
+            for p in group:
+                total=scores[p]
+                for row in extra_scores:
+                    if row[p] is not None: total+=row[p]
+                eff[p]=total; rowmap[p]['total']=float(total)
+            out={}; rank=start
+            for sub in order_groups(group,eff,extra_scores):
+                tied=rank<=3 and len(sub)>1
+                for p in sub:
+                    out[p]={'rank':rank,'status':TIE if tied else 'FINAL','bubble':True,
+                            'prize':None if tied else (settings['prizes'][rank-1] if rank<=3 else 0)}
+                rank+=len(sub)
+            return out
+        placing=rank_bubble(roster,scores,extra_scores,3,False,resolve_final)
+        for p,info in placing.items():
+            r=rowmap[p];r['rank']=info['rank']
+            if info['bubble']:
+                r['status']=info['status']; r['prize']=info['prize']
+            else:
+                r['status']='FINAL'; r['prize']=settings['prizes'][info['rank']-1] if info['rank']<=3 else 0
+    else:
+        rank=1
+        for group in order_groups(roster,scores,extra_scores):
+            for p in group:
+                r=rowmap[p];r['rank']=rank;r['status']='PENDING';r['prize']=None
+            rank+=len(group)
     rows.sort(key=lambda r:r['rank'])
     if any(r['status']==TIE for r in rows): issues.append('Podium tie: play extra games for the highlighted players. Those prizes stay unassigned.')
     final={'schedule':schedule,'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not any(r['status']==TIE for r in rows),'stale':stale}
@@ -300,23 +413,51 @@ def round2_draw_action(s, action, game=None):
     return bind_rosters(s)
 
 
-def round1_assign_action(s, action, player=None):
-    s=deepcopy(s);stage=s['round1'];stage.setdefault('assigned',[])
-    if action=='spin':
-        unassigned=[p for p in IDS if stage['players'][p]['team']=='']
-        if not unassigned: return s  # Everyone is assigned; repeat clicks never reroll.
-        if player is not None:
-            if player not in IDS or stage['players'][player]['team']!='': return s  # Unknown or already-teamed player: no-op.
-        else:
-            player=unassigned[0]
-        counts={t:sum(stage['players'][p]['team']==t for p in IDS) for t in ['A','B']}
-        if counts['A']>=5: team='B'
-        elif counts['B']>=5: team='A'
-        else: team='A' if secrets.randbelow(2)==0 else 'B'
-        stage['players'][player]['team']=team
-        stage['assigned'].append(player)
-    elif action=='reset':
-        for p in stage['assigned']: stage['players'][p]['team']=''
-        stage['assigned']=[]
-    else: raise ValueError('Unknown Round 1 assignment action.')
+def _round1_split():
+    """One fresh cosmetic 5v5 split of all 10 IDS using cryptographic shuffle."""
+    order=list(IDS); secrets.SystemRandom().shuffle(order)
+    return {'A':order[:5], 'B':order[5:]}
+
+def _valid_lineups(lineups):
+    """True when lineups is a list of exactly 5 valid 5/5 partitions of IDS."""
+    if not isinstance(lineups,list) or len(lineups)!=5: return False
+    want=set(IDS)
+    for e in lineups:
+        if not isinstance(e,dict) or set(e)!={'A','B'}: return False
+        a=e['A']; b=e['B']
+        if not isinstance(a,list) or not isinstance(b,list) or len(a)!=5 or len(b)!=5: return False
+        if set(a+b)!=want or len(set(a+b))!=10: return False
+    return True
+
+def round1_lineups(s):
+    """Return the 5 per-game cosmetic 5v5 splits, generating+storing if absent.
+
+    Teams are cosmetic (ranking is by total goals, not wins), so a fresh random
+    partition is drawn for each of the five games with secrets.SystemRandom()
+    (mirrors round2_draw_action's shuffle). Idempotent: once five valid splits
+    exist they are returned unchanged so reloads/backups stay stable.
+    """
+    stage=s['round1']
+    if not _valid_lineups(stage.get('lineups')):
+        stage['lineups']=[_round1_split() for _ in range(5)]
+    return stage['lineups']
+
+def round1_lineup_action(s, action, game=None):
+    """Optional guarded per-game re-roll of a cosmetic To Live split.
+
+    'game' is 1-based (matches the frontend's game numbering). A reroll RAISES
+    if any player already has an entered score for that game, so a reroll never
+    silently invalidates recorded goals (round2_draw_action guard philosophy).
+    Unknown actions raise. Returns a deepcopy.
+    """
+    s=deepcopy(s);stage=s['round1'];round1_lineups(s)
+    if action=='reroll':
+        if type(game) is not int or not 1<=game<=5:
+            raise ValueError('Choose a game from 1 to 5 to reshuffle.')
+        g=game-1
+        if any(stage['players'][p]['goals'][g] is not None for p in IDS):
+            raise ValueError('That game already has scores. Clear them before reshuffling teams.')
+        stage['lineups'][g]=_round1_split()
+    else: raise ValueError('Unknown Round 1 lineup action.')
     return s
+
