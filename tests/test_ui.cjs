@@ -237,5 +237,29 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the one-level snapshot');
  assert(undoPut&&undoPut.restore===true,'the undo PUT carried restore:true');
  context.fetch=()=>new Promise(()=>{});
- console.log('Easier-controls UI: per-stage clear-round controls, extended round1 cascade, disabled-reason hint, next-step guide for two states, and one-level undo passed.');
+ // (F) RESHUFFLE UNDO: a To Live reshuffle (data-action='r1-reroll') snapshots the
+ //     PRE-reroll split. rerollRound1Game captures the snapshot before the PUT and
+ //     adopts the server echo, assigning undoSnapshot only after the echo succeeds, so
+ //     the snapshot must hold the lineup/goals exactly as they were before the reroll.
+ const rerollFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate,round1_lineups;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};round1_lineups(s);s['round1']['players']['p1']['goals'][1]=4;print(json.dumps({'state':s,'view':evaluate(s),'revision':7}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(rerollFix.state)};view=${JSON.stringify(rerollFix.view)};revision=7;token="T";undoSnapshot=null;sitoutBusy=false;spinning=false;render=()=>{};flush=async()=>{};renderUndo=()=>{};`,context);
+ const preReroll=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(preReroll.round1.lineups.length>0,true,'pre-reroll fixture has a round1 lineup');
+ assert.equal(preReroll.round1.players.p1.goals[1],4,'pre-reroll fixture carries a known goal');
+ // Build an echo payload whose game-0 lineup differs from the pre-reroll split.
+ const rerolled=JSON.parse(JSON.stringify(rerollFix.state));
+ rerolled.round1.lineups[0]={A:['p6','p7','p8','p9','p10'],B:['p1','p2','p3','p4','p5']};
+ context.fetch=async(url,options)=>{
+  assert.equal(url,'/api/round1-lineup','reshuffle persists through PUT /api/round1-lineup');
+  const body=JSON.parse(options.body);assert.equal(body.action,'reroll');assert.equal(body.game,1);
+  return {ok:true,json:async()=>({state:rerolled,view:rerollFix.view,revision:8})};
+ };
+ await click({action:'r1-reroll',match:'0'});
+ assert(vm.runInContext('undoSnapshot',context),'a reshuffle sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Reshuffle To Live Game 1','the reshuffle snapshot carries a human label');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),preReroll,'the reshuffle snapshot holds the pre-reroll lineup and goals');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.lineups[0])',context)),rerolled.round1.lineups[0],'state adopted the server echo of the reshuffled lineup');
+ context.fetch=()=>new Promise(()=>{});
+ console.log('Easier-controls UI: per-stage clear-round controls, extended round1 cascade, disabled-reason hint, next-step guide for two states, one-level undo, and reshuffle undo snapshot passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

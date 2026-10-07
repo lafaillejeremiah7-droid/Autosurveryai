@@ -371,14 +371,20 @@ function renderUndo(){
 }
 async function performUndo(){
  if(!undoSnapshot)return;
- const prior=undoSnapshot.state;undoSnapshot=null;renderUndo();
+ // Keep the snapshot until the restore has actually persisted. If flush() or the PUT
+ // throws, leave undoSnapshot in place and re-render the Undo button so the user can
+ // retry instead of losing the restored state.
+ const snap=undoSnapshot,prior=snap.state;
  // Undo may restore a saved sit-out draw that differs from the server's current draw
  // (e.g. undoing a Clear that blanked the draw). The normal save path rejects an edited
  // draw, so persist through the restore flag like a backup restore does.
- await flush();
- const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
- const data=await res.json();if(!res.ok)throw new Error(data.error);
- state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Undo applied';
+ try{
+  await flush();
+  const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
+  const data=await res.json();if(!res.ok)throw new Error(data.error);
+  undoSnapshot=null;
+  state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Undo applied';
+ }catch(err){undoSnapshot=snap;renderUndo();throw err;}
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
 // Human-readable labels for the per-round clear-round controls and their cascade.
@@ -411,7 +417,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='undo'){await performUndo();return;}
  if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear To Die Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
  if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear Rebirth Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
- if(action==='clear-round'||action==='reset-stage'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
+ if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='reset-all'&&confirm('Clear the tournament and wheel? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4]}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
  if(action==='spin')await spinWheel();
  if(action==='wheel-clear'&&!spinning&&confirm('Remove every name from the wheel? Tournament players stay unchanged.')){state.wheel.text='';resetWheelResult();changed();await save();}
