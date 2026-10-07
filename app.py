@@ -69,7 +69,7 @@ def make_server(store,port=8765):
                         safe="'"+name if name.startswith(('=','+','-','@','\t','\r')) else name
                         writer.writerow([safe,r1.get(p,{}).get('status',''),r2.get(p,{}).get('status',''),r.get('rank',''),r.get('total',''),r.get('prize',''),r.get('status','')])
                     return self.send(200,out.getvalue().encode('utf-8-sig'),'text/csv; charset=utf-8','brawl-hockey-standings.csv')
-            files={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/city.js':('city.js','text/javascript; charset=utf-8'),'/city-timeline.js':('city-timeline.js','text/javascript; charset=utf-8'),'/city.css':('city.css','text/css; charset=utf-8')}
+            files={'/monuments.js':('monuments.js','text/javascript; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/city.js':('city.js','text/javascript; charset=utf-8'),'/city-timeline.js':('city-timeline.js','text/javascript; charset=utf-8'),'/city.css':('city.css','text/css; charset=utf-8')}
             if route in files:
                 name,kind=files[route];return self.send(200,(ROOT/'static'/name).read_bytes(),kind)
             self.send(404,{'error':'Not found'})

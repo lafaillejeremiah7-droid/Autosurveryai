@@ -36,6 +36,12 @@ When a round's final match is submitted and the round is settled, a skippable ca
 
 A glowing road connects To Live → To Die → Rebirth. The current round pulses, completed rounds show their cuts, and upcoming rooms have closed shutters until qualification is settled. When you return to headquarters after settling a round, a light travels along the road and the next room opens. Ties keep the next entrance sealed. Corrections and Undo update the path; reloading restores the correct stage without replaying unlocks. Sealed rooms remain inspectable so you can review their requirements. Reduced motion shows the settled state immediately.
 
+## Player towers and the rising podium
+
+The Survivor District gives every tournament player a named, illuminated 3D tower. Once To Live is settled, its two cut players lose their lights and their towers collapse into rubble. To Die drops two more, leaving six finalist towers. Countdown damage never eliminates a player. Score corrections and Undo restore the correct towers; reloads show saved results without replaying collapses. Animations wait until the district is visible and pause with Pause world.
+
+The live podium appears at headquarters, in Rebirth, and on the Leaderboard. It updates from saved final points and animates position changes. Tied positions show everyone sharing that rank, with no arbitrary winner or awarded prize. All three platforms rise and show the winners' names, points, and prizes only when the whole final is settled. Reduced motion shows results immediately. The existing furnace cutscene still plays independently after each settled round.
+
 ## To Live per-game teams
 
 Players are entered directly in **Players & rules**. There is no standalone name wheel, team-draw wheel, **Open team wheel** button, per-player Team dropdown, or **Reset spin** control.

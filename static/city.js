@@ -54,6 +54,7 @@
   buildings.push({id,x,z,w:6+rand(id+33)*5,d:6+rand(id+8)*4,h:8+Math.pow(rand(id+70),2)*57,threshold:.18+rand(id+411)*.58,tint:rand(id+126)});
  }
  let tournament=[],unlocks={},routeTime=0;
+ let monuments=null,towerSites=[],podiumSites=[],falls={},towerTime=0,podiumTime=0,riseAt=null;
  const roomKeys=['settings','round1','round2','final','overview'];
  const roomColors=[[.6,.91,1],[.47,.94,.71],[1,.66,.29],[1,.34,.3],[.93,.77,.45]];
  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -110,6 +111,13 @@
    const size=clamp(Math.hypot(...sub(point,neighbour))*1.45,5,20);
    return {key,pos:point,size,pixelSize,color:roomColors[i]};
   });
+  const locate=(selector,scale)=>Array.from(document.querySelectorAll(selector)).map(e=>{
+   const r=e.getBoundingClientRect(),px=r.left-rect.left+r.width/2,py=r.bottom-rect.top-(e.dataset.place?118:62);
+   const pos=groundPoint(px,py),side=groundPoint(px+Math.min(r.width*.2,scale),py);
+   return {id:e.dataset.player,place:Number(e.dataset.place),pos,size:Math.max(.3,Math.hypot(...sub(pos,side)))};
+  });
+  towerSites=locate('#player-towers .player-tower',22);
+  podiumSites=locate('#city-podium .podium-place',48);
   geometryDirty=true;needsLayout=false;positionLabels();
  }
  function resize(){
@@ -214,6 +222,37 @@
    }
   }
 
+  // Player monuments are driven solely by settled tournament results, never disaster time.
+  if(monuments){
+   for(const site of towerSites){
+    const player=monuments.towers.find(p=>p.id===site.id);if(!player)continue;
+    const [x,,z]=site.pos,w=site.size,h=w*4.6;
+    const falling=player.cut?(media.matches||mode==='static'||falls[player.id]===undefined?1:clamp((towerTime-falls[player.id])/2.4)):0;
+    const bend=smooth(falling)*1.48,remaining=1-falling*.78;
+    m.box(x,-.1,z,w*1.7,.2,w*1.5,[.08,.13,.16]);
+    if(falling<1){
+     m.box(x+Math.sin(bend)*h*.28,h*remaining/2,z,w,h*remaining,w*.8,player.cut?[.15,.12,.12]:[.22,.36,.4],1,-bend);
+     if(!player.cut){
+      for(let j=0;j<6;j++)m.box(x,h*(j+.6)/6,z+w*.41,w*.8,.07,w*.03,[.43,.95,.79],3);
+      m.gem(x,h+.25,z,w*.22,[.65,1,.85],3);
+     }
+    }
+    if(falling>0){
+     for(let j=0;j<5;j++)m.box(x+(j-2)*w*.3,.2+w*.1,z+Math.sin(j*2)*w*.5,w*.65,.2+w*.3,w*.6,[.18,.15,.14],0,j*.7);
+     if(falling<1)m.ring(x,.2,z,w*(1+falling*2),.1,[.75*(1-falling),.45*(1-falling),.25*(1-falling)]);
+    }
+   }
+   for(const site of podiumSites){
+    const slot=monuments.slots.find(s=>s.place===site.place);if(!slot)continue;
+    const [x,,z]=site.pos,w=site.size;
+    const rise=monuments.complete?(media.matches||mode==='static'||riseAt===null?1:smooth(clamp((podiumTime-riseAt)/2.4))):0;
+    const h=w*(.4+(4-site.place)*.28+rise*.9);
+    const col=site.place===1?[.93,.7,.25]:site.place===2?[.6,.76,.82]:[.72,.39,.22];
+    m.box(x,h/2,z,w*1.6,h,w*1.25,slot.tied?[.17,.22,.28]:col);
+    m.box(x,h+.03,z,w*1.66,.09,w*1.3,slot.tied?[.4,.46,.5]:col.map(c=>Math.min(1,c*1.3)),3);
+    if(monuments.complete){m.ring(x,.2,z,w*1.15,.08,col);m.gem(x,h+w*.4,z,w*.22,col,3);}
+   }
+  }
   // Early sky traffic becomes falling, burning aircraft as destruction rises.
   const planes=p<.2?2:Math.floor(3+p*4);
   for(let i=0;i<planes;i++){
@@ -337,7 +376,12 @@
   const routeDelta=(now-lastFrame)/1000,dt=Math.min(.1,routeDelta);lastFrame=now;
   if(now-lastSample>950){sample(Date.now());lastSample=now;}
   const moving=!paused&&!media.matches&&!suspended&&!inside&&mode==='webgl';
-  if(moving){elapsed+=dt;routeTime+=routeDelta;}
+  if(moving){
+   elapsed+=dt;routeTime+=routeDelta;
+   const visible=id=>{const e=document.getElementById(id);if(!e)return false;const r=e.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight;};
+   if(visible('player-towers'))towerTime+=routeDelta;
+   if(visible('city-podium'))podiumTime+=routeDelta;
+  }
   if(needsLayout)layout();
   if(geometryDirty||lastBuild!==state.progress)rebuild();
   if(!moving&&!transition&&!dirty)return;
@@ -355,6 +399,17 @@
   return new Promise(done=>{transition={at:performance.now(),duration:nextInside?780:650,from:{eye:camera.eye.slice(),target:camera.target.slice()},to,done};});
  }
  window.CityWorld={
+  setMonuments(value){
+   if(monuments){
+    for(const player of value.towers){
+     if(!player.cut)delete falls[player.id];
+     else if(!monuments.towers.find(p=>p.id===player.id)?.cut)falls[player.id]=towerTime;
+    }
+    if(value.complete&&!monuments.complete)riseAt=podiumTime;
+    if(!value.complete)riseAt=null;
+   }
+   monuments=value;needsLayout=true;dirty=true;
+  },
   setTournament(stages){
    const signature=JSON.stringify(stages.map(s=>[s.key,s.status]));
    if(signature===JSON.stringify(tournament.map(s=>[s.key,s.status])))return;
