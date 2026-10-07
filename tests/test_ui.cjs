@@ -359,4 +359,74 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-r1-game snapshot');
  context.fetch=()=>new Promise(()=>{});
  console.log('To Live per-game clear control: clear-r1-game button, single-game goal clearing for all ten players, names/scoring/other-games/other-stages isolation, and one-level undo passed.');
+
+ // ---- Extra-games delete controls: a per-extra-game 'Remove' button on EACH extra
+ //      game (deletes exactly that one) and a 'Clear all extra games' button (empties
+ //      the list), both routed through doDestructive so each is one-level Undo-able.
+ //      Section lives on all three rounds; test with round1 (numbers) extras here. ----
+ vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
+ // Build a pristine fixture whose round1 stage holds TWO extra games (dicts of
+ // {playerId:number}) plus other state to assert isolation. round1.extras[0] gives p1
+ // a distinctive value so we can confirm which game is removed.
+ const exFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import IDS,evaluate;s=fixture();e0=dict.fromkeys(IDS);e0['p1']=7;e1=dict.fromkeys(IDS);e1['p2']=9;s['round1']['extras']=[e0,e1];print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+ // (M) extras('round1') renders a per-extra-game remove control with matching data-index
+ //     for EACH extra game, plus a single clear-all control when extras is non-empty.
+ vm.runInContext(`state=${JSON.stringify(exFix.state)};view=${JSON.stringify(exFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
+ const exHTML=vm.runInContext("extras('round1')",context);
+ assert(exHTML.includes('data-action="remove-extra" data-stage="round1" data-index="0"'),'extras renders a remove control for extra game 1');
+ assert(exHTML.includes('data-action="remove-extra" data-stage="round1" data-index="1"'),'extras renders a remove control for extra game 2');
+ assert.equal((exHTML.match(/data-action="remove-extra"/g)||[]).length,2,'one remove control per extra game');
+ assert(exHTML.includes('data-action="clear-extras" data-stage="round1"'),'extras renders a clear-all control when extras exist');
+ assert(/>Remove</.test(exHTML),'the per-extra-game button is labelled Remove');
+ assert(/>Clear all extra games</.test(exHTML),'the clear-all button copy is self-explaining');
+ // (N) When extras is EMPTY, no clear-all control (and no remove controls) render.
+ vm.runInContext('state.round1.extras=[];',context);
+ const emptyHTML=vm.runInContext("extras('round1')",context);
+ assert(!emptyHTML.includes('data-action="clear-extras"'),'no clear-all control when extras is empty');
+ assert(!emptyHTML.includes('data-action="remove-extra"'),'no remove controls when extras is empty');
+ assert(emptyHTML.includes('data-action="extra" data-stage="round1"'),'the add-extra control still renders when empty');
+ // (O) Firing remove-extra with index 0 splices out EXACTLY that one extra game: the
+ //     list length drops by 1 and the surviving game is the one that was at index 1.
+ vm.runInContext(`state=${JSON.stringify(exFix.state)};view=${JSON.stringify(exFix.view)};revision=1;undoSnapshot=null;`,context);
+ const beforeRemove=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(beforeRemove.round1.extras.length,2,'fixture starts with two extra games');
+ await click({action:'remove-extra',stage:'round1',index:'0'});
+ assert.equal(vm.runInContext('state.round1.extras.length',context),1,'remove-extra dropped exactly one extra game');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.extras[0])',context)),beforeRemove.round1.extras[1],'the surviving extra game is the one previously at index 1');
+ // Everything else (names, scoring, goals, other stages) stays unchanged.
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.names)',context)),beforeRemove.names,'remove-extra left names untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.settings)',context)),beforeRemove.settings,'remove-extra left scoring untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.players)',context)),beforeRemove.round1.players,'remove-extra left round1 goals untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round2)',context)),beforeRemove.round2,'remove-extra left To Die untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.final)',context)),beforeRemove.final,'remove-extra left Rebirth untouched');
+ // (P) remove-extra sets a deep-equal undo snapshot and Undo restores the prior state.
+ assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'remove-extra sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Remove extra game 1','the remove-extra snapshot carries a human label');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),beforeRemove,'the remove-extra snapshot deep-equals the pre-action state');
+ vm.runInContext('token="T";',context);
+ context.fetch=async(url,options)=>{const body=JSON.parse(options.body);return {ok:true,json:async()=>({state:body.state,view:exFix.view,revision:(body.revision||1)+1})};};
+ await click({action:'undo'});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),beforeRemove,'undo restored the exact pre-remove state (both extra games back)');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the remove-extra snapshot');
+ context.fetch=()=>new Promise(()=>{});
+ // (Q) Firing clear-extras empties round1.extras entirely; sets a deep-equal undo
+ //     snapshot; Undo restores both extra games.
+ vm.runInContext(`state=${JSON.stringify(exFix.state)};view=${JSON.stringify(exFix.view)};revision=1;undoSnapshot=null;`,context);
+ const beforeClear=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(beforeClear.round1.extras.length,2,'fixture starts with two extra games before clear-all');
+ await click({action:'clear-extras',stage:'round1'});
+ assert.equal(vm.runInContext('state.round1.extras.length',context),0,'clear-extras emptied the extra-games list');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.players)',context)),beforeClear.round1.players,'clear-extras left round1 goals untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.names)',context)),beforeClear.names,'clear-extras left names untouched');
+ assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-extras sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear all extra games','the clear-extras snapshot carries a human label');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),beforeClear,'the clear-extras snapshot deep-equals the pre-action state');
+ vm.runInContext('token="T";',context);
+ context.fetch=async(url,options)=>{const body=JSON.parse(options.body);return {ok:true,json:async()=>({state:body.state,view:exFix.view,revision:(body.revision||1)+1})};};
+ await click({action:'undo'});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),beforeClear,'undo restored the exact pre-clear-extras state (both extra games back)');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-extras snapshot');
+ context.fetch=()=>new Promise(()=>{});
+ console.log('Extra-games delete controls: per-extra-game Remove (splices one), Clear all extra games (empties the list), both with one-level undo and full isolation passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
