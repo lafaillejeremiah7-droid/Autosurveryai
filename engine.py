@@ -300,12 +300,15 @@ def round2_draw_action(s, action, game=None):
     return bind_rosters(s)
 
 
-def round1_assign_action(s, action):
+def round1_assign_action(s, action, player=None):
     s=deepcopy(s);stage=s['round1'];stage.setdefault('assigned',[])
     if action=='spin':
         unassigned=[p for p in IDS if stage['players'][p]['team']=='']
         if not unassigned: return s  # Everyone is assigned; repeat clicks never reroll.
-        player=unassigned[0]
+        if player is not None:
+            if player not in IDS or stage['players'][player]['team']!='': return s  # Unknown or already-teamed player: no-op.
+        else:
+            player=unassigned[0]
         counts={t:sum(stage['players'][p]['team']==t for p in IDS) for t in ['A','B']}
         if counts['A']>=5: team='B'
         elif counts['B']>=5: team='A'

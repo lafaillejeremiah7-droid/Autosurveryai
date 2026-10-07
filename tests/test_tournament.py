@@ -283,6 +283,31 @@ class Round1Assign(unittest.TestCase):
         self.assertEqual(validate(old)['round1']['assigned'],[])
     def test_unknown_action_raises(self):
         with self.assertRaises(ValueError):round1_assign_action(new_state(),'nope')
+    def test_targeted_player_spin_assigns_that_player(self):
+        s=round1_assign_action(new_state(),'spin','p7')
+        self.assertIn(s['round1']['players']['p7']['team'],('A','B'))
+        self.assertEqual(s['round1']['assigned'],['p7'])
+        self.assertTrue(all(s['round1']['players'][p]['team']=='' for p in IDS if p!='p7'))
+    def test_targeted_player_spin_is_idempotent_when_already_teamed(self):
+        s=round1_assign_action(new_state(),'spin','p7')
+        snapshot=deepcopy(s)
+        again=round1_assign_action(s,'spin','p7')  # p7 already has a team -> no-op.
+        self.assertEqual(again,snapshot)
+        bad=round1_assign_action(s,'spin','p99')  # Unknown id -> no-op.
+        self.assertEqual(bad,snapshot)
+    def test_targeted_player_still_respects_five_cap(self):
+        with patch('engine.secrets.randbelow',return_value=0):  # Coin always wants 'A'.
+            s=new_state()
+            for p in ['p1','p2','p3','p4','p5']:s['round1']['players'][p]['team']='A'  # Side A already full.
+            s=round1_assign_action(s,'spin','p10')  # Cap must force the deficient side B.
+        self.assertEqual(s['round1']['players']['p10']['team'],'B')
+        self.assertEqual(s['round1']['assigned'],['p10'])
+    def test_targeted_spins_reach_five_five(self):
+        s=new_state()
+        for p in IDS:s=round1_assign_action(s,'spin',p)  # Drive a full set targeting each player.
+        teams=[s['round1']['players'][p]['team'] for p in IDS]
+        self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
+        self.assertEqual(set(s['round1']['assigned']),set(IDS))
 
 class HTTP(unittest.TestCase):
     def test_round2_draw_endpoint_and_completion(self):

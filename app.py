@@ -65,7 +65,7 @@ def make_server(store,port=8765):
                     if self.path=='/api/round2-draw':
                         store.save(round2_draw_action(store.state,data['action'],data.get('game')),allow_draw=True)
                     elif self.path=='/api/round1-assign':
-                        store.save(round1_assign_action(store.state,data['action']))
+                        store.save(round1_assign_action(store.state,data['action'],data.get('player')))
                     else: store.save(data['state'],allow_draw=data.get('restore') is True)
                     return self.send(200,store.payload())
             except (ValueError,KeyError,TypeError) as e:self.send(400,{'error':str(e)})

@@ -33,15 +33,19 @@ Type or paste one name per line. Edit a line to rename it; delete the line to re
 
 Spin, optionally remove each winner automatically, remove a selected entry manually, shuffle the list, or copy the tournament names. **Add to tournament roster** fills the next empty tournament slot without changing the wheel. The tournament format itself remains ten players. The wheel list and removal preference are saved and included in backups.
 
-## To Live team wheel
+## To Live teams from the Name wheel
 
-Assign the ten players to Team A and Team B by spinning instead of picking by hand. Open **To Live** and click **Open team wheel**, or switch the wheel to its **To Live · team draw** mode.
+There is a single wheel. Spinning the main **Name wheel** assigns To Live teams automatically; there is no separate team-draw wheel or **Open team wheel** button.
 
-1. Each **Spin to assign** lands on one player who still has no team. The server flips an unbiased coin for Team A or B, saves it, and returns the result; the coin flip is never computed in the browser.
-2. The assigned player leaves the wheel immediately, so later spins can never land on them again.
-3. Teams are capped at five. Once a side already has five players, every remaining spin goes to the other side, so the draw always finishes exactly five A and five B.
+**Name to player rule.** The Name wheel spins over the entry list, while teams attach to the ten fixed tournament players in **Players & rules**. When the wheel lands on an entry, the dashboard matches it to a tournament player by name, ignoring surrounding spaces and letter case:
 
-You can still change any team by hand from the dropdown in the To Live score table; a manual pick simply removes that player from the wheel. **Reset spin** is the only way to undo wheel draws: it clears every wheel-assigned team but keeps teams you set manually. The wheel assignments are saved and included in backups.
+1. The landed name matches a tournament player who has **no team yet** → that exact player is instantly assigned a random Team A or B. The server flips an unbiased coin, saves it, and returns the result; the coin flip is never computed in the browser. No extra click is needed.
+2. The landed name matches a tournament player who **already has a team** → nothing is reassigned; the winner is shown with a short note that they already have a team.
+3. The landed name is **not** a tournament player → it behaves as an ordinary name draw (remove the entry or add it to an empty roster slot) and no team is assigned.
+
+If several roster slots share the same name, the first still-unassigned match in player order is chosen. Teams are capped at five, so once a side already has five players every remaining assignment goes to the other side, and the draw always finishes exactly five A and five B.
+
+You can still change any team by hand from the dropdown in the To Live score table. **Reset spin**, reachable from the **To Live** screen, is the only way to undo wheel draws: it clears every wheel-assigned team but keeps teams you set manually. The wheel assignments are saved and included in backups.
 
 ## Automatic Round 2 sit-out wheel
 

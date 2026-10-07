@@ -45,22 +45,39 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  const lockedHTML=vm.runInContext('round2Page()',context);
  assert(lockedHTML.includes('data-r2-game="2" disabled'));assert(lockedHTML.includes('Match 2 of 8 done'));
  const wheelHTML=vm.runInContext("state=fixture.state;wheelMode='round2';sitoutWheelPage()",context);assert(wheelHTML.includes('Two sit out. Six play.'));
- // Round 1 team-assignment wheel: only unassigned players are candidates.
+ // Round 1 single-wheel model: the one Name wheel auto-assigns teams; no separate round1 wheel mode.
  const r1=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
-  "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};\nfor i,p in enumerate(IDS[:3]):\n s['round1']['players'][p]['team']='A' if i<2 else 'B';s['round1']['assigned'].append(p)\nprint(json.dumps({'state':s,'view':evaluate(s),'revision':5}))"],{cwd:root,encoding:'utf8'}));
- vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;wheelMode='round1';`,context);
- assert.equal(vm.runInContext('JSON.stringify(round1Candidates())',context),JSON.stringify(['p4','p5','p6','p7','p8','p9','p10']));
- const r1HTML=vm.runInContext('round1WheelPage()',context);
- assert(r1HTML.includes('Spin to pick a team.'));assert(r1HTML.includes('data-action="r1-spin"'));assert(r1HTML.includes('data-action="r1-reset"'));
- assert(r1HTML.includes('TEAM A 2/5 · TEAM B 1/5'));assert(!r1HTML.includes('undefined'));
- const r1Round=vm.runInContext('round(\'round1\')',context);assert(r1Round.includes('data-action="r1-wheel"'));assert(r1Round.includes('Assign teams'));
- // Spin assigns the next unassigned player (p4) via the server endpoint, no client-side coin flip.
- const spun=JSON.parse(JSON.stringify(r1));spun.state.round1.players.p4.team='A';spun.state.round1.assigned.push('p4');spun.revision=6;
- vm.runInContext('render=()=>{};flush=async()=>{};animateRound1Assign=async()=>{};',context);
- context.fetch=async(url,options)=>{assert.equal(url,'/api/round1-assign');const body=JSON.parse(options.body);assert.equal(body.action,'spin');return {ok:true,json:async()=>spun};};
- await click({action:'r1-spin'});
- assert.equal(vm.runInContext("state.round1.players.p4.team",context),'A');
- assert(!vm.runInContext('round1Candidates()',context).includes('p4'));
- console.log('Round 1 UI: team wheel candidate pool, spin control, reset button and server assignment passed.');
+  "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};\nfor i,p in enumerate(IDS[:3]):\n s['round1']['players'][p]['team']='A' if i<2 else 'B';s['round1']['assigned'].append(p)\ns['wheel']['text']='\\n'.join('Player '+str(i+1) for i in range(10))\nprint(json.dumps({'state':s,'view':evaluate(s),'revision':5}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;wheelMode='free';`,context);
+ // (a) No separate 'To Live · team draw' tab in the wheel-mode tabs.
+ const tabsHTML=vm.runInContext('wheelModeTabs()',context);
+ assert(!tabsHTML.includes('data-wheel-mode="round1"'));assert(!tabsHTML.includes('team draw'));
+ assert(tabsHTML.includes('data-wheel-mode="free"'));assert(tabsHTML.includes('data-wheel-mode="round2"'));
+ // (b) To Live screen no longer offers 'Open team wheel' but keeps a reachable 'Reset spin'.
+ const r1Round=vm.runInContext("round('round1')",context);
+ assert(!r1Round.includes('data-action="r1-wheel"'));
+ assert(r1Round.includes('data-action="r1-reset"'));assert(r1Round.includes('Assign teams'));
+ // The name->player mapping resolves a landed entry to the first unassigned tournament player.
+ assert.equal(vm.runInContext("round1MatchForName('Player 7')",context),'p7');  // p7 is unassigned.
+ assert.equal(vm.runInContext("round1MatchForName('Player 1')",context),null);  // p1 already teamed.
+ assert.equal(vm.runInContext("round1MatchForName('Nobody')",context),null);    // not a roster player.
+ // (c) Spinning the MAIN wheel onto an unassigned player's name issues PUT /api/round1-assign {spin,player}.
+ const spun=JSON.parse(JSON.stringify(r1));spun.state.round1.players.p7.team='A';spun.state.round1.assigned.push('p7');spun.revision=6;
+ vm.runInContext('render=()=>{};flush=async()=>{};drawWheel=()=>{};performance={now:()=>0};requestAnimationFrame=fn=>fn(0);',context);
+ vm.runInContext("crypto={getRandomValues(a){a[0]=6;return a;}};",context);  // Force randomIndex -> entry 6 == 'Player 7'.
+ let assignCalls=0;
+ context.fetch=async(url,options)=>{assignCalls++;assert.equal(url,'/api/round1-assign');const body=JSON.parse(options.body);assert.equal(body.action,'spin');assert.equal(body.player,'p7');return {ok:true,json:async()=>spun};};
+ await vm.runInContext('spinWheel()',context);
+ assert.equal(assignCalls,1);
+ assert.equal(vm.runInContext("state.round1.players.p7.team",context),'A');
+ assert(vm.runInContext("state.round1.assigned",context).includes('p7'));
+ // (d) Landing on an entry that is NOT a tournament player makes NO /api/round1-assign call.
+ vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;wheelMode='free';state.wheel.text='Ghost\\nSpecter';`,context);
+ assignCalls=0;
+ vm.runInContext("crypto={getRandomValues(a){a[0]=0;return a;}};",context);  // Lands on 'Ghost'.
+ await vm.runInContext('spinWheel()',context);
+ assert.equal(assignCalls,0);
+ assert.equal(vm.runInContext("state.round1.assigned.length",context),3);  // Unchanged wheel-drawn teams.
+ console.log('Round 1 UI: single Name wheel auto-assigns the landed player, no separate wheel/tab, reset reachable, non-roster names skip assignment.');
  console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
