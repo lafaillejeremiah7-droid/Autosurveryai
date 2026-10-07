@@ -61,7 +61,7 @@ body:has(dialog[open]){overflow:hidden}
    eliminated stickmen into a giant furnace (mouth reuses the fire palette). Full-screen,
    above everything, skippable. Decorative SVG is aria-hidden; the overlay itself is the
    dialog with an accessible label and a visible Skip button. */
-.cutscene{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:28px;background:radial-gradient(circle at 50% 60%,#2b1510 0%,#140a0c 60%,#0a0608 100%);color:#ffe7cf;text-align:center;cursor:pointer}
+.cutscene{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;border:0;overflow:auto;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:28px;background:radial-gradient(circle at 50% 60%,#2b1510 0%,#140a0c 60%,#0a0608 100%);color:#ffe7cf;text-align:center;cursor:pointer}
 .cutscene[hidden]{display:none}
 .cutscene-head{z-index:2}
 .cutscene-head .eyebrow{color:#ffb27a;letter-spacing:3px;font:700 12px/1.4 monospace}
