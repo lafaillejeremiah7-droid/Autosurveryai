@@ -13,7 +13,29 @@ const tabs=[['wheel','Name wheel'],['settings','Players & rules'],['round1','To 
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const value=path=>path.split('.').reduce((a,k)=>a[k],state);
 const setValue=(path,v)=>{const a=path.split('.');const k=a.pop();a.reduce((o,p)=>o[p],state)[k]=v;};
-function inp(path,label,type='number',disabled=false){return `<input data-path="${path}" aria-label="${esc(label)}" type="${type}" ${type==='number'?'min="0" max="100000" step="'+(path.startsWith('settings')?'any':'1')+'"':'maxlength="40"'} value="${esc(value(path))}" ${disabled?'disabled':''}>`;}
+function gameTeams(key,g){return key==='round1'?state.round1.lineups[g]:view[key]?.schedule?.[g];}
+function teamGoals(key,g,teams=gameTeams(key,g)){return Object.fromEntries(['A','B'].map(t=>[t,(teams?.[t]||[]).reduce((sum,p)=>sum+(state[key].players[p].goals[g]||0),0)]));}
+function goalRule(path){
+ const m=path.match(/^(round1|round2|final)\.players\.(p\d+)\.goals\.(\d+)$/);
+ if(!m)return /^(round1|round2|final)\.extras\./.test(path)&&!path.endsWith('.result')?{max:3,message:'A player can score at most 3 goals in an extra game.'}:null;
+ const [,key,p,index]=m,g=Number(index),teams=gameTeams(key,g),team=['A','B'].find(t=>teams?.[t].includes(p));
+ if(!team)return {max:3,message:'A player can score at most 3 goals per match.'};
+ const totals=teamGoals(key,g,teams),other=team==='A'?'B':'A',limit=totals[other]>=3?2:3;
+ const max=Math.max(0,limit-(totals[team]-(value(path)||0)));
+ return {max,message:totals[other]>=3?`Team ${other} already has 3 goals. Team ${team} is limited to 2 total; this player can have at most ${max}.`:`Team ${team} can score at most 3 goals combined; this player can have at most ${max}.`};
+}
+function enterGoal(path,n){
+ const rule=goalRule(path),old=value(path);
+ if(rule&&n!==null&&n>rule.max&&!(old!==null&&old>rule.max&&n<=old)){error(rule.message);return false;}
+ setValue(path,n);return true;
+}
+function refreshGoalControls(){
+ for(const el of document.querySelectorAll('input[data-path]')){const rule=goalRule(el.dataset.path);if(rule)el.max=Math.max(rule.max,value(el.dataset.path)||0);}
+ for(const b of document.querySelectorAll('button[data-step]')){const rule=goalRule(b.dataset.target);if(!rule)continue;const key=b.dataset.target.split('.')[0],n=value(b.dataset.target)||0;b.disabled=!!view[key].stale||sitoutBusy||spinning||(Number(b.dataset.step)>0?n>=rule.max:n<=0);}
+ for(const el of document.querySelectorAll('[data-score-stage]')){const totals=teamGoals(el.dataset.scoreStage,Number(el.dataset.scoreGame));el.textContent=`Team A ${totals.A} : ${totals.B} Team B`;}
+}
+function matchScoreboard(key,g){const totals=teamGoals(key,g);return `<div class="notice match-score"><strong data-score-stage="${key}" data-score-game="${g}">Team A ${totals.A} : ${totals.B} Team B</strong><span>3 goals maximum per team. Once one team has 3, the other can have at most 2.</span></div>`;}
+function inp(path,label,type='number',disabled=false){const rule=type==='number'?goalRule(path):null;const max=rule?Math.max(rule.max,value(path)||0):100000;return `<input data-path="${path}" aria-label="${esc(label)}" type="${type}" ${type==='number'?'min="0" max="'+max+'" step="'+(path.startsWith('settings')?'any':'1')+'"':'maxlength="40"'} value="${esc(value(path))}" ${disabled?'disabled':''}>`;}
 function select(path,choices,label,disabled=false){return `<select data-path="${path}" aria-label="${esc(label)}" ${disabled?'disabled':''}><option value="">—</option>${choices.map(v=>`<option value="${v}" ${value(path)===v?'selected':''}>${v}</option>`).join('')}</select>`;}
 const badge=status=>`<span class="status ${status.startsWith('TIE')?'tie':status.toLowerCase()}">${esc(status)}</span>`;
 const table=(heads,rows)=>`<div class="scroll"><table><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
@@ -186,9 +208,10 @@ function closeResult(){
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
- let html=title('ROUND 01','To Live','Five games. Each game gets a fresh random 5v5 split (teams are cosmetic — ranking is by total goals). Top eight of ten advance.','10 → 8 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 01','To Live','Five games with fresh random 5v5 teams. Each team can score at most 3 goals per match. The top eight individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
  round1Game=Math.min(round1Game,4);
+ html+=matchScoreboard('round1',round1Game);
  const g=round1Game,match=v.games[g].teams,rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=`<div class="match-tabs" aria-label="To Live match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
@@ -196,7 +219,7 @@ function round(key){
  const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':spinning?'Wait for the wheel to finish.':sitoutBusy?'Wait for the current draw to finish.':'';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r1-game">Clear this game</button></div></div><div class="teams-grid">`;
  for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
- html+='</div><p class="hint">Teams are reshuffled per game and do not affect scoring. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
+ html+='</div><p class="hint">Teams are reshuffled per game and share a 3-goal allowance. Individual totals decide advancement. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
  html+=panel('Player scores',table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>Top 8 of 10 advance</small>`);
  return html+extras('round1')+clearRoundPanel('round1');
@@ -210,6 +233,7 @@ function round2Page(){
  html+=`<div class="score-help">AVERAGE = THIS ROUND’S GOALS / MATCHES PLAYED · Six matches each · Wins give no points</div>`;
  html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||sitoutBusy;const why=i>=v.draw.revealed?`Finish Match ${v.draw.completed+1} before opening Match ${i+1}.`:'Wait for the current draw to finish.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
  const match=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
+ html+=matchScoreboard('round2',g);
  const r2ClearOff=v.stale||sitoutBusy,r2ClearWhy=v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Use the scheduled teams. Enter six goal scores, including zeros.</p>${r2ClearOff?`<p class="hint reason">${esc(r2ClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-r2-game" ${r2ClearOff?`disabled title="${esc(r2ClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div>`;
  html+=`<div class="notice"><b>SITTING OUT:</b> ${match.sit.map(p=>esc(state.names[p])).join(' · ')}. Their goal cells stay blank. <button data-action="r2-wheel" ${sitoutBusy?'disabled':''}>View sit-out wheel ↗</button></div><div class="teams-grid">`;
@@ -222,7 +246,7 @@ function round2Page(){
  html+=`<details><summary>View revealed rotations and sit-outs</summary><p class="hint">The saved draw guarantees six games and two sit-outs per person, with no consecutive sit-outs. Each player teams up with everyone once or twice and faces everyone two or three times. Refreshing keeps the same draw. ${v.draw.mode==='preserved'?'This round retains its existing schedule because scores were already entered.':''}</p>${table(['GAME','TEAM A','TEAM B','SIT OUT'],v.schedule.slice(0,v.draw.revealed).map(m=>`<tr><td>${m.game}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.sit.map(p=>esc(state.names[p])).join(' · ')}</td></tr>`))}</details>`;
  return html+extras('round2')+clearRoundPanel('round2');
 }
-function counter(path,label,disabled=false){return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled?'disabled':''}>+</button></div>`;}
+function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
  let html=title('ROUND 03 / THE FINAL','Rebirth','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  if(v.stale)html+=notice(['This roster changed since Rebirth was scored. Clearing Rebirth re-syncs it to the current finalists.']);
@@ -230,6 +254,7 @@ function finalPage(){const v=view.final,g=finalGame;
  html+=`<div class="score-help">GOAL = ${fmt(state.settings.goal_points)} PTS / WIN = ${fmt(state.settings.win_points)} PTS · Games 1–2 ×${fmt(state.settings.multiplier)} · Games 3–10 ×1</div>`;
  html+=`<div class="match-tabs" aria-label="Final match selector">${v.games.map((m,i)=>`<button data-game="${i}" aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}${i<2?' ×'+fmt(state.settings.multiplier):''}</button>`).join('')}</div>`;
  const schedule=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
+ html+=matchScoreboard('final',g);
  const fClearOff=v.stale||sitoutBusy,fClearWhy=v.stale?'Clear Rebirth first — the roster changed since these scores.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 10</span></h2><p>Enter each player’s goals, then mark the winning team.</p>${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
  for(const team of ['A','B']){
@@ -422,7 +447,7 @@ const clearRoundCopy={round1:'Clear To Live (also clears To Die &amp; Rebirth)',
 function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelLast=null;wheelAngle=0;}
-document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,el.type==='number'?(el.value===''?null:Number(el.value)):el.value);if(el.dataset.path==='wheel.text')resetWheelResult();changed();});
+document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();if(el.dataset.path==='wheel.text')resetWheelResult();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
  if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
@@ -431,7 +456,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.r2Game!==undefined){if(sitoutBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
  if(b.dataset.r1Game!==undefined){await flush();round1Game=Number(b.dataset.r1Game);render();return;}
  if(b.dataset.game!==undefined){await flush();finalGame=Number(b.dataset.game);render();return;}
- if(b.dataset.step){const current=value(b.dataset.target);setValue(b.dataset.target,Math.max(0,Math.min(100000,(current??0)+Number(b.dataset.step))));changed();await save();return;}
+ if(b.dataset.step){const current=value(b.dataset.target);if(!enterGoal(b.dataset.target,Math.max(0,(current??0)+Number(b.dataset.step))))return;refreshGoalControls();changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
  if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}

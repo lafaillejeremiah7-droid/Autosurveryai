@@ -4,7 +4,7 @@ import argparse, csv, io, json, os, secrets, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
-from engine import new_state, validate, evaluate, bind_rosters, round2_draw_action, round1_lineups, round1_lineup_action, has_inputs
+from engine import new_state, validate, evaluate, bind_rosters, round2_draw_action, round1_lineups, round1_lineup_action, has_inputs, validate_goal_changes
 
 ROOT=Path(__file__).resolve().parent
 MAX_BODY=2_000_000
@@ -21,14 +21,16 @@ class Store:
         if loaded!=self.state:self.save(self.state)
         self.revision=0
     def payload(self): return {'state':self.state,'view':evaluate(self.state),'revision':self.revision}
-    def save(self,state,allow_draw=False):
+    def save(self,state,allow_draw=False,restore=False):
         state=validate(state)
         round1_lineups(state)  # Keep (or generate once) the cosmetic To Live splits so reloads/backups stay stable.
         previous=self.state['round2']['draw'];incoming=state['round2']['draw']
         reset=not incoming['order'] and not state['round2']['roster'] and not has_inputs(state['round2']) and not has_inputs(state['final'])
         if not allow_draw and incoming!=previous and not reset:
             raise ValueError('Saved sit-out draws cannot be edited or rerolled. Use the match buttons or restore a backup.')
-        state=bind_rosters(state); self.path.parent.mkdir(parents=True,exist_ok=True)
+        state=bind_rosters(state)
+        validate_goal_changes(state,None if restore else self.state)
+        self.path.parent.mkdir(parents=True,exist_ok=True)
         temp=self.path.with_suffix('.tmp')
         with temp.open('w',encoding='utf-8') as f:
             json.dump(state,f,ensure_ascii=False,indent=2); f.flush();os.fsync(f.fileno())
@@ -75,7 +77,7 @@ def make_server(store,port=8765):
                         store.save(round2_draw_action(store.state,data['action'],data.get('game')),allow_draw=True)
                     elif self.path=='/api/round1-lineup':
                         store.save(round1_lineup_action(store.state,data['action'],data.get('game')))
-                    else: store.save(data['state'],allow_draw=data.get('restore') is True)
+                    else: store.save(data['state'],allow_draw=data.get('restore') is True,restore=data.get('restore') is True)
                     return self.send(200,store.payload())
             except (ValueError,KeyError,TypeError) as e:self.send(400,{'error':str(e)})
             except OSError:self.send(500,{'error':'Could not save the tournament file. Check folder permissions and free space.'})

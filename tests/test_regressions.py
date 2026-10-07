@@ -5,28 +5,26 @@ import unittest
 from pathlib import Path
 from engine import IDS, TIE, evaluate, validate
 from app import Store
-from test_tournament import fixture, spread
+from test_tournament import fixture, cut_tie_state, final_tie_state
 
 
 class Regressions(unittest.TestCase):
     def test_partial_extra_keeps_each_cut_tied(self):
         for key,first,second in [('round1','p5','p9'),('round2','p4','p8')]:
             with self.subTest(round=key):
-                s=fixture()
-                if key=='round1':s[key]['players'][first]['goals']=spread(6)
-                else:s[key]['players'][first]['goals']=[3 if g is not None else None for g in s[key]['players'][first]['goals']]
-                e=dict.fromkeys(IDS);e[first]=10;s[key]['extras']=[e]
+                s=cut_tie_state(key)
+                e=dict.fromkeys(IDS);e[first]=3;s[key]['extras']=[e]
                 v=evaluate(s)[key]
                 self.assertFalse(v['complete']);self.assertEqual(v['survivors'],[])
                 self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{first,second})
                 # A later filled game must not bypass an earlier missing score.
-                s[key]['extras'].append({**dict.fromkeys(IDS),first:5,second:0})
+                s[key]['extras'].append({**dict.fromkeys(IDS),first:2,second:0})
                 self.assertFalse(evaluate(s)[key]['complete'])
                 e[second]=0
                 self.assertTrue(evaluate(s)[key]['complete'])
 
     def test_partial_final_extra_withholds_prizes_and_counts_points(self):
-        s=fixture();s['settings']['win_points']=0;s['final']['players']['p2']['goals']=[5]*10
+        s=final_tie_state()
         e={p:{'goals':None,'result':''} for p in IDS}
         e['p1']={'goals':2,'result':'W'};s['final']['extras']=[e]
         v=evaluate(s)['final'];rows={r['id']:r for r in v['rows']}
@@ -34,7 +32,7 @@ class Regressions(unittest.TestCase):
         for p in ['p1','p2']:
             self.assertEqual(rows[p]['status'],TIE);self.assertIsNone(rows[p]['prize'])
         p1=rows['p1']
-        self.assertEqual((p1['goals'],p1['played'],p1['wins']),(52,11,11))
+        self.assertEqual((p1['goals'],p1['played'],p1['wins']),(12,11,11))
         self.assertEqual(p1['total'],p1['win_points']+p1['goal_points'])
         e['p2']={'goals':0,'result':''}
         self.assertFalse(evaluate(s)['final']['complete'])
@@ -43,10 +41,9 @@ class Regressions(unittest.TestCase):
         self.assertEqual(evaluate(s)['awarded'],30)
 
     def test_later_extra_does_not_displace_a_settled_cut_player(self):
-        s=fixture()
-        for p in ['p8','p9','p5']:s['round1']['players'][p]['goals']=spread(6)
-        s['round1']['extras']=[{**dict.fromkeys(IDS),'p8':4,'p9':0,'p5':0},
-                               {**dict.fromkeys(IDS),'p9':100,'p5':1}]
+        s=cut_tie_state('round1');s['round1']['players']['p8']['goals'][2]=1
+        s['round1']['extras']=[{**dict.fromkeys(IDS),'p8':1,'p9':0,'p5':0},
+                               {**dict.fromkeys(IDS),'p9':3,'p5':0}]
         v=evaluate(s)['round1'];rows={r['id']:r for r in v['rows']}
         self.assertTrue(v['complete'])
         self.assertEqual((rows['p8']['rank'],rows['p8']['played']),(7,6))
@@ -54,10 +51,9 @@ class Regressions(unittest.TestCase):
         self.assertEqual(rows['p5']['status'],'CUT')
 
     def test_later_final_extra_keeps_first_place_and_components(self):
-        s=fixture();s['settings']['win_points']=0
-        for p in ['p2','p3']:s['final']['players'][p]['goals']=[5]*10
+        s=final_tie_state(3)
         def extra(scores):return {p:{'goals':scores.get(p),'result':'L' if p in scores else ''} for p in IDS}
-        s['final']['extras']=[extra({'p1':4,'p2':0,'p3':0}),extra({'p2':100,'p3':1})]
+        s['final']['extras']=[extra({'p1':1,'p2':0,'p3':0}),extra({'p2':3,'p3':1})]
         v=evaluate(s)['final'];rows={r['id']:r for r in v['rows']}
         self.assertTrue(v['complete'])
         self.assertEqual((rows['p1']['rank'],rows['p1']['prize'],rows['p1']['played']),(1,18,11))

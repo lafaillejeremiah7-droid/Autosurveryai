@@ -17,26 +17,52 @@ def _shuffle_split(seed):
     order=IDS[seed%10:]+IDS[:seed%10]
     return {'A':order[:5],'B':order[5:]}
 
-# Distinct To Live totals so the top-8-by-total-goals survivors are unambiguous.
-# Ranked descending: p1>p2>p3>p4>p6>p7>p8>p9 advance; p5 and p10 are the clear
-# bottom two cut at the 8th/9th line. Order matches the old per-team survivor
-# order (p1,p2,p3,p4,p6,p7,p8,p9) so the downstream To Die/Rebirth chain is
-# unchanged. Teams are cosmetic per-game splits now, so no 'team' field.
-ROUND1_TOTALS={'p1':30,'p2':25,'p3':20,'p4':15,'p6':12,'p7':10,'p8':8,'p9':6,'p5':4,'p10':2}
-
+# All fixtures obey the real per-team limit. No match can finish 3-3.
 def fixture(final=True):
     s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)}
-    for p in IDS:s['round1']['players'][p]={'goals':spread(ROUND1_TOTALS[p])}
-    round1_lineups(s)
-    v=evaluate(s);players=v['round1']['survivors']
-    schedule=round2_schedule(players)
+    s['round1']['lineups']=[{'A':IDS[:5],'B':IDS[5:]} for _ in range(5)]
+    for p in IDS:s['round1']['players'][p]['goals']=[0]*5
+    for g,(a,b) in enumerate([('p1','p6'),('p2','p7'),('p3','p8'),('p4','p9'),('p1','p6')]):
+        s['round1']['players'][a]['goals'][g]=2 if g<4 else 1
+        s['round1']['players'][b]['goals'][g]=1
+    s['round1']['players']['p2']['goals'][4]=1
+    players=evaluate(s)['round1']['survivors'];schedule=round2_schedule(players)
     s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':8,'completed':8,'mode':'random'}
-    for i,p in enumerate(players):s['round2']['players'][p]={'goals':[None if p in g['sit'] else [8,7,6,2,5,4,3,1][i] for g in schedule]}
+    for g,match in enumerate(schedule):
+        for team in ['A','B']:
+            scorers=[p for p in match[team] if p not in ['p4','p9']][:2]
+            for p in match[team]:s['round2']['players'][p]['goals'][g]=int(p in scorers)
     bind_rosters(s)
     if final:
         roster=evaluate(s)['round2']['survivors']
-        for i,p in enumerate(roster):s['final']['players'][p]={'goals':[5-i]*10,'results':['W' if p in g['A'] else 'L' for g in final_schedule(roster)]}
+        for g,match in enumerate(final_schedule(roster)):
+            for team in ['A','B']:
+                for p in match[team]:
+                    s['final']['players'][p]['goals'][g]=(2 if team=='A' else 1) if p==match[team][0] else 0
+                    s['final']['players'][p]['results'][g]='W' if team=='A' else 'L'
     return bind_rosters(s)
+
+def cut_tie_state(key='round1'):
+    s=fixture()
+    if key=='round1':
+        s[key]['players']['p5']['goals'][0]=1
+        s[key]['players']['p7']['goals'][1]=2
+        s[key]['players']['p8']['goals'][2]=2
+    else:
+        remaining={'p1':2,'p2':2,'p3':2,'p4':1,'p6':2,'p7':2,'p8':1,'p9':0}
+        for g,m in enumerate(round2_schedule(s[key]['draw']['order'])):
+            for team in ['A','B']:
+                scorers=[p for p in m[team] if remaining[p]>0][:2]
+                for p in m[team]:s[key]['players'][p]['goals'][g]=int(p in scorers)
+                for p in scorers:remaining[p]-=1
+        assert not any(remaining.values())
+    return s
+
+def final_tie_state(count=2):
+    s=fixture();s['settings']['win_points']=0
+    for p in s['final']['roster']:s['final']['players'][p]['goals']=[int(p in s['final']['roster'][:count])]*10
+    if count==2:s['final']['players']['p3']['goals'][0]=1
+    return s
 
 def legacy_fixture(version=2):
     s=fixture();s['version']=version
@@ -56,46 +82,46 @@ class Rules(unittest.TestCase):
         self.assertEqual(v['round1']['survivors'],['p1','p2','p3','p4','p6','p7','p8','p9'])
         self.assertEqual(v['round2']['survivors'],['p1','p2','p3','p6','p7','p8'])
         self.assertEqual([r['prize'] for r in v['final']['rows']],[18,8,4,0,0,0]);self.assertEqual(v['awarded'],30)
-        first=v['final']['rows'][0];self.assertEqual(first['win_points'],12);self.assertEqual(first['goal_points'],90);self.assertEqual(first['total'],102)
-        self.assertEqual(first['game_points'],[17,17]+[8.5]*8)
+        first=v['final']['rows'][0];self.assertEqual(first['win_points'],12);self.assertEqual(first['goal_points'],36);self.assertEqual(first['total'],48)
+        self.assertEqual(first['game_points'],[8,8]+[4]*8)
     def test_blank_zero_and_fresh_average(self):
         s=fixture();row=lambda: next(r for r in evaluate(s)['round2']['rows'] if r['id']=='p1')
-        self.assertEqual((row()['played'],row()['average']),(6,8))
-        s['round2']['players']['p1']['goals'][1]=0
-        self.assertEqual(row()['played'],6);self.assertAlmostEqual(row()['average'],40/6)
-        s['round2']['players']['p1']['goals'][1]=None
-        self.assertEqual((row()['played'],row()['average']),(5,8))
+        self.assertEqual((row()['played'],row()['average']),(6,4/6))
+        s['round2']['players']['p1']['goals'][2]=0
+        self.assertEqual(row()['played'],6);self.assertAlmostEqual(row()['average'],3/6)
+        s['round2']['players']['p1']['goals'][2]=None
+        self.assertEqual((row()['played'],row()['average']),(5,3/5))
         self.assertFalse(evaluate(s)['round2']['complete'])
     def test_cut_tie_and_incomplete_extra(self):
         # To Live all-10 8th/9th boundary bubble. p9 (8th, advancing) and p5
-        # (9th, cut) both total 30 goals -> tied at average 6.0 across the cut.
+        # (9th, cut) both total 1 goal -> tied at average 0.2 across the cut.
         # Approved fold model: an extra game where BOTH score equally keeps them
         # tied on effective average, so another extra game is requested; once
         # their effective averages differ the bubble resolves and a cut player
         # can overtake the tied-advancing one. The clear top finisher (p1) is
         # never disturbed.
-        s=fixture();s['round1']['players']['p5']['goals']=spread(6)  # Ties p9 at 6 total (ranks 8-9).
+        s=cut_tie_state('round1')  # Ties p9 at 1 total (ranks 8-9).
         v=evaluate(s)['round1'];self.assertEqual(v['survivors'],[])
         self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p5','p9'})
         e=dict.fromkeys(IDS);e['p5']=2;e['p9']=2;s['round1']['extras']=[e]
         v=evaluate(s)['round1']  # Equal extra goals -> still exactly tied on average.
         self.assertFalse(v['complete'])
         self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p5','p9'})
-        p9=next(r for r in v['rows'] if r['id']=='p9')  # Folded: (6+2)/(5+1).
-        self.assertEqual((p9['goals'],p9['played']),(8,6));self.assertAlmostEqual(p9['average'],8/6)
-        e2=dict.fromkeys(IDS);e2['p5']=5;e2['p9']=1;s['round1']['extras']=[e,e2]
+        p9=next(r for r in v['rows'] if r['id']=='p9')  # Folded: (1+2)/(5+1).
+        self.assertEqual((p9['goals'],p9['played']),(3,6));self.assertAlmostEqual(p9['average'],3/6)
+        e2=dict.fromkeys(IDS);e2['p5']=3;e2['p9']=1;s['round1']['extras']=[e,e2]
         v=evaluate(s)['round1']  # p5 pulls ahead on effective average and overtakes.
         self.assertTrue(v['complete'])
         p5=next(r for r in v['rows'] if r['id']=='p5');p9=next(r for r in v['rows'] if r['id']=='p9')
-        self.assertEqual((p5['goals'],p5['played'],p5['status']),(13,7,'ADVANCE'))
-        self.assertEqual((p9['goals'],p9['played'],p9['status']),(9,7,'CUT'))
+        self.assertEqual((p5['goals'],p5['played'],p5['status']),(6,7,'ADVANCE'))
+        self.assertEqual((p9['goals'],p9['played'],p9['status']),(4,7,'CUT'))
         p1=next(r for r in v['rows'] if r['id']=='p1')  # Clear top finisher undisturbed.
-        self.assertEqual((p1['rank'],p1['status'],p1['goals'],p1['played']),(1,'ADVANCE',30,5))
+        self.assertEqual((p1['rank'],p1['status'],p1['goals'],p1['played']),(1,'ADVANCE',3,5))
     def test_multigame_tie_preserves_resolved_positions(self):
         group=order_groups(['a','b','c'],dict(a=5,b=5,c=5),[dict(a=2,b=0,c=0),dict(b=4,c=3)])
         self.assertEqual(group,[['a'],['b'],['c']])
     def test_final_podium_tie(self):
-        s=fixture();s['settings']['win_points']=0;s['final']['players']['p2']['goals']=[5]*10;v=evaluate(s)
+        s=final_tie_state();v=evaluate(s)
         self.assertEqual([r['status'] for r in v['final']['rows'][:2]],[TIE,TIE]);self.assertIsNone(v['final']['rows'][0]['prize'])
         e={p:{'goals':None,'result':''} for p in IDS};e['p1']={'goals':1,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
         self.assertEqual(evaluate(s)['final']['rows'][0]['prize'],18)
@@ -103,27 +129,27 @@ class Rules(unittest.TestCase):
         # Approved model for Rebirth: fold the extra game's points (NORMAL scoring,
         # no games 1-2 multiplier) into the tied podium bubble's total and re-rank
         # only the bubble. A safe non-bubble finalist keeps its rank/prize.
-        s=fixture();s['settings']['win_points']=0;s['final']['players']['p2']['goals']=[5]*10
+        s=final_tie_state()
         p3_before=next(r for r in evaluate(s)['final']['rows'] if r['id']=='p3')
         e={p:{'goals':None,'result':''} for p in IDS}
         e['p1']={'goals':2,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
         v=evaluate(s)['final']
         p1=next(r for r in v['rows'] if r['id']=='p1');p2=next(r for r in v['rows'] if r['id']=='p2')
-        self.assertEqual(p1['total'],93.0);self.assertEqual(p1['prize'],18)  # 90 + 2*1.5, no multiplier.
-        self.assertEqual(p2['total'],90.0);self.assertEqual(p2['prize'],8)
+        self.assertEqual(p1['total'],21.0);self.assertEqual(p1['prize'],18)  # 18 + 2*1.5, no multiplier.
+        self.assertEqual(p2['total'],18.0);self.assertEqual(p2['prize'],8)
         p3=next(r for r in v['rows'] if r['id']=='p3')  # Safe finalist untouched.
         self.assertEqual((p3['rank'],p3['prize'],p3['total']),(3,4,p3_before['total']))
         self.assertTrue(v['complete'])
     def test_final_podium_still_tied_asks_again(self):
         # Equal extra-game points keep the bubble tied -> prizes stay unassigned
         # and another extra game is requested.
-        s=fixture();s['settings']['win_points']=0;s['final']['players']['p2']['goals']=[5]*10
+        s=final_tie_state()
         e={p:{'goals':None,'result':''} for p in IDS}
         e['p1']={'goals':2,'result':'W'};e['p2']={'goals':2,'result':'L'};s['final']['extras']=[e]
         v=evaluate(s)['final']
         p1=next(r for r in v['rows'] if r['id']=='p1');p2=next(r for r in v['rows'] if r['id']=='p2')
         self.assertEqual((p1['status'],p2['status']),(TIE,TIE))
-        self.assertEqual((p1['total'],p2['total']),(93.0,93.0))  # Folded equally.
+        self.assertEqual((p1['total'],p2['total']),(21.0,21.0))  # Folded equally.
         self.assertIsNone(p1['prize']);self.assertIsNone(p2['prize'])
         self.assertFalse(v['complete'])
     def test_backward_compat_load_save_with_extras(self):
@@ -142,13 +168,15 @@ class Rules(unittest.TestCase):
         self.assertEqual(validated['final']['extras'],s['final']['extras'])
         self.assertTrue(evaluate(validated)['round1']['rows'])  # Evaluates without error.
     def test_third_fourth_tie_and_nonpodium_tie(self):
-        s=fixture();s['settings']['win_points']=0;s['final']['players']['p6']['goals']=[3]*10
-        v=evaluate(s);self.assertEqual(v['final']['rows'][2]['status'],TIE);self.assertEqual(v['final']['rows'][3]['status'],TIE)
-        s=fixture();s['settings']['win_points']=0;s['final']['players']['p8']['goals']=[1]*10;v=evaluate(s);self.assertTrue(v['final']['complete'])
+        s=final_tie_state();s['final']['players']['p6']['goals'][1]=1
+        v=evaluate(s);rows={r['id']:r for r in v['final']['rows']}
+        self.assertEqual(rows['p3']['status'],TIE);self.assertEqual(rows['p6']['status'],TIE)
+        s=fixture();v=evaluate(s);self.assertTrue(v['final']['complete'])
+        self.assertEqual([r['rank'] for r in v['final']['rows'][-2:]],[5,5])
     def test_multiplier_setting_and_partial_inputs(self):
-        s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],119)
+        s=fixture();s['settings']['multiplier']=3;v=evaluate(s);self.assertEqual(v['final']['rows'][0]['total'],56)
         s['final']['players']['p1']['results'][0]='';r=next(r for r in evaluate(s)['final']['rows'] if r['id']=='p1')
-        self.assertEqual(r['total'],116);self.assertIsNone(r['prize'])
+        self.assertEqual(r['total'],53);self.assertIsNone(r['prize'])
     def test_rotation_balance_and_team_results(self):
         s=fixture();roster=evaluate(s)['round2']['survivors'];schedule=final_schedule(roster)
         self.assertEqual(len(schedule),10)
@@ -164,8 +192,8 @@ class Rules(unittest.TestCase):
         self.assertFalse(evaluate(s)['final']['ready'])  # Still 3 W / 3 L, but wrong teams.
     def test_tenth_game_and_migration(self):
         s=fixture();before=evaluate(s)['final']['rows'][0]['total']
-        s['final']['players']['p1']['goals'][9]+=2
-        self.assertEqual(evaluate(s)['final']['rows'][0]['total'],before+3)
+        s['final']['players']['p1']['goals'][9]+=1
+        self.assertEqual(evaluate(s)['final']['rows'][0]['total'],before+1.5)
         old=legacy_fixture(1)
         for p in old['final']['players'].values():p['goals']=p['goals'][:5];p['results']=p['results'][:5]
         original=deepcopy(old);new=validate(old)
@@ -194,22 +222,22 @@ class Rules(unittest.TestCase):
     def test_round2_overall_cut_tie_and_extras(self):
         # Approved boundary-bubble model: extra goals FOLD into the tied players'
         # total/average and only the 6th/7th bubble re-ranks. With p4 and p8 tied
-        # at avg 3.0, giving BOTH an extra game where p8 outscores p4 overtakes
+        # at avg 1/6, giving BOTH an extra game where p8 outscores p4 overtakes
         # the previously-advancing p4. (Old lexicographic model expected a TIE
         # until every tied player had scored; the fold model resolves on average.)
-        s=fixture();d=s['round2']['players']['p4'];d['goals']=[3 if n is not None else None for n in d['goals']]
+        s=cut_tie_state('round2')
         v=evaluate(s)['round2'];self.assertEqual(v['survivors'],[])
         self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p4','p8'})
-        e=dict.fromkeys(IDS);e['p8']=5;e['p4']=1;s['round2']['extras']=[e];v=evaluate(s)['round2']
+        e=dict.fromkeys(IDS);e['p8']=3;e['p4']=1;s['round2']['extras']=[e];v=evaluate(s)['round2']
         self.assertTrue(v['complete'])
         self.assertIn('p8',v['survivors']);self.assertNotIn('p4',v['survivors'])
         p8=next(r for r in v['rows'] if r['id']=='p8');p4=next(r for r in v['rows'] if r['id']=='p4')
-        self.assertEqual((p8['goals'],p8['played']),(23,7));self.assertAlmostEqual(p8['average'],23/7)
-        self.assertEqual((p4['goals'],p4['played']),(19,7));self.assertAlmostEqual(p4['average'],19/7)
+        self.assertEqual((p8['goals'],p8['played']),(4,7));self.assertAlmostEqual(p8['average'],4/7)
+        self.assertEqual((p4['goals'],p4['played']),(2,7));self.assertAlmostEqual(p4['average'],2/7)
         self.assertEqual(p8['status'],'ADVANCE');self.assertEqual(p4['status'],'CUT')
         # A clear top advancer is never disturbed by the bubble recompute.
         p1=next(r for r in v['rows'] if r['id']=='p1')
-        self.assertEqual((p1['status'],p1['rank'],p1['played'],p1['average']),('ADVANCE',1,6,8.0))
+        self.assertEqual((p1['status'],p1['rank'],p1['played'],p1['average']),('ADVANCE',1,6,2/6))
     def test_round2_eighth_match_and_invalid_rest_score(self):
         s=fixture();schedule=evaluate(s)['round2']['schedule'];p=schedule[7]['A'][0]
         s['round2']['players'][p]['goals'][7]=None
@@ -281,7 +309,9 @@ class Draws(unittest.TestCase):
             self.assertFalse(previous.intersection(g['sit']))
             for p in g['sit']:rests[p]+=1;self.assertLessEqual(rests[p],2)
             with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
-            for p in g['A']+g['B']:s['round2']['players'][p]['goals'][game-1]=10-roster.index(p)
+            for team in ['A','B']:
+                scorers=[p for p in g[team] if p not in ['p4','p9']][:2]
+                for p in g[team]:s['round2']['players'][p]['goals'][game-1]=int(p in scorers)
             s=round2_draw_action(s,'done',game)
             self.assertEqual(s['round2']['draw']['order'],draw_order)
             with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
@@ -439,3 +469,4 @@ class HTTP(unittest.TestCase):
             finally:server.shutdown();server.server_close();thread.join()
 
 if __name__=='__main__':unittest.main()
+

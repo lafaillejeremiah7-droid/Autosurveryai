@@ -8,6 +8,55 @@ import secrets
 
 TIE = 'TIE - EXTRA GAMES NEEDED'
 IDS = [f'p{i+1}' for i in range(10)]
+TEAM_GOAL_LIMIT = 3
+
+def match_goals(stage, teams, game):
+    return {t:sum(stage['players'][p]['goals'][game] or 0 for p in teams[t]) for t in ['A','B']}
+
+def match_goal_error(stage, teams, game):
+    totals=match_goals(stage,teams,game)
+    for t in ['A','B']:
+        if totals[t]>TEAM_GOAL_LIMIT:return f'Team {t} has {totals[t]} goals. A team can score at most 3 goals per match.'
+    if totals['A']==TEAM_GOAL_LIMIT and totals['B']==TEAM_GOAL_LIMIT:
+        return 'Both teams cannot reach 3 goals. Once one team reaches 3, the other team can score at most 2.'
+    return ''
+
+def stage_schedules(s):
+    return {'round1':s['round1'].get('lineups',[]),
+            'round2':round2_schedule(s['round2']['draw']['order']),
+            'final':final_schedule(s['final']['roster'])}
+
+def validate_goal_changes(s, previous=None):
+    """Enforce goal limits on writes, retaining old scores for manual repair.
+
+    Loading an old save never discards scores. An already-invalid match may be
+    left untouched or have scores lowered/cleared, but cannot gain more goals.
+    Backups/new states without a previous record must satisfy every limit.
+    """
+    schedules=stage_schedules(s);old_schedules=stage_schedules(previous) if previous else {}
+    labels={'round1':'To Live','round2':'To Die','final':'Rebirth'}
+    for key in labels:
+        stage=s[key];old=previous[key] if previous else None
+        for g in range({'round1':5,'round2':8,'final':10}[key]):
+            values={p:stage['players'][p]['goals'][g] for p in IDS}
+            teams=schedules[key][g] if g<len(schedules[key]) else {'A':[],'B':[]}
+            issue=match_goal_error(stage,teams,g)
+            if not issue and any(v is not None and v>3 for v in values.values()):issue='A player cannot score more than the team limit of 3 goals per match.'
+            if not issue:continue
+            prior_teams=old_schedules[key][g] if previous and g<len(old_schedules[key]) else {'A':[],'B':[]}
+            reducing=old and teams==prior_teams and all((v or 0)<=(old['players'][p]['goals'][g] or 0) for p,v in values.items())
+            if not reducing:raise ValueError(f'{labels[key]} Game {g+1}: {issue}')
+        for i,extra in enumerate(stage['extras']):
+            for p,value in extra.items():
+                v=value['goals'] if key=='final' else value
+                if v is None or v<=3:continue
+                old_value=old['extras'][i][p] if old and i<len(old['extras']) else None
+                before=old_value.get('goals') if key=='final' and isinstance(old_value,dict) else old_value
+                if before is None or v>before:raise ValueError(f'{labels[key]} Extra game {i+1}: a player can score at most 3 goals.')
+
+def extra_goal_issues(stage, final=False):
+    return [f'Extra game {i+1}: correct goal entries above 3.' for i,e in enumerate(stage['extras'])
+            if any((v.get('goals') if final else v) is not None and (v.get('goals') if final else v)>3 for v in e.values())]
 
 def blank_draw():
     return {'order':[], 'revealed':0, 'completed':0, 'mode':'random'}
@@ -242,7 +291,7 @@ def resolve_extra_bubble(group, extras, start_rank, cut, straddle_only, fold):
 
 def round1_view(s, names_ok):
     stage=s['round1'];roster=IDS;cut=8;stale=False
-    rows=[]; scores={}; issues=[]
+    rows=[]; scores={}; issues=extra_goal_issues(stage)
     for p in roster:
         d=stage['players'][p]; played=sum(v is not None for v in d['goals']); total=sum(v or 0 for v in d['goals'])
         scores[p]=Fraction(total,played) if played else Fraction(0)
@@ -256,8 +305,10 @@ def round1_view(s, names_ok):
     for g in range(5):
         split=lineups[g] if lineups else None
         counts={t:sum(stage['players'][p]['goals'][g] is not None for p in split[t]) for t in ['A','B']} if split else {'A':0,'B':0}
-        ready=bool(lineups) and all(stage['players'][p]['goals'][g] is not None for p in roster)
-        games.append({'game':g+1,'teams':split or {'A':[],'B':[]},'counts':counts,'ready':ready})
+        teams=split or {'A':[],'B':[]};score_error=match_goal_error(stage,teams,g)
+        ready=bool(lineups) and not score_error and all(stage['players'][p]['goals'][g] is not None for p in roster)
+        games.append({'game':g+1,'teams':teams,'counts':counts,'goals':match_goals(stage,teams,g),'score_error':score_error,'ready':ready})
+        if score_error:issues.append(f'Game {g+1}: {score_error}')
     if not lineups: issues.append('Generating game teams. Reload To Live to shuffle the first split.')
     if not all(g['ready'] for g in games): issues.append('Complete all five games: enter a score for every player each game. Enter 0 for no goals.')
     ready=not issues
@@ -280,7 +331,7 @@ def round1_view(s, names_ok):
     return {'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
 def round2_view(s, roster, names_ok, upstream=True):
-    stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw['order']);rows=[];scores={};issues=[]
+    stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw['order']);rows=[];scores={};issues=extra_goal_issues(stage)
     stale=bool(stage['roster'] and stage['roster']!=roster)
     if not upstream: issues.append('Complete To Live and resolve its cut ties.')
     if stale: issues.append('The survivor list changed. Reset To Die before entering new scores.')
@@ -291,7 +342,9 @@ def round2_view(s, roster, names_ok, upstream=True):
         g=match['game']-1
         counts={t:sum(stage['players'][p]['goals'][g] is not None for p in match[t]) for t in ['A','B']}
         rest_blank=all(stage['players'][p]['goals'][g] is None for p in match['sit'])
-        games.append({'game':g+1,'counts':counts,'ready':all(n==3 for n in counts.values()) and rest_blank})
+        score_error=match_goal_error(stage,match,g)
+        games.append({'game':g+1,'counts':counts,'goals':match_goals(stage,match,g),'score_error':score_error,'ready':all(n==3 for n in counts.values()) and rest_blank and not score_error})
+        if score_error:issues.append(f'Game {g+1}: {score_error}')
         if not rest_blank: issues.append(f'Game {g+1}: both scheduled sit-outs must stay blank.')
     if upstream and (len(games)!=8 or not all(g['ready'] for g in games)):
         issues.append('Complete all eight games: score the six scheduled players, including 0 for no goals. Leave the two sit-outs blank.')
@@ -326,7 +379,7 @@ def evaluate(s):
     n=[s['names'][p].strip().casefold() for p in IDS]; names_ok=all(n) and len(set(n))==10
     r1=round1_view(s,names_ok)
     r2=round2_view(s,r1['survivors'],names_ok,r1['complete'])
-    roster=r2['survivors']; stage=s['final']; settings=s['settings']; rows=[]; scores={}; issues=[]
+    roster=r2['survivors']; stage=s['final']; settings=s['settings']; rows=[]; scores={}; issues=extra_goal_issues(stage,True)
     stale=bool(stage['roster'] and stage['roster']!=roster)
     if not r2['complete']: issues.append('Complete To Die and resolve its cut ties.')
     if stale: issues.append('The finalist list changed. Reset the final before entering new scores.')
@@ -349,8 +402,10 @@ def evaluate(s):
         teams=schedule[g] if schedule else {'A':[], 'B':[]}
         outcomes=[{stage['players'][p]['results'][g] for p in teams[t]} for t in ['A','B']]
         consistent=outcomes in [[{'W'},{'L'}],[{'L'},{'W'}]]
-        games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'teams':teams,
-                      'ready':count==6 and consistent})
+        score_error=match_goal_error(stage,teams,g)
+        games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'teams':teams,'goals':match_goals(stage,teams,g),'score_error':score_error,
+                      'ready':count==6 and consistent and not score_error})
+        if score_error:issues.append(f'Game {g+1}: {score_error}')
     if roster and not all(g['ready'] for g in games): issues.append('Complete all ten games: six goal scores each, with W for the scheduled winning team and L for its opponents.')
     ready=not issues; extra_scores=[]
     for extra in stage['extras']:
@@ -469,4 +524,3 @@ def round1_lineup_action(s, action, game=None):
         stage['lineups'][g]=_round1_split()
     else: raise ValueError('Unknown Round 1 lineup action.')
     return s
-

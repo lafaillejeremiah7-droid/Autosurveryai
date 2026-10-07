@@ -34,3 +34,5 @@ button[aria-disabled="true"]{cursor:not-allowed}
 #result-save-slot:empty{display:none}
 @media(max-width:800px){#screen-save-slot{flex-basis:100%}.screen-footer .backup-controls{justify-content:flex-end;flex-wrap:wrap}#save-controls{width:100%;justify-content:flex-start}.result-head{gap:8px}.result-close{padding:9px}}
 @media(max-width:800px){input,select,.entry-editor textarea{font-size:16px}}
+
+.match-score{display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px}.match-score strong{font-size:20px;color:var(--text)}.match-score span{font-size:12px}

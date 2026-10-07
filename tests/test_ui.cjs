@@ -23,7 +23,7 @@ for(let g=0;g<8;g++){
 vm.runInContext("resetStage('round2')",context);
 assert.equal(vm.runInContext("state.round2.players.p1.goals.length",context),8);
 assert.equal(vm.runInContext("state.final.players.p1.goals.length",context),10);
-assert.equal(vm.runInContext("state.round1.players.p1.goals[0]",context),6);
+assert.equal(vm.runInContext("state.round1.players.p1.goals[0]",context),2);
 // Exercise actual delegated match-selector and goal-counter handlers.
 vm.runInContext('state=fixture.state;render=()=>{};flush=async()=>{};save=async()=>{};',context);
 const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false})}});
@@ -133,7 +133,7 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  await click({action:'close-result'});
  // (4) With a TIE, the fullscreen offers the add-extra-game control and folds live after an extra score.
  const tie=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
-  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();d=s['round2']['players']['p4'];d['goals']=[3 if n is not None else None for n in d['goals']];print(json.dumps({'state':s,'view':evaluate(s),'revision':9}))"],{cwd:root,encoding:'utf8'}));
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import cut_tie_state;from engine import evaluate;s=cut_tie_state('round2');print(json.dumps({'state':s,'view':evaluate(s),'revision':9}))"],{cwd:root,encoding:'utf8'}));
  vm.runInContext(`state=${JSON.stringify(tie.state)};view=${JSON.stringify(tie.view)};revision=9;`,context);
  assert(tie.view.round2.rows.some(r=>r.status&&r.status.startsWith('TIE')),'tie fixture has a TIE row');
  await click({action:'submit-match',stage:'round2',match:'7'});
@@ -143,13 +143,13 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert(resultEl.innerHTML.includes('data-action="extra" data-stage="round2"'),'fullscreen embeds the add-extra control');
  // Apply a resolving extra game (p8 outscores p4) and re-render: TIE flips, folded totals update.
  const folded=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
-  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import IDS,evaluate;s=fixture();d=s['round2']['players']['p4'];d['goals']=[3 if n is not None else None for n in d['goals']];e=dict.fromkeys(IDS);e['p8']=5;e['p4']=1;s['round2']['extras']=[e];print(json.dumps({'state':s,'view':evaluate(s),'revision':10}))"],{cwd:root,encoding:'utf8'}));
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import cut_tie_state;from engine import IDS,evaluate;s=cut_tie_state('round2');e=dict.fromkeys(IDS);e['p8']=3;e['p4']=1;s['round2']['extras']=[e];print(json.dumps({'state':s,'view':evaluate(s),'revision':10}))"],{cwd:root,encoding:'utf8'}));
  vm.runInContext(`state=${JSON.stringify(folded.state)};view=${JSON.stringify(folded.view)};revision=10;`,context);
  vm.runInContext('renderResult()',context);
  assert(resultEl.innerHTML.includes('ROUND SETTLED'),'after folding the round settles');
  assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'folded fullscreen shows ADVANCE/CUT');
- const p8=folded.view.round2.rows.find(r=>r.id==='p8');assert.equal(p8.goals,23);  // Folded total used by the view.
- assert(resultEl.innerHTML.includes('>23<'),'folded total goals (23) render in the fullscreen');
+ const p8=folded.view.round2.rows.find(r=>r.id==='p8');assert.equal(p8.goals,4);  // Folded total used by the view.
+ assert(resultEl.innerHTML.includes('>4<'),'folded total goals (4) render in the fullscreen');
  console.log('FEAT-003 UI: per-match submit controls on all stages, cumulative popup, final fullscreen with ADVANCE/CUT/TIE and the live extra-game fold passed.');
 
  // ---- Easier-controls: clear-round controls, extended cascade, self-explaining
@@ -170,7 +170,7 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  // (B) EXTENDED ROUND1 CASCADE: resetStage('round1') clears round1 + round2 + final
  //     goals while array lengths stay 5/8/10, lineups cleared, round2 draw reset.
  vm.runInContext('state=fixture.state;',context);
- assert.equal(vm.runInContext('state.round1.players.p1.goals[0]',context),6);  // Sanity: scores present before.
+ assert.equal(vm.runInContext('state.round1.players.p1.goals[0]',context),2);  // Sanity: scores present before.
  vm.runInContext("resetStage('round1')",context);
  assert.equal(vm.runInContext('state.round1.players.p1.goals.length',context),5,'round1 keeps 5 slots');
  assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),8,'round2 keeps 8 slots');
@@ -214,12 +214,12 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  vm.runInContext(`state=${JSON.stringify(undoFix.state)};view=${JSON.stringify(undoFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};`,context);
  vm.runInContext('token="T";revision=1;undoSnapshot=null;',context);
  const priorState=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
- assert.equal(priorState.round1.players.p1.goals[0],6,'pristine fixture has To Live scores before the destructive action');
+ assert.equal(priorState.round1.players.p1.goals[0],2,'pristine fixture has To Live scores before the destructive action');
  assert.equal(vm.runInContext('undoSnapshot',context),null,'no undo snapshot before any destructive action');
  await click({action:'clear-round',stage:'round1'});
  assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-round sets a one-level undo snapshot');
  assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear To Live','the snapshot carries a human label');
- assert.equal(vm.runInContext('undoSnapshot.state.round1.players.p1.goals[0]',context),6,'the snapshot preserved the pre-clear scores');
+ assert.equal(vm.runInContext('undoSnapshot.state.round1.players.p1.goals[0]',context),2,'the snapshot preserved the pre-clear scores');
  assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'clear-round mutated state (round1 cleared)');
  const changed=vm.runInContext('JSON.stringify(state)',context);
  assert.notEqual(changed,JSON.stringify(priorState),'state changed after the destructive action');
@@ -430,3 +430,4 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  context.fetch=()=>new Promise(()=>{});
  console.log('Extra-games delete controls: per-extra-game Remove (splices one), Clear all extra games (empties the list), both with one-level undo and full isolation passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
