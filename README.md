@@ -16,9 +16,9 @@ The dashboard opens at **http://127.0.0.1:8765**. Leave the terminal running whi
 
 This runs on your computer. A GitHub repository stores the code; it does not host the running Python dashboard. For private GitHub Codespaces use, forward port 8765 privately and run `python app.py --no-browser` in its terminal. Do not expose the app as a public service.
 
-## Monitor control room
+## Cube-room headquarters
 
-The landing screen is a six-monitor rig with metal mounts and pink cables, inspired by the supplied reference. Click a monitor to zoom into it. Use **Control room** or Escape to zoom back out. Keyboard navigation, small-screen layouts, and reduced-motion preferences are supported.
+The landing screen is a six-room cube headquarters inspired by the supplied futuristic reference. Click a cube to zoom into its room. Use **Leave room** or Escape to zoom back out. The skyline animates with missiles, falling aircraft, fire, smoke, and embers; **Pause world** freezes that background while you enter scores. Keyboard navigation, small-screen layouts, and reduced-motion preferences are supported. A Doomsday panel lets you set and save the tournament start time; it counts down to the second and changes to **DOOMSDAY HAS ARRIVED** when the time passes.
 
 - **Name your fate:** editable random name wheel, separate from the tournament roster.
 - **Players & rules:** ten tournament names, scoring weights, multiplier, and prizes.

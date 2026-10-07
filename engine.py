@@ -5,6 +5,7 @@ from fractions import Fraction
 from itertools import groupby, combinations
 import math
 import secrets
+from datetime import datetime
 
 TIE = 'TIE - EXTRA GAMES NEEDED'
 IDS = [f'p{i+1}' for i in range(10)]
@@ -66,7 +67,7 @@ def blank_round(games=5):
 
 def new_state():
     return {'version': 4, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
-            'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4]},
+            'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4], 'start_at': ''},
             'round1': blank_round(), 'round2': blank_round(8),
             'final': {'players': {p: {'goals': [None]*10, 'results': ['']*10} for p in IDS}, 'extras': [], 'roster': []}}
 
@@ -149,12 +150,18 @@ def validate(s):
     try:
         s=migrate(s)
         s.setdefault('wheel', {'text': '', 'remove_winner': False})
+        s.setdefault('settings', {}).setdefault('start_at', '')
         if not isinstance(s['wheel'],dict) or not isinstance(s['wheel'].get('text'),str) or not isinstance(s['wheel'].get('remove_winner'),bool):
             raise ValueError('Invalid wheel list or removal setting.')
         if s['version'] != 4 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
         for name in s['names'].values():
             if not isinstance(name,str) or len(name)>40: raise ValueError('Names must be 40 characters or fewer.')
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
+        if not isinstance(s['settings'].get('start_at'),str) or len(s['settings']['start_at'])>40:
+            raise ValueError('Invalid tournament start time.')
+        if s['settings']['start_at']:
+            try: datetime.fromisoformat(s['settings']['start_at'].replace('Z','+00:00'))
+            except ValueError: raise ValueError('Invalid tournament start time.')
         if len(s['settings']['prizes']) != 3: raise ValueError('Enter exactly three prizes.')
         for v in s['settings']['prizes']: numeric(v)
         s['round1'].setdefault('lineups',[])

@@ -449,7 +449,7 @@ function markWinner(team,game=finalGame){const match=view.final.schedule[game];i
 function resetWheelResult(){wheelLast=null;wheelAngle=0;}
 document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();if(el.dataset.path==='wheel.text')resetWheelResult();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
-document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;worldClick(e);try{
  if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
  if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
  if(b.dataset.wheelMode){if(spinning||sitoutBusy)return;await flush();wheelMode=b.dataset.wheelMode;render();return;}
@@ -477,7 +477,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament and wheel? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4]}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament and wheel? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
  if(action==='spin')await spinWheel();
  if(action==='wheel-clear'&&!spinning&&confirm('Remove every name from the wheel? Tournament players stay unchanged.')){state.wheel.text='';resetWheelResult();changed();await save();}
  if(action==='wheel-roster'&&!spinning){if(state.wheel.text.trim()&&!confirm('Replace the wheel list with the current tournament names?'))return;state.wheel.text=Object.values(state.names).filter(n=>n.trim()).join('\n');resetWheelResult();changed();await save();}
@@ -494,5 +494,24 @@ $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
 $('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament and wheel with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});
-function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});}clock();setInterval(clock,30000);
+function updateCountdown(){
+ const target=state?.settings?.start_at, box=$('#countdown');
+ if(!box)return;
+ if(!target){['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});$('#countdown-phase').textContent='AWAITING START TIME';$('#doomsday-status').textContent='Set a start time. Let the countdown begin.';if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');return;}
+ const ms=Math.max(0,new Date(target).getTime()-Date.now()), total=Math.floor(ms/1000);
+ const d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),sec=total%60;
+ [['days',d],['hours',h],['minutes',m],['seconds',sec]].forEach(([k,v])=>{const e=$('#countdown-'+k);if(e)e.textContent=String(v).padStart(2,'0');});
+ const started=ms<=0;$('#countdown-phase').textContent=started?'DOOMSDAY HAS ARRIVED':'COUNTDOWN TO TOURNAMENT';$('#doomsday-status').textContent=started?'TOURNAMENT STARTED — enter the rooms.':'Starts '+new Date(target).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});if(box.setAttribute)box.setAttribute('aria-label',started?'Doomsday has arrived':'Tournament starts in '+d+' days '+h+' hours '+m+' minutes '+sec+' seconds');
+ if($('#schedule-label'))$('#schedule-label').textContent='CHANGE START TIME';const card=$('.doomsday-clock');if(card)card.dataset.phase=started?'started':'waiting';
+}
+function setStartTime(){
+ const current=state.settings.start_at?new Date(state.settings.start_at):new Date(Date.now()+86400000);
+ const value=prompt('Enter tournament start time in local format YYYY-MM-DDTHH:MM',current.toISOString().slice(0,16));
+ if(value===null)return;
+ if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)){error('Use YYYY-MM-DDTHH:MM.');return;}
+ state.settings.start_at=new Date(value).toISOString();changed();updateCountdown();
+}
+function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});updateCountdown();}clock();setInterval(clock,1000);
+const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';}if(b.dataset.action==='edit-start')setStartTime();};
+
 fetch('/api/state').then(r=>r.json()).then(data=>{({state,view,revision,token}=data);round2Game=Math.min(view.round2.draw.completed,7);render();$('#save-status').textContent='All changes saved';}).catch(e=>error('Cannot reach the Python app. '+e.message));
