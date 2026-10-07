@@ -174,7 +174,7 @@ function round(key){
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
  const rerollOff=sitoutBusy||spinning||scored;
  const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':spinning?'Wait for the wheel to finish.':sitoutBusy?'Wait for the current draw to finish.':'';
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button></div><div class="teams-grid">`;
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r1-game">Clear this game</button></div></div><div class="teams-grid">`;
  for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${rowmap[p].played}/5 PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">Teams are reshuffled per game and do not affect scoring. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
@@ -415,6 +415,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='csv'){await flush();window.location='/api/standings.csv';}
  if(action==='extra'){state[key].extras.push(Object.fromEntries(ids.map(p=>[p,key==='final'?{goals:null,result:''}:null])));changed();await save();}
  if(action==='undo'){await performUndo();return;}
+ if(action==='clear-r1-game'){await flush();const g=round1Game;doDestructive('Undo: Clear To Live Game '+(g+1),()=>{for(const p of ids)state.round1.players[p].goals[g]=null;});await save();}
  if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear To Die Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
  if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear Rebirth Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}

@@ -316,4 +316,47 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-scoring snapshot');
  context.fetch=()=>new Promise(()=>{});
  console.log('Settings clear controls: independent clear-names and clear-scoring actions, scoring/names isolation, and one-level undo for each passed.');
+
+ // ---- To Live per-game clear control: a 'Clear this game' button on EACH To Live
+ //      game that clears ONLY that game's goals for all ten players, Undo-able, and
+ //      leaves names, scoring, and other games untouched. Mirrors clear-r2-game. ----
+ vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
+ // (J) The To Live round screen renders a per-game clear control with the new
+ //     data-action and the self-evident 'Clear this game' copy, reusing .danger.clear-score.
+ const liveClearGame=vm.runInContext("round1Game=2;round('round1')",context);
+ assert(liveClearGame.includes('data-action="clear-r1-game"'),'To Live renders the per-game clear-r1-game control');
+ assert(/data-action="clear-r1-game"[^>]*>Clear this game</.test(liveClearGame),'the clear-r1-game button copy is "Clear this game"');
+ assert(/class="danger clear-score" data-action="clear-r1-game"/.test(liveClearGame),'clear-r1-game reuses the .danger.clear-score styling');
+ // (K) Firing clear-r1-game clears ONLY the selected game's goals for all players; other
+ //     games' goals, names, and settings stay unchanged; and it sets a deep-equal undo snapshot.
+ const r1ClearFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(r1ClearFix.state)};view=${JSON.stringify(r1ClearFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;round1Game=2;`,context);
+ const beforeR1Clear=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ const ids10=JSON.parse(vm.runInContext('JSON.stringify(ids)',context));
+ assert(ids10.length===10,'all ten players participate in every To Live game');
+ assert(ids10.some(p=>beforeR1Clear.round1.players[p].goals[2]!==null),'fixture has goals in the targeted game before clearing');
+ await click({action:'clear-r1-game'});
+ assert(ids10.every(p=>vm.runInContext(`state.round1.players.${p}.goals[2]`,context)===null),'clear-r1-game cleared game 3 goals for all ten players');
+ // Other games' goals untouched.
+ for(const g of [0,1,3,4])assert.deepEqual(
+  ids10.map(p=>JSON.parse(vm.runInContext(`JSON.stringify(state.round1.players.${p}.goals[${g}])`,context))),
+  ids10.map(p=>beforeR1Clear.round1.players[p].goals[g]),
+  `clear-r1-game left game ${g+1} goals untouched`);
+ // Names and scoring settings untouched.
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.names)',context)),beforeR1Clear.names,'clear-r1-game left names untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.settings)',context)),beforeR1Clear.settings,'clear-r1-game left scoring settings untouched');
+ // Other stages untouched.
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round2)',context)),beforeR1Clear.round2,'clear-r1-game left To Die untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.final)',context)),beforeR1Clear.final,'clear-r1-game left Rebirth untouched');
+ // (L) The undo snapshot deep-equals the pre-action state and Undo restores it.
+ assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-r1-game sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear To Live Game 3','the clear-r1-game snapshot carries a human label');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),beforeR1Clear,'the clear-r1-game snapshot deep-equals the pre-action state');
+ context.fetch=async(url,options)=>{const body=JSON.parse(options.body);return {ok:true,json:async()=>({state:body.state,view:r1ClearFix.view,revision:(body.revision||1)+1})};};
+ await click({action:'undo'});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),beforeR1Clear,'undo restored the exact pre-clear-r1-game state');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-r1-game snapshot');
+ context.fetch=()=>new Promise(()=>{});
+ console.log('To Live per-game clear control: clear-r1-game button, single-game goal clearing for all ten players, names/scoring/other-games/other-stages isolation, and one-level undo passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
