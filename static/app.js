@@ -194,6 +194,13 @@ async function openMatchResult(key,match){
  const v=view[key],meta=stageMeta[key];
  if(v.stale||!v.games[match]||!v.games[match].ready){error(v.stale?'Clear this round first — its player roster changed.':`Finish entering match ${match+1} scores and results first.`);return;}
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
+ // FEAT-003: at the end-of-round moment, if the round is SETTLED (no unresolved tie) and
+ // there are players to eliminate, play the cartoon furnace cutscene BEFORE the standings.
+ // An unresolved tie (v.complete false) falls through to the normal extra-game fullscreen.
+ if(resultFinal&&v.complete){
+  const names=eliminatedNames(key);
+  if(names.length)await playCutscene(names);
+ }
  const dialog=$('#result-dialog');
  dialog.classList.toggle('fullscreen',resultFinal);
  if(!dialog.open)dialog.showModal();
@@ -490,6 +497,9 @@ $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen
 $('#result-dialog').addEventListener('cancel',e=>{e.preventDefault();closeResult();});
 $('#home-link').onclick=e=>{e.preventDefault();if($('#screen-dialog').open)closeScreen().catch(err=>error(err.message));};
 $('#retry-save').onclick=()=>save();
+// FEAT-003: Skip button and click-anywhere both route through the single endCutscene path.
+$('#cutscene-skip').onclick=e=>{e.stopPropagation();endCutscene();};
+$('#cutscene').onclick=()=>endCutscene();
 $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
 $('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current draw to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament and wheel with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;resetWheelResult();error('');render();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
@@ -566,5 +576,130 @@ function stopWorldBlasts(){
  if(blastShake&&blastShake.cancel){try{blastShake.cancel();}catch{}blastShake=null;}
 }
 const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';if(paused)stopWorldBlasts();else if(!reducedMotion())startWorldBlasts();}if(b.dataset.action==='edit-start')setStartTime();};
+
+// FEAT-003: cartoon furnace elimination cutscene. Plays BEFORE the end-of-round
+// fullscreen standings, once per settled round when its final match is submitted.
+// The eliminated players for a stage come straight from the engine view (no server
+// change): round1/round2 -> rows with status 'CUT'; final -> rows with rank>3 (the
+// non-podium finishers; the top-3 podium are NOT thrown).
+function eliminatedNames(key){
+ const v=view&&view[key];if(!v||!v.rows)return [];
+ const rows=key==='final'
+  ?[...v.rows].filter(r=>r.rank>3).sort((a,b)=>(a.rank||99)-(b.rank||99))
+  :[...v.rows].filter(r=>r.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99));
+ return rows.map(r=>r.name);
+}
+// A single eliminated stickman, labelled with the player's name. Decorative, so the
+// figure itself is aria-hidden; the name is carried both as text and in the markup so
+// tests and reduced-motion summaries can read it. `i` spaces the figures across the stage.
+function cutsceneFigure(name,i,count){
+ const span=760/(count+1),x=70+span*(i+1);
+ return `<g class="cut-figure" data-name="${esc(name)}" transform="translate(${x},205)">`+
+  '<circle cx="0" cy="-34" r="12" fill="none" stroke="#ffe7cf" stroke-width="3"/>'+
+  '<line x1="0" y1="-22" x2="0" y2="14" stroke="#ffe7cf" stroke-width="3"/>'+
+  '<line x1="0" y1="-12" x2="-16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
+  '<line x1="0" y1="-12" x2="16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
+  '<line x1="0" y1="14" x2="-14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
+  '<line x1="0" y1="14" x2="14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
+  `<text class="cut-name" x="0" y="62" text-anchor="middle" fill="#ffcf8d" font-size="15" font-weight="700">${esc(name)}</text>`+
+  '</g>';
+}
+// A group of 'thrower' stickmen (arms up, mid-heave) that toss the cut players.
+function cutsceneThrowers(){
+ let g='';
+ for(let i=0;i<3;i++){const x=70+i*34;
+  g+=`<g transform="translate(${x},230)" opacity="${0.55+i*0.15}">`+
+   '<circle cx="0" cy="-30" r="10" fill="none" stroke="#c99b7f" stroke-width="3"/>'+
+   '<line x1="0" y1="-20" x2="0" y2="12" stroke="#c99b7f" stroke-width="3"/>'+
+   '<line x1="0" y1="-14" x2="-15" y2="-30" stroke="#c99b7f" stroke-width="3"/>'+
+   '<line x1="0" y1="-14" x2="15" y2="-30" stroke="#c99b7f" stroke-width="3"/>'+
+   '<line x1="0" y1="12" x2="-11" y2="36" stroke="#c99b7f" stroke-width="3"/>'+
+   '<line x1="0" y1="12" x2="11" y2="36" stroke="#c99b7f" stroke-width="3"/>'+
+   '</g>';
+ }
+ return `<g class="cut-throwers" aria-hidden="true">${g}</g>`;
+}
+// The giant furnace on the right, its glowing mouth reusing the fire gradient look.
+function cutsceneFurnace(){
+ return '<g class="cut-furnace" aria-hidden="true" transform="translate(700,70)">'+
+  '<rect x="-30" y="0" width="200" height="320" rx="14" fill="#241a1b" stroke="#5a3a2e" stroke-width="4"/>'+
+  '<rect x="-10" y="40" width="160" height="150" rx="12" fill="#120a0b"/>'+
+  '<ellipse class="furnace-glow" cx="70" cy="118" rx="78" ry="74" fill="url(#fire)"/>'+
+  '<rect x="-10" y="40" width="160" height="150" rx="12" fill="none" stroke="#8a4a30" stroke-width="4"/>'+
+  '<rect x="-44" y="214" width="228" height="30" rx="8" fill="#2d2021" stroke="#5a3a2e" stroke-width="3"/>'+
+  '<text x="70" y="300" text-anchor="middle" fill="#ffb27a" font-size="15" font-weight="700" letter-spacing="2">FURNACE</text>'+
+  '</g>';
+}
+let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
+// Build the overlay SVG. The furnace reuses url(#fire) from the world layer's <defs>;
+// a local <defs> copy keeps it self-contained if the world scene is ever removed.
+function buildCutscene(names){
+ const reduced=reducedMotion();
+ const figures=names.map((n,i)=>cutsceneFigure(n,i,names.length)).join('');
+ const svg='<svg viewBox="0 0 900 400" role="img" aria-hidden="true">'+
+  '<defs><radialGradient id="furnace-fire"><stop stop-color="#fff4c4"/><stop offset=".18" stop-color="#ffcb76"/><stop offset=".48" stop-color="#ef753c" stop-opacity=".85"/><stop offset="1" stop-color="#d1492b" stop-opacity="0"/></radialGradient></defs>'+
+  cutsceneFurnace()+cutsceneThrowers()+
+  `<g class="cut-figures">${figures}</g>`+
+  '<g class="cutscene-poof" transform="translate(770,188)"><circle r="46" fill="#f4e4c7"/><circle r="30" fill="#fff" opacity=".8"/><text y="7" text-anchor="middle" fill="#c0392b" font-size="26" font-weight="900">POOF!</text></g>'+
+  '</svg>';
+ const stage=$('#cutscene-stage');if(stage)stage.innerHTML=svg.replace('url(#fire)','url(#furnace-fire)');
+ const caption=$('#cutscene-caption');
+ if(caption)caption.innerHTML=reduced
+  ?`<strong>ELIMINATED:</strong> ${names.map(esc).join(', ')}`
+  :`The crowd heaves ${names.length===1?'one survivor':names.length+' survivors'} toward the furnace…`;
+}
+// ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
+// overlay, releases the shake guard, and resolves the gate so the standings can show.
+function endCutscene(){
+ cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];
+ if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
+ cutsceneKeyHandler=null;
+ const overlay=$('#cutscene');
+ if(overlay){overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open');}
+ cutsceneActive=false;
+ const r=cutsceneResolve;cutsceneResolve=null;if(r)r();
+}
+// Play the cutscene for `names`; resolves when it ends (naturally or via skip). If there
+// is nothing to show, resolves immediately so standings appear directly.
+function playCutscene(names){
+ return new Promise(resolve=>{
+  if(!names||!names.length){resolve();return;}
+  const overlay=$('#cutscene');if(!overlay){resolve();return;}
+  cutsceneResolve=resolve;cutsceneActive=true;
+  // Suppress the ambient world shake/blasts while the cutscene runs (FEAT-002 guard
+  // + hard stop so nothing vibrates behind the overlay).
+  stopWorldBlasts();
+  buildCutscene(names);
+  overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
+  if(overlay.focus)overlay.focus({preventScroll:true});
+  // Esc dismisses; capture phase so it fires before the dialogs' own cancel handlers
+  // (the overlay is not a <dialog>, so it would otherwise fall through to #result-dialog).
+  cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();endCutscene();}};
+  if(document.addEventListener)document.addEventListener('keydown',cutsceneKeyHandler,true);
+  if(reducedMotion()){
+   // Static summary: no toss, no vibration. Stays up until skipped/clicked/Esc, but also
+   // auto-advances after a short beat so the flow is not stuck if input is unavailable.
+   cutsceneTimers.push(setTimeout(endCutscene,1800));
+   return;
+  }
+  // Animated comic toss: each cut figure arcs toward the furnace mouth, then a POOF.
+  const stage=$('#cutscene-stage');
+  const figs=stage&&stage.querySelectorAll?[...stage.querySelectorAll('.cut-figure')]:[];
+  figs.forEach((fig,i)=>{
+   if(!fig.animate)return;
+   const delay=300+i*520;
+   fig.animate([
+    {transform:'translateY(0) rotate(0deg)',opacity:1,offset:0},
+    {transform:'translate(260px,-120px) rotate(220deg)',opacity:1,offset:.6},
+    {transform:'translate(540px,10px) rotate(540deg)',opacity:0,offset:1}
+   ],{duration:900,delay,easing:'cubic-bezier(.3,-.2,.7,1)',fill:'forwards'});
+  });
+  const poof=stage&&stage.querySelector?stage.querySelector('.cutscene-poof'):null;
+  const total=300+figs.length*520+700;
+  cutsceneTimers.push(setTimeout(()=>{if(poof&&poof.classList)poof.classList.add('go');},Math.max(300,total-500)));
+  // Natural completion -> single dismiss path.
+  cutsceneTimers.push(setTimeout(endCutscene,total+600));
+ });
+}
 
 fetch('/api/state').then(r=>r.json()).then(data=>{({state,view,revision,token}=data);round2Game=Math.min(view.round2.draw.completed,7);render();$('#save-status').textContent='All changes saved';startWorldBlasts();}).catch(e=>error('Cannot reach the Python app. '+e.message));

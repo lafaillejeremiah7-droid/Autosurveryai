@@ -82,6 +82,17 @@
  <footer class="screen-footer"><span><i class="legend input-dot"></i> INPUT <i class="legend output-dot"></i> AUTOMATIC</span><div id="screen-save-slot"></div><div class="backup-controls"><button id="backup">Download backup</button><label class="file-button">Restore backup<input type="file" id="restore" accept=".json,application/json"></label></div></footer></div>
 </dialog>
 <dialog id="result-dialog" aria-labelledby="result-title"><div class="result-shell" id="result-content" role="status" aria-live="polite"></div><div id="result-save-slot"></div></dialog>
+<!-- FEAT-003: full-screen elimination cutscene overlay. Cartoon stickman throwers toss
+     the eliminated players (one labelled stickman each) into a giant furnace. Shown
+     BEFORE the end-of-round fullscreen standings; skippable (button + click + Esc).
+     Hidden by default; app.js fills #cutscene-stage and flips the `open` attribute. -->
+<div id="cutscene" class="cutscene" role="dialog" aria-modal="true" aria-labelledby="cutscene-label" aria-hidden="true" hidden tabindex="-1">
+ <div class="cutscene-head"><div class="eyebrow">ELIMINATION</div><h2 id="cutscene-label">Into the furnace</h2></div>
+ <div id="cutscene-stage" class="cutscene-stage" aria-hidden="true"></div>
+ <p id="cutscene-caption" class="cutscene-caption" role="status" aria-live="polite"></p>
+ <button id="cutscene-skip" class="cutscene-skip" type="button">Skip ✕</button>
+ <p class="cutscene-hint" aria-hidden="true">Click anywhere or press Esc to skip</p>
+</div>
 <script src="/app.js"></script>
 </body>
 </html>

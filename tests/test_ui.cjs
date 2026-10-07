@@ -31,6 +31,10 @@ assert.equal(vm.runInContext("state.round1.players.p1.goals[0]",context),2);
 // Exercise actual delegated match-selector and goal-counter handlers.
 vm.runInContext('state=fixture.state;render=()=>{};flush=async()=>{};save=async()=>{};',context);
 const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false})}});
+// Drain pending microtasks so a click handler that `await`s a resolved stub (flush/save)
+// advances to the point where it has set a synchronous flag (e.g. FEAT-003 cutsceneActive)
+// WITHOUT resolving the sandbox's never-firing setTimeout timers.
+const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
 (async()=>{
  await click({r2Game:'7'});assert.equal(vm.runInContext('round2Game',context),7);
  const p=payload.view.round2.schedule[7].A[0],target=`round2.players.${p}.goals.7`;
@@ -113,8 +117,24 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  for(const r of payload.view.round1.rows)assert(resultEl.innerHTML.includes(r.name),'popup lists every player name');
  await click({action:'close-result'});
  assert.equal(vm.runInContext('resultStage',context),null,'close-result dismisses the popup');
- // (3) Submitting the LAST match (match 5 of To Live, index 4) opens the fullscreen total ranking.
- await click({action:'submit-match',stage:'round1',match:'4'});
+ // (3) Submitting the LAST match (match 5 of To Live, index 4) opens the fullscreen total
+ //      ranking. For a SETTLED round with eliminated players the FEAT-003 cutscene plays
+ //      first (it blocks on a timer the sandbox never fires), so dismiss it, then await.
+ const r1Submit=click({action:'submit-match',stage:'round1',match:'4'});
+ await flushMicro();
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'a settled final match triggers the elimination cutscene');
+ // The overlay carries EXACTLY the round1 CUT names as labelled stickmen; advancing
+ // players are NOT thrown.
+ const r1Cut=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name);
+ const r1Adv=payload.view.round1.rows.filter(r=>r.status==='ADVANCE').map(r=>r.name);
+ const r1Stage=context.document.querySelector('#cutscene-stage').innerHTML;
+ assert.equal(r1Cut.length,2,'round1 settles with two CUT players');
+ for(const n of r1Cut)assert(r1Stage.includes(`data-name="${n}"`),'the round1 cutscene labels the eliminated player '+n);
+ assert.equal((r1Stage.match(/class="cut-figure"/g)||[]).length,r1Cut.length,'exactly the CUT players appear as thrown figures');
+ for(const n of r1Adv)assert(!r1Stage.includes(`data-name="${n}"`),'advancing player '+n+' is not thrown into the furnace');
+ vm.runInContext('endCutscene();',context);
+ await r1Submit;
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'dismissing the cutscene clears the active flag');
  assert(vm.runInContext('resultFinal',context)===true,'last match opens the fullscreen');
  assert(resultEl.innerHTML.includes('total round ranking'));
  assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'fullscreen shows ADVANCE/CUT badges');
@@ -124,7 +144,19 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  //      (total/played), NOT a second copy of the total. Verify the computed value appears
  //      and that it differs from the total for a player whose total != average.
  vm.runInContext('state=fixture.state;view=fixture.view;',context);
- await click({action:'submit-match',stage:'final',match:'9'});
+ const finalSubmit=click({action:'submit-match',stage:'final',match:'9'});
+ await flushMicro();
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled Rebirth final triggers the elimination cutscene');
+ // Rebirth throws the NON-PODIUM finishers (rank>3); the top-3 podium is spared.
+ const finalThrown=payload.view.final.rows.filter(r=>r.rank>3).map(r=>r.name);
+ const finalPodium=payload.view.final.rows.filter(r=>r.rank<=3).map(r=>r.name);
+ const finalStage=context.document.querySelector('#cutscene-stage').innerHTML;
+ assert(finalThrown.length>0,'Rebirth has non-podium finishers to throw');
+ for(const n of finalThrown)assert(finalStage.includes(`data-name="${n}"`),'the Rebirth cutscene labels non-podium finisher '+n);
+ assert.equal((finalStage.match(/class="cut-figure"/g)||[]).length,finalThrown.length,'exactly the non-podium finishers are thrown');
+ for(const n of finalPodium)assert(!finalStage.includes(`data-name="${n}"`),'podium finisher '+n+' is spared the furnace');
+ vm.runInContext('endCutscene();',context);
+ await finalSubmit;
  assert(vm.runInContext('resultFinal',context)===true,'final match 10 opens the fullscreen');
  assert(/AVG PTS \/ GAME/.test(resultEl.innerHTML),'final fullscreen labels the average column as points per game');
  assert(/FINAL/.test(resultEl.innerHTML),'final fullscreen shows FINAL podium badges');
@@ -141,6 +173,9 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  vm.runInContext(`state=${JSON.stringify(tie.state)};view=${JSON.stringify(tie.view)};revision=9;`,context);
  assert(tie.view.round2.rows.some(r=>r.status&&r.status.startsWith('TIE')),'tie fixture has a TIE row');
  await click({action:'submit-match',stage:'round2',match:'7'});
+ // FEAT-003: an UNRESOLVED tie (view.round2.complete false) must NOT play the cutscene;
+ // the normal extra-game fullscreen shows instead.
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'no cutscene fires while a tie is unresolved');
  assert(vm.runInContext('resultFinal',context)===true,'round2 last match opens the fullscreen');
  assert(resultEl.innerHTML.includes('EXTRA GAMES NEEDED'),'fullscreen announces extra games are needed');
  assert(/TIE/.test(resultEl.innerHTML),'fullscreen shows the TIE badge');
@@ -475,5 +510,57 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  vm.runInContext('cutsceneActive=false;',context);
  context.window.matchMedia=()=>({matches:true});   // restore the sandbox default
  console.log('FEAT-002 ambient blasts: start/stop exposed, gated by reduced-motion and Pause-world, #world-toggle wiring, stop cancels the timer, and the cutsceneActive shake guard passed.');
+
+ // ---- FEAT-003: the elimination cutscene itself — eliminatedNames per stage, the
+ //      no-trigger-on-non-final case, the single-dismiss (skip) path, and the
+ //      reduced-motion static summary. ----
+ vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
+ // (A) eliminatedNames maps each stage to the right rows: round1/round2 CUT, final rank>3.
+ const en1=JSON.parse(vm.runInContext("JSON.stringify(eliminatedNames('round1'))",context));
+ assert.deepEqual([...en1].sort(),[...payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name)].sort(),'eliminatedNames(round1) = the CUT rows');
+ const enF=JSON.parse(vm.runInContext("JSON.stringify(eliminatedNames('final'))",context));
+ assert.deepEqual([...enF].sort(),[...payload.view.final.rows.filter(r=>r.rank>3).map(r=>r.name)].sort(),'eliminatedNames(final) = the rank>3 finishers');
+ assert(enF.every(n=>!payload.view.final.rows.filter(r=>r.rank<=3).map(x=>x.name).includes(n)),'no podium finisher is in eliminatedNames(final)');
+ // (B) A NON-FINAL match submit does NOT trigger the cutscene.
+ vm.runInContext('cutsceneActive=false;',context);
+ await click({action:'submit-match',stage:'round1',match:'0'});
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'a non-final match submit does not play the cutscene');
+ assert.equal(vm.runInContext('resultFinal',context),false,'match 1 of 5 is not the final match');
+ await click({action:'close-result'});
+ // (C) SKIPPABLE: starting the cutscene flags it active and reveals the overlay; the
+ //     single endCutscene() path (Skip button / click / Esc / completion all route here)
+ //     hides the overlay, clears the flag, and lets the standings render.
+ const overlayEl=context.document.querySelector('#cutscene');
+ // playCutscene's promise resolves ONLY via endCutscene (the sandbox's setTimeout never
+ // fires), so start it without awaiting, assert it is active, then drive the single
+ // dismiss path that Skip/click/Esc all share.
+ vm.runInContext("playCutscene(['Alpha','Bravo']);",context);
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'playCutscene marks the cutscene active and shows the overlay');
+ assert.equal(overlayEl.hidden,false,'the overlay is visible while the cutscene plays');
+ vm.runInContext('endCutscene();',context);
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'endCutscene (Skip/click/Esc) clears the active flag');
+ assert.equal(overlayEl.hidden,true,'endCutscene hides the overlay so the standings show');
+ // After dismissal the user is free to land on the resultFullscreen standings.
+ vm.runInContext('state=fixture.state;view=fixture.view;',context);
+ const skipSubmit=click({action:'submit-match',stage:'round1',match:'4'});
+ await flushMicro();
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled round replays the cutscene before standings');
+ vm.runInContext('endCutscene();',context);   // skip
+ await skipSubmit;
+ assert(resultEl.innerHTML.includes('total round ranking'),'after skipping the cutscene the fullscreen standings are shown');
+ await click({action:'close-result'});
+ // (D) REDUCED MOTION: with matchMedia matches:true (the sandbox default) the animated
+ //     toss is replaced by a STATIC summary carrying an 'ELIMINATED: names' caption.
+ assert.equal(vm.runInContext("reducedMotion()",context),true,'sandbox defaults to reduced motion');
+ vm.runInContext("playCutscene(['Casey','Dakota']);",context);
+ const captionEl=context.document.querySelector('#cutscene-caption');
+ assert(/ELIMINATED:/.test(captionEl.innerHTML),'reduced motion shows the static ELIMINATED caption');
+ assert(captionEl.innerHTML.includes('Casey')&&captionEl.innerHTML.includes('Dakota'),'the static summary names the eliminated players');
+ vm.runInContext('endCutscene();',context);
+ // (E) EMPTY eliminated list: playCutscene resolves immediately and never flags active.
+ vm.runInContext('cutsceneActive=false;',context);
+ await vm.runInContext('playCutscene([])',context);
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'playCutscene with no names resolves without showing the overlay');
+ console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, skippable single-dismiss path, reduced-motion static ELIMINATED summary, and empty-list skip passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
