@@ -4,7 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule, round2_draw_action, blank_round
+from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule, round2_draw_action, round1_assign_action, blank_round
 from app import Store, make_server
 
 def fixture(final=True):
@@ -227,6 +227,63 @@ class Draws(unittest.TestCase):
             self.assertEqual(store.state,original)
             self.assertEqual(Store(store.path).state['round2']['draw'],original['round2']['draw'])
 
+class Round1Assign(unittest.TestCase):
+    def spin_all(self,s):
+        for _ in range(10):s=round1_assign_action(s,'spin')
+        return s
+    def test_full_assignment_always_five_five_randomized(self):
+        for _ in range(200):
+            s=self.spin_all(new_state())
+            teams=[s['round1']['players'][p]['team'] for p in IDS]
+            self.assertEqual(teams.count('A'),5);self.assertEqual(teams.count('B'),5)
+            self.assertEqual(set(s['round1']['assigned']),set(IDS))
+            self.assertEqual(validate(deepcopy(s)),s)
+    def test_cap_forces_valid_split_under_extreme_bias(self):
+        for forced in (0,1):  # Coin always 'A' then always 'B'; the cap must still land 5/5.
+            with patch('engine.secrets.randbelow',return_value=forced):
+                s=self.spin_all(new_state())
+            teams=[s['round1']['players'][p]['team'] for p in IDS]
+            self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
+    def test_assigned_excluded_and_grows_by_one(self):
+        s=new_state()
+        for n in range(1,11):
+            s=round1_assign_action(s,'spin')
+            self.assertEqual(len(s['round1']['assigned']),n)
+            self.assertEqual(len(set(s['round1']['assigned'])),n)
+        snapshot=deepcopy(s['round1']['players'])
+        again=round1_assign_action(s,'spin')  # No unassigned players remain.
+        self.assertEqual(again['round1']['players'],snapshot)
+        self.assertEqual(len(again['round1']['assigned']),10)
+    def test_reset_clears_only_wheel_assigned(self):
+        s=new_state();s['round1']['players']['p1']['team']='A'  # Manual assignment, not on the wheel.
+        s=self.spin_all(s)
+        self.assertNotIn('p1',s['round1']['assigned'])
+        s=round1_assign_action(s,'reset')
+        self.assertEqual(s['round1']['assigned'],[])
+        self.assertEqual(s['round1']['players']['p1']['team'],'A')  # Manual survives.
+        self.assertTrue(all(s['round1']['players'][p]['team']=='' for p in IDS if p!='p1'))
+    def test_manual_override_coexists_and_validates(self):
+        s=self.spin_all(new_state())
+        flip={'A':'B','B':'A'}[s['round1']['players']['p1']['team']]
+        s['round1']['players']['p1']['team']=flip
+        self.assertEqual(validate(deepcopy(s)),s)  # Manual override of a wheel pick still validates.
+    def test_spin_respects_preexisting_manual_without_exceeding_five(self):
+        with patch('engine.secrets.randbelow',return_value=0):  # Coin always wants 'A'.
+            s=new_state()
+            for p in ['p1','p2','p3','p4','p5']:s['round1']['players'][p]['team']='A'  # Five manual A already.
+            s=self.spin_all(s)
+        teams=[s['round1']['players'][p]['team'] for p in IDS]
+        self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
+        self.assertTrue(all(s['round1']['players'][p]['team']=='B' for p in IDS[5:]))
+    def test_backward_compat_missing_assigned_defaults(self):
+        s=new_state();del s['round1']['assigned']  # Pre-existing version-4 save without the field.
+        validated=validate(s)
+        self.assertEqual(validated['round1']['assigned'],[])
+        old=legacy_fixture();del old['round1']['assigned']  # Migrated v2 save.
+        self.assertEqual(validate(old)['round1']['assigned'],[])
+    def test_unknown_action_raises(self):
+        with self.assertRaises(ValueError):round1_assign_action(new_state(),'nope')
+
 class HTTP(unittest.TestCase):
     def test_round2_draw_endpoint_and_completion(self):
         with tempfile.TemporaryDirectory() as d:
@@ -250,6 +307,24 @@ class HTTP(unittest.TestCase):
                 self.assertEqual(done['state']['round2']['draw']['revealed'],2)
                 with self.assertRaises(HTTPError):put('/api/round2-draw',{'revision':store.revision,'action':'done','game':1})
                 self.assertEqual(json.load(urlopen(url+'/api/backup'))['round2']['draw'],done['state']['round2']['draw'])
+            finally:server.shutdown();server.server_close();thread.join()
+
+    def test_round1_assign_endpoint(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=Store(Path(d)/'data.json');server=make_server(store,0);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            url=f'http://127.0.0.1:{server.server_port}'
+            try:
+                info=json.load(urlopen(url+'/api/state'));headers={'Content-Type':'application/json','X-Session-Token':info['token']}
+                def put(route,body):return json.load(urlopen(Request(url+route,data=json.dumps(body).encode(),headers=headers,method='PUT')))
+                result=None
+                for _ in range(10):result=put('/api/round1-assign',{'revision':store.revision,'action':'spin'})
+                teams=[result['state']['round1']['players'][p]['team'] for p in IDS]
+                self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
+                self.assertEqual(set(result['state']['round1']['assigned']),set(IDS))
+                self.assertEqual(json.load(urlopen(url+'/api/backup'))['round1']['assigned'],result['state']['round1']['assigned'])
+                reset=put('/api/round1-assign',{'revision':store.revision,'action':'reset'})
+                self.assertTrue(all(t=='' for t in [reset['state']['round1']['players'][p]['team'] for p in IDS]))
+                self.assertEqual(reset['state']['round1']['assigned'],[])
             finally:server.shutdown();server.server_close();thread.join()
 
     def test_persistence_and_revision_conflict(self):

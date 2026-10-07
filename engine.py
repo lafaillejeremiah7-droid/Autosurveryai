@@ -13,7 +13,7 @@ def blank_draw():
     return {'order':[], 'revealed':0, 'completed':0, 'mode':'random'}
 
 def blank_round(games=5):
-    return {'players': {p: {**({'team': ''} if games==5 else {}), 'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'draw':blank_draw()} if games==8 else {})}
+    return {'players': {p: {**({'team': ''} if games==5 else {}), 'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'assigned':[]} if games==5 else {}), **({'draw':blank_draw()} if games==8 else {})}
 
 def new_state():
     return {'version': 4, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
@@ -93,6 +93,12 @@ def validate(s):
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
         if len(s['settings']['prizes']) != 3: raise ValueError('Enter exactly three prizes.')
         for v in s['settings']['prizes']: numeric(v)
+        s['round1'].setdefault('assigned',[])
+        assigned=s['round1']['assigned']
+        if not isinstance(assigned,list) or len(assigned)!=len(set(assigned)) or any(p not in IDS for p in assigned):
+            raise ValueError('Invalid wheel-assigned player list.')
+        for p in assigned:
+            if s['round1']['players'][p]['team'] not in ['A','B']: raise ValueError('Wheel-assigned players must have a team.')
         for stage in ['round1','round2','final']:
             a=s[stage]
             if set(a['players'])!=set(IDS) or len(a['extras'])>50: raise ValueError('Invalid player records or too many extra games.')
@@ -292,3 +298,22 @@ def round2_draw_action(s, action, game=None):
         draw['completed']=game;draw['revealed']=max(draw['revealed'],min(game+1,8))
     else: raise ValueError('Unknown Round 2 draw action.')
     return bind_rosters(s)
+
+
+def round1_assign_action(s, action):
+    s=deepcopy(s);stage=s['round1'];stage.setdefault('assigned',[])
+    if action=='spin':
+        unassigned=[p for p in IDS if stage['players'][p]['team']=='']
+        if not unassigned: return s  # Everyone is assigned; repeat clicks never reroll.
+        player=unassigned[0]
+        counts={t:sum(stage['players'][p]['team']==t for p in IDS) for t in ['A','B']}
+        if counts['A']>=5: team='B'
+        elif counts['B']>=5: team='A'
+        else: team='A' if secrets.randbelow(2)==0 else 'B'
+        stage['players'][player]['team']=team
+        stage['assigned'].append(player)
+    elif action=='reset':
+        for p in stage['assigned']: stage['players'][p]['team']=''
+        stage['assigned']=[]
+    else: raise ValueError('Unknown Round 1 assignment action.')
+    return s
