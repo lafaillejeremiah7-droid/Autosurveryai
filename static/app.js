@@ -9,7 +9,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fmt=v=>v===null||v===undefined?'—':Number(v).toLocaleString(undefined,{maximumFractionDigits:3});
 const playedLabel=(n,regulation)=>n>regulation?`${regulation} + ${n-regulation} EXTRA`:`${n}/${regulation}`;
 const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
-const tabs=[['settings','Players & rules'],['round1','To Live'],['round2','To Die'],['final','Rebirth'],['overview','Leaderboard']];
+const tabs=[['settings','Players & rules'],['round1','Like Never Before'],['round2','What Do You Want?'],['final','You Wanted to Win, Right?'],['overview','Leaderboard']];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const value=path=>path.split('.').reduce((a,k)=>a[k],state);
 const setValue=(path,v)=>{const a=path.split('.');const k=a.pop();a.reduce((o,p)=>o[p],state)[k]=v;};
@@ -46,18 +46,18 @@ function panel(name,body,right=''){return `<section class="panel"><div class="pa
 // A visible, always-available 'Clear this round' .danger panel. The copy states the
 // exact downstream cascade (round1 clears all three, round2 clears round2+final,
 // final clears only final). Clearing routes through doDestructive so it is undoable.
-const clearRoundBlurb={round1:'Clears To Live and every later round (To Die and Rebirth). Earlier rounds do not exist for To Live, so nothing before it is touched.',round2:'Clears To Die and Rebirth. To Live and its results are kept.',final:'Clears Rebirth only. To Live and To Die are kept.'};
+const clearRoundBlurb={round1:'Clears Like Never Before and every later round (What Do You Want? and You Wanted to Win, Right?). Earlier rounds do not exist for Like Never Before, so nothing before it is touched.',round2:'Clears What Do You Want? and You Wanted to Win, Right?. Like Never Before and its results are kept.',final:'Clears You Wanted to Win, Right? only. Like Never Before and What Do You Want? are kept.'};
 function clearRoundPanel(key){return panel('Clear this round','<p class="hint">'+clearRoundBlurb[key]+' You can Undo this straight afterwards.</p><button class="danger" data-action="clear-round" data-stage="'+key+'">'+clearRoundCopy[key]+'</button>');}
 function roomLock(key){
  if(key==='round1')return view.names_ok?'':'Enter ten unique player names in Players & rules.';
- if(key==='round2'||key==='sitout')return !view.names_ok?'Enter ten unique player names first.':view.round1.complete?'':'Finish To Live and resolve its cut ties.';
- if(key==='final')return !view.names_ok?'Enter ten unique player names first.':!view.round1.complete?'Finish To Live and resolve its cut ties.':view.round2.complete?'':'Finish To Die and resolve its cut ties.';
+ if(key==='round2'||key==='sitout')return !view.names_ok?'Enter ten unique player names first.':view.round1.complete?'':'Finish Like Never Before and resolve its cut ties.';
+ if(key==='final')return !view.names_ok?'Enter ten unique player names first.':!view.round1.complete?'Finish Like Never Before and resolve its cut ties.':view.round2.complete?'':'Finish What Do You Want? and resolve its cut ties.';
  return '';
 }
 function lockAttrs(key){const reason=roomLock(key);return reason?' disabled aria-disabled="true" title="'+esc(reason)+'"':'';}
 function survivalStages(){
  const setup={key:'settings',label:'Players & rules',status:view.names_ok?'complete':'current',detail:view.names_ok?'Roster ready · rules editable':'Enter ten unique names'};
- return [setup,...[['round1','To Live'],['round2','To Die'],['final','Rebirth']].map(([key,label])=>{
+ return [setup,...[['round1','Like Never Before'],['round2','What Do You Want?'],['final','You Wanted to Win, Right?']].map(([key,label])=>{
   const v=view[key],reason=roomLock(key),status=reason?'sealed':v.complete?'complete':'current';
   const cut=v.rows.filter(r=>r.status==='CUT').map(r=>r.name);
   const detail=reason||(status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches');
@@ -69,9 +69,9 @@ function renderRoom(){
  $('#room-stats').innerHTML='<div><b>'+registered+'<small> / 10</small></b><small>REGISTERED</small></div><div><b>'+money(view.pool)+'</b><small>PRIZE POOL</small></div>';
  const rooms=[
   ['settings','01','Players & rules',registered+' / 10 PLAYERS READY'],
-  ['round1','02','To Live',view.round1.games.filter(g=>g.ready).length+' / 5 MATCHES'],
-  ['round2','03','To Die',view.round2.games.filter(g=>g.ready).length+' / 8 MATCHES'],
-  ['final','04','Rebirth',view.final.games.filter(g=>g.ready).length+' / 8 MATCHES'],
+  ['round1','02','Like Never Before',view.round1.games.filter(g=>g.ready).length+' / 5 MATCHES'],
+  ['round2','03','What Do You Want?',view.round2.games.filter(g=>g.ready).length+' / 8 MATCHES'],
+  ['final','04','You Wanted to Win, Right?',view.final.games.filter(g=>g.ready).length+' / 8 MATCHES'],
   ['overview','05','Leaderboard',money(view.awarded)+' AWARDED']
  ];
  const stages=survivalStages(),stageMap=Object.fromEntries(stages.map(s=>[s.key,s]));
@@ -92,9 +92,9 @@ function nextStepBanner(next,finished){
  const tieIn=key=>view[key].rows.some(r=>r.status&&r.status.startsWith('TIE'));
  let msg,label,target=next;
  if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
- else if(next==='round1'){msg=tieIn('round1')?'Resolve the To Live tie (add extra games) before To Die.':(view.round1.issues[0]||'Score the five To Live games, then submit.');label='Open To Live';}
- else if(next==='round2'){msg=view.round2.issues[0]||'Draw sit-outs and play the eight To Die matches.';label='Open To Die';}
- else{msg=view.final.issues[0]||'Play the eight Rebirth games to decide the podium.';label='Open Rebirth';}
+ else if(next==='round1'){msg=tieIn('round1')?'Resolve the Like Never Before tie (add extra games) before What Do You Want?.':(view.round1.issues[0]||'Score the five Like Never Before games, then submit.');label='Open Like Never Before';}
+ else if(next==='round2'){msg=view.round2.issues[0]||'Draw sit-outs and play the eight What Do You Want? matches.';label='Open What Do You Want?';}
+ else{msg=view.final.issues[0]||'Play the eight You Wanted to Win, Right? games to decide the podium.';label='Open You Wanted to Win, Right?';}
  return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
 }
 function overview(){
@@ -103,7 +103,7 @@ function overview(){
  let html=title('ROOM 05 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
- html+=`<div class="round-path">${[['round1','01 · To Live','10 players → 8 survivors'],['round2','02 · To Die','8 players → 6 survivors'],['final','03 · Rebirth','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
+ html+=`<div class="round-path">${[['round1','01 · Like Never Before','10 players → 8 survivors'],['round2','02 · What Do You Want?','8 players → 6 survivors'],['final','03 · You Wanted to Win, Right?','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  const rowmap=key=>Object.fromEntries(view[key].rows.map(r=>[r.id,r]));const a=rowmap('round1'),b=rowmap('round2'),c=rowmap('final');
  html+=panel('Every player',table(['PLAYER','TO LIVE','TO DIE','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
@@ -143,7 +143,7 @@ document.addEventListener('submit',e=>{
 });
 
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
- let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Rebirth). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
+ let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in You Wanted to Win, Right?). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
  stage.extras.forEach((extra,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
  const actions=`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>${stage.extras.length?`<button class="danger" data-action="clear-extras" data-stage="${key}">Clear all extra games</button>`:''}`;
  return panel('Extra games',html,actions);
@@ -151,7 +151,7 @@ function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return
 // Per-match submit + popup/fullscreen. Submitting a non-final match shows cumulative
 // round standings THROUGH that match (computed client-side); submitting the last match
 // shows the fullscreen total round ranking with ADVANCE/CUT/TIE and the add-extra flow.
-const stageMeta={round1:{count:5,label:'To Live'},round2:{count:8,label:'To Die'},final:{count:8,label:'Rebirth'}};
+const stageMeta={round1:{count:5,label:'Like Never Before'},round2:{count:8,label:'What Do You Want?'},final:{count:8,label:'You Wanted to Win, Right?'}};
 function provisionalRanks(rows,compare){
  rows.sort((a,b)=>compare(a,b)||a.name.localeCompare(b.name));
  let rank=1;
@@ -170,7 +170,7 @@ function cumulativeStandings(key,n){
   });
   return provisionalRanks(rows,(a,b)=>b.total-a.total);
  }
- // To Live has no sit-out schedule; every player plays every game. Derive an
+ // Like Never Before has no sit-out schedule; every player plays every game. Derive an
  // {A,B,sit:[]} shape from the per-game cosmetic lineups so the popup grouping
  // matches, falling back to all-of-A when a game's split is not yet generated.
  const schedule=v.schedule||v.games.map(m=>({A:(m.teams&&m.teams.A.length?m.teams.A.concat(m.teams.B):ids),B:[],sit:[]}));
@@ -184,7 +184,7 @@ function cumulativeStandings(key,n){
  });
  return provisionalRanks(rows,(a,b)=>b.total*(a.played||1)-a.total*(b.played||1));
 }
-// The accent 'Submit Match N of X' panel for To Live and Rebirth (mirrors To Die's
+// The accent 'Submit Match N of X' panel for Like Never Before and You Wanted to Win, Right? (mirrors What Do You Want?'s
 // .match-completion look). Disabled until that match's view games[match].ready is true
 // and the stage is not stale. Client-side: validates readiness then opens the popup.
 function matchSubmit(key,match){
@@ -271,12 +271,12 @@ function closeResult(){
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
- let html=title('ROUND 01','To Live','Five games with fresh random 5v5 teams. Each team can score at most 3 goals per match. The top eight individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 01','Like Never Before','Five games with fresh random 5v5 teams. Each team can score at most 3 goals per match. The top eight individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
  round1Game=Math.min(round1Game,4);
  html+=matchScoreboard('round1',round1Game);
  const g=round1Game,match=v.games[g].teams,rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
- html+=`<div class="match-tabs" aria-label="To Live match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
+ html+=`<div class="match-tabs" aria-label="Like Never Before match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
  const rerollOff=sitoutBusy||spinning||scored;
  const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':spinning?'Wait for the wheel to finish.':sitoutBusy?'Wait for the current draw to finish.':'';
@@ -289,41 +289,41 @@ function round(key){
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
- let html=title('ROUND 02','To Die','Eight rotating 3v3 games. Everyone plays six and sits out two. The top six overall advance.','8 → 6 PLAYERS')+notice(v.issues);
- if(v.stale)return html+notice(['This roster changed since To Die was scored. Clearing To Die and Rebirth re-syncs them to the current survivors.'])+clearRoundPanel('round2');
- if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish To Live and resolve cut ties. The eight survivors will appear automatically.</div>')+clearRoundPanel('round2');
- if(!v.draw.order.length)return html+panel('Draw the first sit-outs',`<p>The dashboard randomly assigns the eight survivors to a balanced rotation. Everyone sits twice and plays six times.</p><button class="accent" data-action="r2-start" ${v.stale||sitoutBusy?'disabled':''}>Draw Match 1 sit-outs ↗</button>${v.stale||sitoutBusy?'<p class="hint">'+(v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.')+'</p>':''}`)+clearRoundPanel('round2');
+ let html=title('ROUND 02','What Do You Want?','Eight rotating 3v3 games. Everyone plays six and sits out two. The top six overall advance.','8 → 6 PLAYERS')+notice(v.issues);
+ if(v.stale)return html+notice(['This roster changed since What Do You Want? was scored. Clearing What Do You Want? and You Wanted to Win, Right? re-syncs them to the current survivors.'])+clearRoundPanel('round2');
+ if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Like Never Before and resolve cut ties. The eight survivors will appear automatically.</div>')+clearRoundPanel('round2');
+ if(!v.draw.order.length)return html+panel('Draw the first sit-outs',`<p>The dashboard randomly assigns the eight survivors to a balanced rotation. Everyone sits twice and plays six times.</p><button class="accent" data-action="r2-start" ${v.stale||sitoutBusy?'disabled':''}>Draw Match 1 sit-outs ↗</button>${v.stale||sitoutBusy?'<p class="hint">'+(v.stale?'Clear What Do You Want? first — the roster changed since this draw.':'Wait for the current draw to finish.')+'</p>':''}`)+clearRoundPanel('round2');
  html+=`<div class="score-help">AVERAGE = THIS ROUND’S GOALS / MATCHES PLAYED · Six matches each · Wins give no points</div>`;
  html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||sitoutBusy;const why=i>=v.draw.revealed?`Finish Match ${v.draw.completed+1} before opening Match ${i+1}.`:'Wait for the current draw to finish.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
  const match=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('round2',g);
- const r2ClearOff=v.stale||sitoutBusy,r2ClearWhy=v.stale?'Clear To Die first — the roster changed since this draw.':'Wait for the current draw to finish.';
+ const r2ClearOff=v.stale||sitoutBusy,r2ClearWhy=v.stale?'Clear What Do You Want? first — the roster changed since this draw.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Use the scheduled teams. Enter six goal scores, including zeros.</p>${r2ClearOff?`<p class="hint reason">${esc(r2ClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-r2-game" ${r2ClearOff?`disabled title="${esc(r2ClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div>`;
  html+=`<div class="notice"><b>SITTING OUT:</b> ${match.sit.map(p=>esc(state.names[p])).join(' · ')}. Their goal cells stay blank. <button data-action="r2-wheel" ${sitoutBusy?'disabled':''}>View sit-out wheel ↗</button></div><div class="teams-grid">`;
  for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / ROTATING LINEUP</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,6)} PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">A blank active-player score is still missing. A zero counts as played. Scheduled sit-outs never count as zero-goal matches. Round 1 scores do not carry over.</p>';
  const doneOff=sitoutBusy||v.stale||g!==v.draw.completed||!v.games[g].ready;
- const doneWhy=v.stale?'Clear To Die first — the roster changed since this draw.':sitoutBusy?'Wait for the current draw to finish.':g<v.draw.completed?`Match ${g+1} is already marked done. Open the latest match to continue.`:g>v.draw.completed?`Finish Match ${v.draw.completed+1} before opening this one.`:!v.games[g].ready?`Enter the six scheduled scores for Game ${g+1} first.`:'';
- html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===8?'All 8 matches marked done':g<v.draw.completed?'This match is already marked done':`Match ${g+1} of 8`}</h2><p>${v.draw.completed===8?'Resolve any cut ties to open Rebirth.':'Enter the six scores, then draw the next pair of sit-outs.'}</p>${doneOff&&doneWhy?`<p class="hint reason">${esc(doneWhy)}</p>`:''}</div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(doneWhy)}" aria-disabled="true"`:''}>${g===7?'Match 8 of 8 done — finish round':`Match ${g+1} of 8 done — draw next sit-outs`}</button></div>`;
+ const doneWhy=v.stale?'Clear What Do You Want? first — the roster changed since this draw.':sitoutBusy?'Wait for the current draw to finish.':g<v.draw.completed?`Match ${g+1} is already marked done. Open the latest match to continue.`:g>v.draw.completed?`Finish Match ${v.draw.completed+1} before opening this one.`:!v.games[g].ready?`Enter the six scheduled scores for Game ${g+1} first.`:'';
+ html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===8?'All 8 matches marked done':g<v.draw.completed?'This match is already marked done':`Match ${g+1} of 8`}</h2><p>${v.draw.completed===8?'Resolve any cut ties to open You Wanted to Win, Right?.':'Enter the six scores, then draw the next pair of sit-outs.'}</p>${doneOff&&doneWhy?`<p class="hint reason">${esc(doneWhy)}</p>`:''}</div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(doneWhy)}" aria-disabled="true"`:''}>${g===7?'Match 8 of 8 done — finish round':`Match ${g+1} of 8 done — draw next sit-outs`}</button></div>`;
  html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','SIT-OUTS DRAWN','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${playedLabel(r.played,6)}</td><td class="calc">${r.sit_outs}/2</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
  html+=`<details><summary>View revealed rotations and sit-outs</summary><p class="hint">The saved draw guarantees six games and two sit-outs per person, with no consecutive sit-outs. Each player teams up with everyone once or twice and faces everyone two or three times. Refreshing keeps the same draw. ${v.draw.mode==='preserved'?'This round retains its existing schedule because scores were already entered.':''}</p>${table(['GAME','TEAM A','TEAM B','SIT OUT'],v.schedule.slice(0,v.draw.revealed).map(m=>`<tr><td>${m.game}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.sit.map(p=>esc(state.names[p])).join(' · ')}</td></tr>`))}</details>`;
  return html+extras('round2')+clearRoundPanel('round2');
 }
 function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
- let html=title('ROUND 03 / THE FINAL','Rebirth','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
+ let html=title('ROUND 03 / THE FINAL','You Wanted to Win, Right?','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
- if(v.stale)html+=notice(['This roster changed since Rebirth was scored. Clearing Rebirth re-syncs it to the current finalists.']);
- if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish To Die and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
+ if(v.stale)html+=notice(['This roster changed since You Wanted to Win, Right? was scored. Clearing You Wanted to Win, Right? re-syncs it to the current finalists.']);
+ if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish What Do You Want? and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
  html+=`<div class="score-help">GOAL = ${fmt(state.settings.goal_points)} PTS / WIN = ${fmt(state.settings.win_points)} PTS · Games 1–2 ×${fmt(state.settings.multiplier)} · Games 3–8 ×1</div>`;
  html+=`<div class="match-tabs" aria-label="Final match selector">${v.games.map((m,i)=>`<button data-game="${i}" aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}${i<2?' ×'+fmt(state.settings.multiplier):''}</button>`).join('')}</div>`;
  const schedule=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('final',g);
- const fClearOff=v.stale||sitoutBusy,fClearWhy=v.stale?'Clear Rebirth first — the roster changed since these scores.':'Wait for the current draw to finish.';
+ const fClearOff=v.stale||sitoutBusy,fClearWhy=v.stale?'Clear You Wanted to Win, Right? first — the roster changed since these scores.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Enter each player’s goals, then mark the winning team.</p>${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
  for(const team of ['A','B']){
   const won=schedule[team].every(p=>state.final.players[p].results[g]==='W'),lost=schedule[team].every(p=>state.final.players[p].results[g]==='L');
-  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear Rebirth first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
+  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear You Wanted to Win, Right? first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
  }
  html+='</div><p class="hint">Marking the winner adds one win to each teammate and records a loss for each opponent. Enter 0 for a played game with no goals. Win and goal points calculate as you enter either value. Played counts complete goal/result pairs; prizes wait for all eight games.</p>';
  html+=panel('Live standings',table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],v.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td><td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
@@ -337,7 +337,7 @@ async function rerollRound1Game(game){
  sitoutBusy=true;
  // Snapshot the pre-reroll state so Undo can restore the prior split. The server
  // echo overwrites state below, so capture before the PUT and keep the snapshot.
- const snap={state:clone(state),label:'Undo: Reshuffle To Live Game '+(game+1)};
+ const snap={state:clone(state),label:'Undo: Reshuffle Like Never Before Game '+(game+1)};
  try{
   await flush();
   const res=await fetch('/api/round1-lineup',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'reroll',game:game+1,revision})});
@@ -352,11 +352,11 @@ function sitoutCandidates(){
 function sitoutWheelPage(){
  const v=view.round2,g=Math.min(round2Game,Math.max(0,v.draw.revealed-1));
  let html=title('ROOM 03 / TO DIE','Two sit out. Six play.','Automatic draws keep every player at exactly two sit-outs across eight matches.','BALANCED RANDOM DRAW');
- if(!view.round1.complete)return html+panel('Waiting for survivors','<p>Finish To Live and resolve cut ties. Only the eight survivors participate in this draw.</p>');
- if(v.stale)return html+notice(v.issues)+`<button data-tab="round2">Open To Die</button>`;
+ if(!view.round1.complete)return html+panel('Waiting for survivors','<p>Finish Like Never Before and resolve cut ties. Only the eight survivors participate in this draw.</p>');
+ if(v.stale)return html+notice(v.issues)+`<button data-tab="round2">Open What Do You Want?</button>`;
  if(!v.draw.order.length)return html+panel('Ready to draw','<p>Start once. The dashboard saves a randomized rotation and reveals two sit-outs for each match. The open name list does not change these eight players.</p><button class="accent" data-action="r2-start" '+(sitoutBusy?'disabled':'')+'>Draw Match 1 sit-outs ↗</button>');
  const pair=v.schedule[g].sit;
- html+=`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Round 2 sit-out wheel"></canvas><div class="wheel-hub sitout-hub">${sitoutAnimating?'DRAW':'SAVED'}</div></div><div class="wheel-result" role="status" aria-live="polite"><small>MATCH ${g+1} OF 8 / ${sitoutAnimating?'DRAWING TWO NAMES':'SITTING OUT'}</small><strong>${sitoutAnimating?'Who sits this match?':pair.map(p=>esc(state.names[p])).join('<br>')}</strong><button class="accent" data-action="r2-scores" ${sitoutBusy?'disabled':''}>Enter Match ${g+1} goals ↗</button></div><p class="draw-help">The wheel reveals a saved random rotation. The result stays the same if you refresh or reopen this screen.</p></section><section>${panel('Rest count',table(['PLAYER','SIT-OUTS DRAWN'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="calc">${r.sit_outs} / 2</td></tr>`)))}<div class="notice">After entering all six goal scores, click <b>“Match ${g+1} of 8 done”</b> in To Die. The next pair appears here automatically. Nobody sits in consecutive matches.</div><p class="hint">${v.draw.mode==='preserved'?'Existing scores were detected, so this round keeps its original schedule. New rounds use a random draw.':'The app randomly assigns players to rotation slots once, then reveals the next pair after each completed match. This guarantees equal playing time.'}</p></section></div>`;
+ html+=`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Round 2 sit-out wheel"></canvas><div class="wheel-hub sitout-hub">${sitoutAnimating?'DRAW':'SAVED'}</div></div><div class="wheel-result" role="status" aria-live="polite"><small>MATCH ${g+1} OF 8 / ${sitoutAnimating?'DRAWING TWO NAMES':'SITTING OUT'}</small><strong>${sitoutAnimating?'Who sits this match?':pair.map(p=>esc(state.names[p])).join('<br>')}</strong><button class="accent" data-action="r2-scores" ${sitoutBusy?'disabled':''}>Enter Match ${g+1} goals ↗</button></div><p class="draw-help">The wheel reveals a saved random rotation. The result stays the same if you refresh or reopen this screen.</p></section><section>${panel('Rest count',table(['PLAYER','SIT-OUTS DRAWN'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="calc">${r.sit_outs} / 2</td></tr>`)))}<div class="notice">After entering all six goal scores, click <b>“Match ${g+1} of 8 done”</b> in What Do You Want?. The next pair appears here automatically. Nobody sits in consecutive matches.</div><p class="hint">${v.draw.mode==='preserved'?'Existing scores were detected, so this round keeps its original schedule. New rounds use a random draw.':'The app randomly assigns players to rotation slots once, then reveals the next pair after each completed match. This guarantees equal playing time.'}</p></section></div>`;
  return html;
 }
 async function animateSitoutPair(){
@@ -408,7 +408,7 @@ function render(){
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=tab==='sitout'?'BH / ROOM 03 / TO DIE':`BH / ROOM 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
- $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. To Die now uses eight rotating games, so those stages start fresh. To Live, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='sitout'?sitoutWheelPage():round(tab));
+ $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. What Do You Want? now uses eight rotating games, so those stages start fresh. Like Never Before, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='sitout'?sitoutWheelPage():round(tab));
  window.BrawlMonuments?.renderScreen(view,state);
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
@@ -506,8 +506,8 @@ async function performUndo(){
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
 // Human-readable labels for the per-round clear-round controls and their cascade.
-const clearRoundLabel={round1:'Clear To Live',round2:'Clear To Die',final:'Clear Rebirth'};
-const clearRoundCopy={round1:'Clear To Live (also clears To Die &amp; Rebirth)',round2:'Clear To Die (also clears Rebirth)',final:'Clear Rebirth'};
+const clearRoundLabel={round1:'Clear Like Never Before',round2:'Clear What Do You Want?',final:'Clear You Wanted to Win, Right?'};
+const clearRoundCopy={round1:'Clear Like Never Before (also clears What Do You Want? &amp; You Wanted to Win, Right?)',round2:'Clear What Do You Want? (also clears You Wanted to Win, Right?)',final:'Clear You Wanted to Win, Right?'};
 function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelAngle=0;}
@@ -536,9 +536,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='remove-extra'){await flush();const index=Number(b.dataset.index);doDestructive('Undo: Remove extra game '+(index+1),()=>{state[key].extras.splice(index,1);});await save();}
  if(action==='clear-extras'){await flush();doDestructive('Undo: Clear all extra games',()=>{state[key].extras=[];});await save();}
  if(action==='undo'){await performUndo();return;}
- if(action==='clear-r1-game'){await flush();const g=round1Game;doDestructive('Undo: Clear To Live Game '+(g+1),()=>{for(const p of ids)state.round1.players[p].goals[g]=null;});await save();}
- if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear To Die Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
- if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear Rebirth Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
+ if(action==='clear-r1-game'){await flush();const g=round1Game;doDestructive('Undo: Clear Like Never Before Game '+(g+1),()=>{for(const p of ids)state.round1.players[p].goals[g]=null;});await save();}
+ if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear What Do You Want? Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
+ if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear You Wanted to Win, Right? Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}

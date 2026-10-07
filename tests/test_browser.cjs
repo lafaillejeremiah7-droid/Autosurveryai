@@ -66,7 +66,7 @@ let browser,page;
  assert(await page.locator('#screen-dialog #undo-action').isVisible());
  await page.locator('#undo-action').click();
  await page.waitForFunction(()=>document.querySelector('#save-status').textContent==='Undo applied');
- assert(await page.locator('text=This roster changed since To Die was scored.').isVisible());
+ assert(await page.locator('text=This roster changed since What Do You Want? was scored.').isVisible());
  // Partial extra games remain unresolved. Keep the form editable after resolution.
  const tie=copy(fixture);tie.round1.players.p5.goals[0]=1;tie.round1.players.p7.goals[1]=2;tie.round1.players.p8.goals[2]=2;
  await restore(tie);await open('round1');await page.locator('[data-r1-game="4"]').click();
@@ -95,7 +95,7 @@ let browser,page;
  await snap('extra-games-recovery');
  await page.locator('[data-action="close-result"]').click();
  assert(await page.locator('#screen-dialog #undo-action').count());
- // Fresh To Die: record all eight matches via real controls, checking the saved draw.
+ // Fresh What Do You Want?: record all eight matches via real controls, checking the saved draw.
  const fresh=copy(fixture);
  for(const key of ['round2','final']){
   fresh[key].extras=[];fresh[key].roster=[];

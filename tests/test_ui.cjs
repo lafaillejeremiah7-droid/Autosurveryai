@@ -74,23 +74,23 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
   assert(!out.includes('Name your fate'),`navigable tab ${t[0]} does not render the Name-your-fate screen`);
   assert(!/data-wheel-mode/.test(out),`navigable tab ${t[0]} has no Name-wheel mode tabs`);
  }
- // To Live per-game split model: teams are auto-generated cosmetic 5v5 splits
+ // Like Never Before per-game split model: teams are auto-generated cosmetic 5v5 splits
  // (no wheel assignment, no fixed per-player team).
  const r1=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate,round1_lineups;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};round1_lineups(s);print(json.dumps({'state':s,'view':evaluate(s),'revision':5}))"],{cwd:root,encoding:'utf8'}));
  vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;`,context);
- // (b) To Live screen shows the per-game A/B cosmetic lineup grouping with per-player
+ // (b) Like Never Before screen shows the per-game A/B cosmetic lineup grouping with per-player
  //     goal inputs for the selected game, and NONE of the retired fixed-team controls.
  const r1Round=vm.runInContext("round1Game=0;round('round1')",context);
- assert(r1Round.includes('teams-grid'),'To Live renders the per-game A/B lineup grid');
- assert(r1Round.includes('Team A')&&r1Round.includes('Team B'),'To Live shows both cosmetic teams');
- assert(r1Round.includes('team-score'),'To Live reuses the .team-score grouping');
+ assert(r1Round.includes('teams-grid'),'Like Never Before renders the per-game A/B lineup grid');
+ assert(r1Round.includes('Team A')&&r1Round.includes('Team B'),'Like Never Before shows both cosmetic teams');
+ assert(r1Round.includes('team-score'),'Like Never Before reuses the .team-score grouping');
  const r1Inputs=[...r1Round.matchAll(/data-path="round1\.players\.(p\d+)\.goals\.0"/g)].map(m=>m[1]);
  assert.deepEqual([...new Set(r1Inputs)].sort(),[...payload.view.round1.rows.map(r=>r.id)].sort(),'all ten players have a goal input for the selected game');
  assert(!r1Round.includes('data-path="round1.players.p1.team"')&&!/round1\.players\.\w+\.team/.test(r1Round),'no per-player team select');
  assert(!r1Round.includes('Assign teams'),'no retired Assign-teams panel');
  assert(!r1Round.includes('data-action="r1-reset"')&&!r1Round.includes('data-action="r1-wheel"'),'no retired reset/open-wheel controls');
- assert(r1Round.includes('data-action="r1-reroll"'),'To Live offers the per-game reshuffle control');
+ assert(r1Round.includes('data-action="r1-reroll"'),'Like Never Before offers the per-game reshuffle control');
  // (c) The retired Name-wheel helpers are gone entirely.
  assert.equal(vm.runInContext("typeof round1MatchForName",context),'undefined');
  assert.equal(vm.runInContext("typeof resetRound1Spin",context),'undefined');
@@ -100,19 +100,19 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext("typeof randomIndex",context),'undefined','the Name-wheel random picker is gone');
  assert.equal(vm.runInContext("typeof wheelMode",context),'undefined','the shared wheelMode global is gone');
  assert.equal(vm.runInContext("typeof wheelLast",context),'undefined','the Name-wheel result global is gone');
- console.log('To Live UI: per-game cosmetic A/B splits with ten goal inputs, reshuffle control, no fixed-team wheel/reset/select.');
+ console.log('Like Never Before UI: per-game cosmetic A/B splits with ten goal inputs, reshuffle control, no fixed-team wheel/reset/select.');
  console.log('Name wheel removal: no "wheel"/"Name wheel" tab, no data-open="wheel" tile, no "Name your fate" screen on any navigable tab, and the standalone wheel helpers are gone.');
  console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
 
  // ---- FEAT-003: per-match submit control, cumulative popup, final fullscreen + extra-game fold ----
- // (1) To Live and Rebirth each render a 'Submit Match N of X' control.
+ // (1) Like Never Before and You Wanted to Win, Right? each render a 'Submit Match N of X' control.
  vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
  const liveHTML=vm.runInContext("round1Game=0;round('round1')",context);
- assert(liveHTML.includes('Submit Match 1 of 5'),'To Live shows a per-match submit control');
+ assert(liveHTML.includes('Submit Match 1 of 5'),'Like Never Before shows a per-match submit control');
  assert(liveHTML.includes('data-action="submit-match" data-stage="round1" data-match="0"'));
- assert((liveHTML.match(/data-r1-game=/g)||[]).length===5,'To Live has a 5-match selector');
+ assert((liveHTML.match(/data-r1-game=/g)||[]).length===5,'Like Never Before has a 5-match selector');
  const rebirthHTML=vm.runInContext('finalGame=0;finalPage()',context);
- assert(rebirthHTML.includes('Submit Match 1 of 8'),'Rebirth shows a per-match submit control');
+ assert(rebirthHTML.includes('Submit Match 1 of 8'),'You Wanted to Win, Right? shows a per-match submit control');
  assert(rebirthHTML.includes('data-action="submit-match" data-stage="final" data-match="0"'));
  // (1b) The submit control is DISABLED until that match's view games[N].ready is true.
  vm.runInContext('view=JSON.parse(JSON.stringify(fixture.view));view.round1.games[0].ready=false;',context);
@@ -133,7 +133,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  for(const r of payload.view.round1.rows)assert(resultEl.innerHTML.includes(r.name),'popup lists every player name');
  await click({action:'close-result'});
  assert.equal(vm.runInContext('resultStage',context),null,'close-result dismisses the popup');
- // (3) Submitting the LAST match (match 5 of To Live, index 4) opens the fullscreen total
+ // (3) Submitting the LAST match (match 5 of Like Never Before, index 4) opens the fullscreen total
  //      ranking. For a SETTLED round with eliminated players the FEAT-003 cutscene plays
  //      first (it blocks on a timer the sandbox never fires), so dismiss it, then await.
  const r1Submit=click({action:'submit-match',stage:'round1',match:'4'});
@@ -156,19 +156,19 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'fullscreen shows ADVANCE/CUT badges');
  assert(resultEl.innerHTML.includes('ROUND SETTLED'),'a complete round reports no extra games needed');
  await click({action:'close-result'});
- // (3b) The Rebirth (final) fullscreen's average column shows average POINTS per game
+ // (3b) The You Wanted to Win, Right? (final) fullscreen's average column shows average POINTS per game
  //      (total/played), NOT a second copy of the total. Verify the computed value appears
  //      and that it differs from the total for a player whose total != average.
  vm.runInContext('state=fixture.state;view=fixture.view;',context);
  const finalSubmit=click({action:'submit-match',stage:'final',match:'7'});
  await flushMicro();
- assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled Rebirth final triggers the elimination cutscene');
- // Rebirth throws the NON-PODIUM finishers (rank>3); the top-3 podium is spared.
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled You Wanted to Win, Right? final triggers the elimination cutscene');
+ // You Wanted to Win, Right? throws the NON-PODIUM finishers (rank>3); the top-3 podium is spared.
  const finalThrown=payload.view.final.rows.filter(r=>r.rank>3).map(r=>r.name);
  const finalPodium=payload.view.final.rows.filter(r=>r.rank<=3).map(r=>r.name);
  const finalStage=context.document.querySelector('#cutscene-stage').innerHTML;
- assert(finalThrown.length>0,'Rebirth has non-podium finishers to throw');
- for(const n of finalThrown)assert(finalStage.includes(`data-name="${n}"`),'the Rebirth cutscene labels non-podium finisher '+n);
+ assert(finalThrown.length>0,'You Wanted to Win, Right? has non-podium finishers to throw');
+ for(const n of finalThrown)assert(finalStage.includes(`data-name="${n}"`),'the You Wanted to Win, Right? cutscene labels non-podium finisher '+n);
  assert.equal((finalStage.match(/class="cut-figure"/g)||[]).length,finalThrown.length,'exactly the non-podium finishers are thrown');
  for(const n of finalPodium)assert(!finalStage.includes(`data-name="${n}"`),'podium finisher '+n+' is spared the furnace');
  vm.runInContext('endCutscene();',context);
@@ -212,16 +212,16 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
  // (A) CLEAR-ROUND CONTROL ON EVERY STAGE with the correct cascade copy + data-stage.
  const liveClear=vm.runInContext("round1Game=0;round('round1')",context);
- assert(liveClear.includes('data-action="clear-round" data-stage="round1"'),'To Live renders the clear-round control for round1');
- assert(liveClear.includes('Clear To Live (also clears To Die &amp; Rebirth)'),'To Live clear copy names To Die and Rebirth');
- assert(/clears To Live and every later round/i.test(liveClear),'To Live clear panel explains the full cascade');
+ assert(liveClear.includes('data-action="clear-round" data-stage="round1"'),'Like Never Before renders the clear-round control for round1');
+ assert(liveClear.includes('Clear Like Never Before (also clears What Do You Want? &amp; You Wanted to Win, Right?)'),'Like Never Before clear copy names What Do You Want? and You Wanted to Win, Right?');
+ assert(/clears Like Never Before and every later round/i.test(liveClear),'Like Never Before clear panel explains the full cascade');
  const dieClear=vm.runInContext('round2Page()',context);
- assert(dieClear.includes('data-action="clear-round" data-stage="round2"'),'To Die renders the clear-round control for round2');
- assert(dieClear.includes('Clear To Die (also clears Rebirth)'),'To Die clear copy names Rebirth');
+ assert(dieClear.includes('data-action="clear-round" data-stage="round2"'),'What Do You Want? renders the clear-round control for round2');
+ assert(dieClear.includes('Clear What Do You Want? (also clears You Wanted to Win, Right?)'),'What Do You Want? clear copy names You Wanted to Win, Right?');
  const rebirthClear=vm.runInContext('finalGame=0;finalPage()',context);
- assert(rebirthClear.includes('data-action="clear-round" data-stage="final"'),'Rebirth renders the clear-round control for final');
- assert(/>Clear Rebirth</.test(rebirthClear),'Rebirth clear copy is Clear Rebirth');
- assert(/clears Rebirth only/i.test(rebirthClear),'Rebirth clear panel states it clears only Rebirth');
+ assert(rebirthClear.includes('data-action="clear-round" data-stage="final"'),'You Wanted to Win, Right? renders the clear-round control for final');
+ assert(rebirthClear.includes('>Clear You Wanted to Win, Right?</'),'You Wanted to Win, Right? clear copy is Clear You Wanted to Win, Right?');
+ assert(rebirthClear.toLowerCase().includes('clears you wanted to win, right? only'),'You Wanted to Win, Right? clear panel states it clears only You Wanted to Win, Right?');
  // (B) EXTENDED ROUND1 CASCADE: resetStage('round1') clears round1 + round2 + final
  //     goals while array lengths stay 5/8/8, lineups cleared, round2 draw reset.
  vm.runInContext('state=fixture.state;',context);
@@ -236,7 +236,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext('state.round1.lineups.length',context),0,'round1 lineups cleared');
  assert.equal(vm.runInContext('state.round2.draw.revealed',context),0,'round2 draw reset');
  assert.equal(vm.runInContext('state.round2.draw.order.length',context),0,'round2 draw order cleared');
- // (C) DISABLED BUTTON SHOWS A REASON: a not-ready To Live submit renders disabled
+ // (C) DISABLED BUTTON SHOWS A REASON: a not-ready Like Never Before submit renders disabled
  //     AND carries an adjacent human-readable reason string.
  vm.runInContext('state=fixture.state;view=JSON.parse(JSON.stringify(fixture.view));view.round1.games[0].ready=false;',context);
  const disabledHTML=vm.runInContext("round1Game=0;round('round1')",context);
@@ -258,7 +258,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext(`state=${JSON.stringify(r2Next.state)};view=${JSON.stringify(r2Next.view)};tab='overview';`,context);
  const ovR2=vm.runInContext('overview()',context);
  assert(ovR2.includes('WHAT TO DO NEXT'),'overview shows the next-step banner for round2');
- assert(/data-tab="round2">Open To Die/.test(ovR2),'next-step button targets To Die when round2 is the next step');
+ assert(/data-tab="round2">Open What Do You Want?/.test(ovR2),'next-step button targets What Do You Want? when round2 is the next step');
  assert(!/data-tab="settings"/.test(ovR2.split('round-path')[0]),'the next-step banner does not point at settings once names are set');
  // (E) UNDO FLOW: a destructive clear-round sets a snapshot and changes state; undo
  //     restores the exact prior state and clears the snapshot. performUndo persists via
@@ -269,11 +269,11 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext(`state=${JSON.stringify(undoFix.state)};view=${JSON.stringify(undoFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};`,context);
  vm.runInContext('token="T";revision=1;undoSnapshot=null;',context);
  const priorState=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
- assert.equal(priorState.round1.players.p1.goals[0],2,'pristine fixture has To Live scores before the destructive action');
+ assert.equal(priorState.round1.players.p1.goals[0],2,'pristine fixture has Like Never Before scores before the destructive action');
  assert.equal(vm.runInContext('undoSnapshot',context),null,'no undo snapshot before any destructive action');
  await click({action:'clear-round',stage:'round1'});
  assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-round sets a one-level undo snapshot');
- assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear To Live','the snapshot carries a human label');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear Like Never Before','the snapshot carries a human label');
  assert.equal(vm.runInContext('undoSnapshot.state.round1.players.p1.goals[0]',context),2,'the snapshot preserved the pre-clear scores');
  assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'clear-round mutated state (round1 cleared)');
  const changed=vm.runInContext('JSON.stringify(state)',context);
@@ -292,7 +292,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the one-level snapshot');
  assert(undoPut&&undoPut.restore===true,'the undo PUT carried restore:true');
  context.fetch=()=>new Promise(()=>{});
- // (F) RESHUFFLE UNDO: a To Live reshuffle (data-action='r1-reroll') snapshots the
+ // (F) RESHUFFLE UNDO: a Like Never Before reshuffle (data-action='r1-reroll') snapshots the
  //     PRE-reroll split. rerollRound1Game captures the snapshot before the PUT and
  //     adopts the server echo, assigning undoSnapshot only after the echo succeeds, so
  //     the snapshot must hold the lineup/goals exactly as they were before the reroll.
@@ -312,7 +312,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  };
  await click({action:'r1-reroll',match:'0'});
  assert(vm.runInContext('undoSnapshot',context),'a reshuffle sets a one-level undo snapshot');
- assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Reshuffle To Live Game 1','the reshuffle snapshot carries a human label');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Reshuffle Like Never Before Game 1','the reshuffle snapshot carries a human label');
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),preReroll,'the reshuffle snapshot holds the pre-reroll lineup and goals');
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.lineups[0])',context)),rerolled.round1.lineups[0],'state adopted the server echo of the reshuffled lineup');
  context.fetch=()=>new Promise(()=>{});
@@ -372,14 +372,14 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  context.fetch=()=>new Promise(()=>{});
  console.log('Settings clear controls: independent clear-names and clear-scoring actions, scoring/names isolation, and one-level undo for each passed.');
 
- // ---- To Live per-game clear control: a 'Clear this game' button on EACH To Live
+ // ---- Like Never Before per-game clear control: a 'Clear this game' button on EACH Like Never Before
  //      game that clears ONLY that game's goals for all ten players, Undo-able, and
  //      leaves names, scoring, and other games untouched. Mirrors clear-r2-game. ----
  vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
- // (J) The To Live round screen renders a per-game clear control with the new
+ // (J) The Like Never Before round screen renders a per-game clear control with the new
  //     data-action and the self-evident 'Clear this game' copy, reusing .danger.clear-score.
  const liveClearGame=vm.runInContext("round1Game=2;round('round1')",context);
- assert(liveClearGame.includes('data-action="clear-r1-game"'),'To Live renders the per-game clear-r1-game control');
+ assert(liveClearGame.includes('data-action="clear-r1-game"'),'Like Never Before renders the per-game clear-r1-game control');
  assert(/data-action="clear-r1-game"[^>]*>Clear this game</.test(liveClearGame),'the clear-r1-game button copy is "Clear this game"');
  assert(/class="danger clear-score" data-action="clear-r1-game"/.test(liveClearGame),'clear-r1-game reuses the .danger.clear-score styling');
  // (K) Firing clear-r1-game clears ONLY the selected game's goals for all players; other
@@ -389,7 +389,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext(`state=${JSON.stringify(r1ClearFix.state)};view=${JSON.stringify(r1ClearFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;round1Game=2;`,context);
  const beforeR1Clear=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
  const ids10=JSON.parse(vm.runInContext('JSON.stringify(ids)',context));
- assert(ids10.length===10,'all ten players participate in every To Live game');
+ assert(ids10.length===10,'all ten players participate in every Like Never Before game');
  assert(ids10.some(p=>beforeR1Clear.round1.players[p].goals[2]!==null),'fixture has goals in the targeted game before clearing');
  await click({action:'clear-r1-game'});
  assert(ids10.every(p=>vm.runInContext(`state.round1.players.${p}.goals[2]`,context)===null),'clear-r1-game cleared game 3 goals for all ten players');
@@ -402,18 +402,18 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.names)',context)),beforeR1Clear.names,'clear-r1-game left names untouched');
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.settings)',context)),beforeR1Clear.settings,'clear-r1-game left scoring settings untouched');
  // Other stages untouched.
- assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round2)',context)),beforeR1Clear.round2,'clear-r1-game left To Die untouched');
- assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.final)',context)),beforeR1Clear.final,'clear-r1-game left Rebirth untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round2)',context)),beforeR1Clear.round2,'clear-r1-game left What Do You Want? untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.final)',context)),beforeR1Clear.final,'clear-r1-game left You Wanted to Win, Right? untouched');
  // (L) The undo snapshot deep-equals the pre-action state and Undo restores it.
  assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-r1-game sets a one-level undo snapshot');
- assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear To Live Game 3','the clear-r1-game snapshot carries a human label');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear Like Never Before Game 3','the clear-r1-game snapshot carries a human label');
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),beforeR1Clear,'the clear-r1-game snapshot deep-equals the pre-action state');
  context.fetch=async(url,options)=>{const body=JSON.parse(options.body);return {ok:true,json:async()=>({state:body.state,view:r1ClearFix.view,revision:(body.revision||1)+1})};};
  await click({action:'undo'});
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),beforeR1Clear,'undo restored the exact pre-clear-r1-game state');
  assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-r1-game snapshot');
  context.fetch=()=>new Promise(()=>{});
- console.log('To Live per-game clear control: clear-r1-game button, single-game goal clearing for all ten players, names/scoring/other-games/other-stages isolation, and one-level undo passed.');
+ console.log('Like Never Before per-game clear control: clear-r1-game button, single-game goal clearing for all ten players, names/scoring/other-games/other-stages isolation, and one-level undo passed.');
 
  // ---- Extra-games delete controls: a per-extra-game 'Remove' button on EACH extra
  //      game (deletes exactly that one) and a 'Clear all extra games' button (empties
@@ -453,8 +453,8 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.names)',context)),beforeRemove.names,'remove-extra left names untouched');
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.settings)',context)),beforeRemove.settings,'remove-extra left scoring untouched');
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.players)',context)),beforeRemove.round1.players,'remove-extra left round1 goals untouched');
- assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round2)',context)),beforeRemove.round2,'remove-extra left To Die untouched');
- assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.final)',context)),beforeRemove.final,'remove-extra left Rebirth untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round2)',context)),beforeRemove.round2,'remove-extra left What Do You Want? untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.final)',context)),beforeRemove.final,'remove-extra left You Wanted to Win, Right? untouched');
  // (P) remove-extra sets a deep-equal undo snapshot and Undo restores the prior state.
  assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'remove-extra sets a one-level undo snapshot');
  assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Remove extra game 1','the remove-extra snapshot carries a human label');
