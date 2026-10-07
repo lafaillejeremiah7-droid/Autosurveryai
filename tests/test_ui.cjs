@@ -39,22 +39,38 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  context.responsePayload=ready;context.fetch=async(url,options)=>{assert.equal(url,'/api/round2-draw');const body=JSON.parse(options.body);assert.equal(body.action,'done');assert.equal(body.game,1);return {ok:true,json:async()=>ready};};
  vm.runInContext('animateSitoutPair=async()=>{};',context);
  await click({action:'r2-done',match:'1'});
- assert.equal(vm.runInContext('round2Game',context),1);assert.equal(vm.runInContext('tab',context),'wheel');assert.equal(vm.runInContext('wheelMode',context),'round2');
+ assert.equal(vm.runInContext('round2Game',context),1);assert.equal(vm.runInContext('tab',context),'sitout');
  const drawHTML=vm.runInContext('sitoutWheelPage()',context);
  for(const p of ready.view.round2.schedule[1].sit)assert(drawHTML.includes(ready.state.names[p]));
  const lockedHTML=vm.runInContext('round2Page()',context);
  assert(lockedHTML.includes('data-r2-game="2" disabled'));assert(lockedHTML.includes('Match 2 of 8 done'));
- const wheelHTML=vm.runInContext("state=fixture.state;wheelMode='round2';sitoutWheelPage()",context);assert(wheelHTML.includes('Two sit out. Six play.'));
+ const wheelHTML=vm.runInContext("state=fixture.state;tab='sitout';sitoutWheelPage()",context);assert(wheelHTML.includes('Two sit out. Six play.'));
+ // Name wheel removal: the standalone 'Name your fate' draw is gone. There is no
+ // more wheelMode and no navigable Name wheel room. The tabs array must not expose
+ // a 'wheel'/'Name wheel' entry, renderRoom() must not emit a data-open="wheel"
+ // tile, and no navigable tab may render the 'Name your fate' screen.
+ vm.runInContext('state=fixture.state;view=fixture.view;',context);
+ const navTabs=vm.runInContext('tabs',context);
+ assert(Array.isArray(navTabs),'tabs is the top-level navigation array');
+ assert(!navTabs.some(t=>t[0]==='wheel'),'no navigable tab keyed "wheel"');
+ assert(!navTabs.some(t=>t[1]==='Name wheel'),'no navigable tab labelled "Name wheel"');
+ vm.runInContext('renderRoom()',context);  // renderRoom() writes into #monitors (returns nothing).
+ const roomHTML=context.document.querySelector('#monitors').innerHTML;
+ assert(roomHTML.includes('data-open="settings"'),'renderRoom() still renders the surviving room tiles');
+ assert(!roomHTML.includes('data-open="wheel"'),'renderRoom() emits no Name wheel tile');
+ assert(!roomHTML.includes('Name your fate')&&!/NAME<br>YOUR FATE\./i.test(roomHTML),'renderRoom() shows no Name-your-fate tile');
+ const screenFor={settings:'settings()',round1:"round('round1')",round2:'round2Page()',final:'finalPage()',overview:'overview()'};
+ for(const t of navTabs){
+  const expr=screenFor[t[0]];assert(expr,`navigable tab ${t[0]} maps to a known screen renderer`);
+  const out=vm.runInContext(`finalGame=0;round1Game=0;round2Game=0;tab=${JSON.stringify(t[0])};String(${expr})`,context);
+  assert(!out.includes('Name your fate'),`navigable tab ${t[0]} does not render the Name-your-fate screen`);
+  assert(!/data-wheel-mode/.test(out),`navigable tab ${t[0]} has no Name-wheel mode tabs`);
+ }
  // To Live per-game split model: teams are auto-generated cosmetic 5v5 splits
- // (no wheel assignment, no fixed per-player team). The one Name wheel is just a
- // plain name draw, so there is still no separate round1 wheel mode.
+ // (no wheel assignment, no fixed per-player team).
  const r1=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
-  "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate,round1_lineups;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};round1_lineups(s);s['wheel']['text']='\\n'.join('Player '+str(i+1) for i in range(10));print(json.dumps({'state':s,'view':evaluate(s),'revision':5}))"],{cwd:root,encoding:'utf8'}));
- vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;wheelMode='free';`,context);
- // (a) No separate 'To Live · team draw' tab in the wheel-mode tabs (still valid).
- const tabsHTML=vm.runInContext('wheelModeTabs()',context);
- assert(!tabsHTML.includes('data-wheel-mode="round1"'));assert(!tabsHTML.includes('team draw'));
- assert(tabsHTML.includes('data-wheel-mode="free"'));assert(tabsHTML.includes('data-wheel-mode="round2"'));
+  "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate,round1_lineups;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};round1_lineups(s);print(json.dumps({'state':s,'view':evaluate(s),'revision':5}))"],{cwd:root,encoding:'utf8'}));
+ vm.runInContext(`state=${JSON.stringify(r1.state)};view=${JSON.stringify(r1.view)};revision=5;`,context);
  // (b) To Live screen shows the per-game A/B cosmetic lineup grouping with per-player
  //     goal inputs for the selected game, and NONE of the retired fixed-team controls.
  const r1Round=vm.runInContext("round1Game=0;round('round1')",context);
@@ -67,17 +83,17 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert(!r1Round.includes('Assign teams'),'no retired Assign-teams panel');
  assert(!r1Round.includes('data-action="r1-reset"')&&!r1Round.includes('data-action="r1-wheel"'),'no retired reset/open-wheel controls');
  assert(r1Round.includes('data-action="r1-reroll"'),'To Live offers the per-game reshuffle control');
- // (c) The retired wheel helpers are gone; spinWheel() is a plain name draw.
+ // (c) The retired Name-wheel helpers are gone entirely.
  assert.equal(vm.runInContext("typeof round1MatchForName",context),'undefined');
  assert.equal(vm.runInContext("typeof resetRound1Spin",context),'undefined');
- vm.runInContext('render=()=>{};flush=async()=>{};drawWheel=()=>{};performance={now:()=>0};requestAnimationFrame=fn=>fn(0);',context);
- vm.runInContext("crypto={getRandomValues(a){a[0]=6;return a;}};",context);  // Force randomIndex -> entry 6.
- let assignCalls=0;
- context.fetch=async(url)=>{assignCalls++;throw new Error('spinWheel must not call any API: '+url);};
- await vm.runInContext('spinWheel()',context);
- assert.equal(assignCalls,0,'a plain name draw issues no /api/round1-assign (or any) call');
- assert(vm.runInContext("wheelLast&&wheelLast.name",context),'the wheel still surfaces the drawn name');
- console.log('To Live UI: per-game cosmetic A/B splits with ten goal inputs, reshuffle control, no fixed-team wheel/reset/select, plain name draw.');
+ assert.equal(vm.runInContext("typeof wheelPage",context),'undefined','the standalone Name wheel renderer is gone');
+ assert.equal(vm.runInContext("typeof spinWheel",context),'undefined','the Name-wheel spin handler is gone');
+ assert.equal(vm.runInContext("typeof wheelModeTabs",context),'undefined','the Name-wheel mode tabs are gone');
+ assert.equal(vm.runInContext("typeof randomIndex",context),'undefined','the Name-wheel random picker is gone');
+ assert.equal(vm.runInContext("typeof wheelMode",context),'undefined','the shared wheelMode global is gone');
+ assert.equal(vm.runInContext("typeof wheelLast",context),'undefined','the Name-wheel result global is gone');
+ console.log('To Live UI: per-game cosmetic A/B splits with ten goal inputs, reshuffle control, no fixed-team wheel/reset/select.');
+ console.log('Name wheel removal: no "wheel"/"Name wheel" tab, no data-open="wheel" tile, no "Name your fate" screen on any navigable tab, and the standalone wheel helpers are gone.');
  console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
 
  // ---- FEAT-003: per-match submit control, cumulative popup, final fullscreen + extra-game fold ----

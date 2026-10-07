@@ -268,6 +268,32 @@ class Rules(unittest.TestCase):
         for value in [None,{'text':[],'remove_winner':False},{'text':'A','remove_winner':'yes'}]:
             s['wheel']=value
             with self.assertRaises(ValueError):validate(s)
+
+    def test_removed_name_wheel_backward_compat(self):
+        """The Name wheel UI is gone, but old backups carrying a populated `wheel`
+        object must still load, and fresh state must still carry the inert default."""
+        import json
+        # A fresh state carries the inert wheel default and validates at schema v4.
+        fresh=new_state()
+        self.assertEqual(fresh['wheel'],{'text':'','remove_winner':False})
+        self.assertEqual(validate(deepcopy(fresh))['version'],4)
+        # An old backup with a populated wheel object survives a JSON round-trip,
+        # validate() and evaluate() without the wheel being stripped or rejected.
+        s=new_state()
+        s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)}
+        s['wheel']={'text':'Aaron\nGhost\nJay','remove_winner':True}
+        roundtripped=json.loads(json.dumps(s))
+        validated=validate(roundtripped)
+        self.assertEqual(validated['wheel'],{'text':'Aaron\nGhost\nJay','remove_winner':True})
+        self.assertEqual(validated['version'],4)
+        evaluate(validated)  # Must not raise with a populated legacy wheel present.
+        # A backup missing the `wheel` key entirely still validates, defaulting the
+        # inert wheel block (proves validate() tolerates absence, not just presence).
+        no_wheel=json.loads(json.dumps(s));del no_wheel['wheel']
+        self.assertNotIn('wheel',no_wheel)
+        defaulted=validate(no_wheel)
+        self.assertEqual(defaulted['wheel'],{'text':'','remove_winner':False})
+
     def test_independent_live_points_and_counts(self):
         s=fixture(False);p=evaluate(s)['round2']['survivors'][0]
         s['final']['players'][p]['goals'][0]=2
