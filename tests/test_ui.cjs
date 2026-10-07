@@ -262,4 +262,58 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.round1.lineups[0])',context)),rerolled.round1.lineups[0],'state adopted the server echo of the reshuffled lineup');
  context.fetch=()=>new Promise(()=>{});
  console.log('Easier-controls UI: per-stage clear-round controls, extended round1 cascade, disabled-reason hint, next-step guide for two states, one-level undo, and reshuffle undo snapshot passed.');
+
+ // ---- Settings clear controls: TWO SEPARATE actions (clear names / clear scoring),
+ //      each independent and each Undo-able. Mirrors the one-level undo flow above. ----
+ vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
+ // (G) The Settings screen renders a Clear-names control AND a Clear-scoring control
+ //     as two SEPARATE actions with distinct data-action values.
+ const settingsHTML=vm.runInContext('settings()',context);
+ assert(settingsHTML.includes('data-action="clear-names"'),'Settings renders a clear-names control');
+ assert(settingsHTML.includes('data-action="clear-scoring"'),'Settings renders a clear-scoring control');
+ assert(settingsHTML.indexOf('data-action="clear-names"')!==settingsHTML.indexOf('data-action="clear-scoring"'),'clear-names and clear-scoring are two distinct actions');
+ assert(/>Clear player names</.test(settingsHTML),'the clear-names button copy names the player names');
+ assert(/>Clear scoring</.test(settingsHTML),'the clear-scoring button copy names scoring');
+ assert(/Clearing the names blanks all ten slots only/i.test(settingsHTML),'clear-names copy states it only blanks names');
+ assert(/resets win points to 1, goal points to 1\.5, and the games 1-2 multiplier to 2/i.test(settingsHTML),'clear-scoring copy states the exact defaults');
+ // Build a pristine fixture with known names + non-default scoring to assert independence.
+ const setFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();s['settings']['win_points']=3;s['settings']['goal_points']=4.5;s['settings']['multiplier']=6;print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+ // (H) CLEAR NAMES blanks all 10 names but leaves scoring untouched; sets an undo
+ //     snapshot deep-equal to the pre-action state; undo restores it.
+ vm.runInContext(`state=${JSON.stringify(setFix.state)};view=${JSON.stringify(setFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
+ const beforeNames=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert(vm.runInContext('Object.values(state.names).some(n=>n.trim())',context),'fixture starts with some names set');
+ await click({action:'clear-names'});
+ assert(vm.runInContext('Object.values(state.names).every(n=>n==="")',context),'clear-names blanked all ten names');
+ assert.equal(vm.runInContext('state.settings.win_points',context),3,'clear-names left win_points untouched');
+ assert.equal(vm.runInContext('state.settings.goal_points',context),4.5,'clear-names left goal_points untouched');
+ assert.equal(vm.runInContext('state.settings.multiplier',context),6,'clear-names left multiplier untouched');
+ assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-names sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear player names','the clear-names snapshot carries a human label');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),beforeNames,'the clear-names snapshot deep-equals the pre-action state');
+ context.fetch=async(url,options)=>{const body=JSON.parse(options.body);return {ok:true,json:async()=>({state:body.state,view:setFix.view,revision:(body.revision||1)+1})};};
+ await click({action:'undo'});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),beforeNames,'undo restored the exact pre-clear-names state (names back)');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-names snapshot');
+ context.fetch=()=>new Promise(()=>{});
+ // (I) CLEAR SCORING resets win_points=1, goal_points=1.5, multiplier=2 but leaves
+ //     names untouched; sets an undo snapshot; undo restores it.
+ vm.runInContext(`state=${JSON.stringify(setFix.state)};view=${JSON.stringify(setFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
+ const beforeScoring=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ await click({action:'clear-scoring'});
+ assert.equal(vm.runInContext('state.settings.win_points',context),1,'clear-scoring reset win_points to 1');
+ assert.equal(vm.runInContext('state.settings.goal_points',context),1.5,'clear-scoring reset goal_points to 1.5');
+ assert.equal(vm.runInContext('state.settings.multiplier',context),2,'clear-scoring reset multiplier to 2');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.names)',context)),beforeScoring.names,'clear-scoring left names untouched');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state.settings.prizes)',context)),beforeScoring.settings.prizes,'clear-scoring left prizes untouched');
+ assert(vm.runInContext('undoSnapshot && undoSnapshot.state',context),'clear-scoring sets a one-level undo snapshot');
+ assert.equal(vm.runInContext('undoSnapshot.label',context),'Undo: Clear scoring','the clear-scoring snapshot carries a human label');
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(undoSnapshot.state)',context)),beforeScoring,'the clear-scoring snapshot deep-equals the pre-action state');
+ context.fetch=async(url,options)=>{const body=JSON.parse(options.body);return {ok:true,json:async()=>({state:body.state,view:setFix.view,revision:(body.revision||1)+1})};};
+ await click({action:'undo'});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(state)',context)),beforeScoring,'undo restored the exact pre-clear-scoring state (scoring back)');
+ assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-scoring snapshot');
+ context.fetch=()=>new Promise(()=>{});
+ console.log('Settings clear controls: independent clear-names and clear-scoring actions, scoring/names isolation, and one-level undo for each passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

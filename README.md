@@ -83,9 +83,13 @@ A few quality-of-life controls make the dashboard easier to operate:
   - **Clear To Die** clears To Die and Rebirth, keeping To Live.
   - **Clear Rebirth** clears Rebirth only, keeping To Live and To Die.
   The panel copy states exactly which rounds it clears, and the action can be undone immediately afterwards.
+- **Clear names and clear scoring (Players & rules).** The Players & rules screen has two separate controls so you can reset the roster or the scoring independently:
+  - **Clear player names** blanks all ten name slots only. Scoring, prizes, and every round score stay exactly as they are. (With the roster empty, the rounds show the usual "enter 10 unique names" state until you refill it.)
+  - **Clear scoring** resets the point values that apply to all rounds back to defaults: win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched.
+  Each is a separate button with copy stating exactly what it clears, and both can be undone immediately afterwards.
 - **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit To Live, resolve a tie, draw and play To Die, play Rebirth, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
 - **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the To Live **Reshuffle teams**, the To Die **Draw sit-outs** / **Match N done** / match tabs, the Rebirth **Mark win**, or the wheel **Spin**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", "Finish Match 2 before opening the next.", or "Add at least one name to spin." No control silently does nothing.
-- **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle To Live teams, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
+- **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle To Live teams, clear player names, clear scoring, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
 
 
 ## To Die rotation schedule
