@@ -18,26 +18,19 @@ This runs on your computer. A GitHub repository stores the code; it does not hos
 
 ## Cube-room headquarters
 
-The landing screen is a six-room cube headquarters inspired by the supplied futuristic reference. Click a cube to zoom into its room. Use **Leave room** or Escape to zoom back out. The skyline animates with missiles, falling aircraft, fire, smoke, and embers; **Pause world** freezes that background while you enter scores. Keyboard navigation, small-screen layouts, and reduced-motion preferences are supported. A Doomsday panel lets you set and save the tournament start time; it counts down to the second and changes to **DOOMSDAY HAS ARRIVED** when the time passes.
+The landing screen is a five-room cube headquarters inspired by the supplied futuristic reference. Click a cube to zoom into its room. Use **Leave room** or Escape to zoom back out. The skyline animates with missiles, falling aircraft, fire, smoke, and embers; **Pause world** freezes that background while you enter scores. Keyboard navigation, small-screen layouts, and reduced-motion preferences are supported. A Doomsday panel lets you set and save the tournament start time; it counts down to the second and changes to **DOOMSDAY HAS ARRIVED** when the time passes.
 
-- **Name your fate:** editable random name wheel, separate from the tournament roster.
 - **Players & rules:** ten tournament names, scoring weights, multiplier, and prizes.
 - **To Live:** first cut, 10 players down to 8.
 - **To Die:** eight rotating 3v3 matches, 8 players down to 6.
 - **Rebirth:** rotating 3v3 final, automatic points and standings.
 - **Leaderboard:** cuts, podium, prizes, and CSV export.
 
-## Name wheel
-
-Type or paste one name per line. Edit a line to rename it; delete the line to remove it. There is no fixed entry-count limit or ten-name restriction on the wheel. Very large lists remain subject to device memory and the existing 2 MB backup/save size limit. With more than 60 entries, labels are hidden; with more than 360, the wheel uses a decorative overview. Selection still includes every entry equally using browser cryptographic randomness. Duplicate lines receive separate chances.
-
-Spin, optionally remove each winner automatically, remove a selected entry manually, shuffle the list, or copy the tournament names. **Add to tournament roster** fills the next empty tournament slot without changing the wheel. The tournament format itself remains ten players. The wheel list and removal preference are saved and included in backups.
-
 ## To Live per-game teams
 
-To Live no longer assigns fixed teams from a wheel. The main **Name wheel** is an ordinary name draw with no team-assignment behaviour, and there is no team-draw wheel, **Open team wheel** button, per-player Team dropdown, or **Reset spin** control.
+Players are entered directly in **Players & rules**. There is no standalone name wheel, team-draw wheel, **Open team wheel** button, per-player Team dropdown, or **Reset spin** control.
 
-Instead, each of the five To Live games gets its own **fresh random 5v5 split**, generated automatically on the server with cryptographic randomness. Advancement is decided by each player's **total goals** (and goals-per-match average) across all five games. Teams define which players share each game's three-goal limit; qualification is still ranked across all ten players.
+Each of the five To Live games gets its own **fresh random 5v5 split**, generated automatically on the server with cryptographic randomness. Advancement is decided by each player's **total goals** (and goals-per-match average) across all five games. Teams define which players share each game's three-goal limit; qualification is still ranked across all ten players.
 
 The five splits are generated once, saved, and included in backups, so they stay stable across reloads. If you want to vary the matchups for a specific game, use its **Reshuffle teams** button on the To Live screen to draw a new random split for that game. Reshuffling is **locked once a game has any score entered**, so it can never silently invalidate recorded goals; clear the game's scores first if you need to reshuffle it.
 
@@ -49,7 +42,7 @@ The five splits are generated once, saved, and included in backups, so they stay
 
 The server shuffles the eight players into a balanced rotation once and saves that order. Subsequent clicks reveal the next pair from this random schedule. Everyone plays six times, sits exactly twice, and never sits in consecutive matches. This preserves the teammate/opponent balance; unrestricted independent spins would not guarantee it.
 
-Future match controls stay locked until the preceding match is marked done. Missing scores prevent advancement. Double-clicking cannot skip a match, and refreshing cannot reroll a pair. The draw and match progress are included in backups. The wheel has separate **Open name draw** and **To Die · sit-out draw** modes, so editing the unlimited list does not change the tournament draw.
+Future match controls stay locked until the preceding match is marked done. Missing scores prevent advancement. Double-clicking cannot skip a match, and refreshing cannot reroll a pair. The draw and match progress are included in backups. The sit-out wheel is reached from To Die (via **View sit-out wheel** and automatically after each completed match); it is not a selectable room in the headquarters grid.
 
 Previously entered eight-match Round 2 scores keep their original schedule when upgraded; a new, unstarted round uses the randomized draw.
 
@@ -96,7 +89,7 @@ A few quality-of-life controls make the dashboard easier to operate:
   - **Clear scoring** resets the point values that apply to all rounds back to defaults: win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched.
   Each is a separate button with copy stating exactly what it clears, and both can be undone immediately afterwards.
 - **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit To Live, resolve a tie, draw and play To Die, play Rebirth, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
-- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the To Live **Reshuffle teams**, the To Die **Draw sit-outs** / **Match N done** / match tabs, the Rebirth **Mark win**, or the wheel **Spin**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", "Finish Match 2 before opening the next.", or "Add at least one name to spin." No control silently does nothing.
+- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the To Live **Reshuffle teams**, the To Die **Draw sit-outs** / **Match N done** / match tabs, or the Rebirth **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
 - **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle To Live teams, clear player names, clear scoring, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
 
 
@@ -135,7 +128,7 @@ If players remain tied after an extra game, add another extra game and score onl
 
 - Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser. Save status, **Retry save**, and **Undo** stay accessible inside whichever monitor or results window is open.
 - Initial and migrated To Live lineups are saved at startup, so restarting before the first score cannot reshuffle them.
-- Existing saves from the old fixed-team Round 2 are upgraded to the eight-match format. To Live, player names, wheel entries, and settings stay intact. Old Round 2 and final records are preserved under `legacy_round2` in the downloadable JSON backup. To Die and Rebirth restart with empty scores because the new rotation changes Round 2 qualification. Saves already using the eight-match format retain all data.
+- Existing saves from the old fixed-team Round 2 are upgraded to the eight-match format. To Live, player names, and settings stay intact, and any legacy wheel data in an old backup is still accepted and preserved in the saved file. Old Round 2 and final records are preserved under `legacy_round2` in the downloadable JSON backup. To Die and Rebirth restart with empty scores because the new rotation changes Round 2 qualification. Saves already using the eight-match format retain all data.
 - Original five-game-final saves also archive their old final under `legacy_final`; scoring defaults become goal 1.5 / win 1. The archived records include the old scoring settings and remain in downloadable backups.
 - **Download backup** saves the full tournament as JSON. **Restore backup** validates and restores it.
 - **Export CSV** downloads the player summary.
@@ -154,7 +147,7 @@ python -m unittest discover -s tests -v
 
 If Node.js is available, verify the dashboard controls with `node tests/test_ui.cjs`.
 
-For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all six monitors at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, all eight Round 2 draws, and overlapping wheel clicks. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
+For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five monitors at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all eight Round 2 draws. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
 
 The tests cover advancement, top-eight-of-ten To Live ranking by total goals, the per-game 5v5 splits (valid 5/5 partitions, idempotent generation, advancement independent of valid A/B grouping, and the reshuffle guard that refuses a scored game), per-game readiness requiring all ten scores, blank versus zero, exact averages, multiple extra games, the 8th/9th boundary-bubble fold, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration (including old fixed-team To Live saves that drop their per-player team and assignment fields), large wheel lists, wheel persistence, independent live goal/win points, eight-match Round 2 balance, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.
 
