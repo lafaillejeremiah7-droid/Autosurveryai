@@ -1,0 +1,7 @@
+{
+  "task_id": "task-tolive-pergame-splits",
+  "task_description": "Rework To Live (Round 1) so each of the 5 games gets a fresh random cosmetic 5v5 split auto-generated server-side with secrets; advancement is top-8-of-10 by total goals (bottom 2 cut) using the existing boundary-bubble extra-games flow at the 8th/9th cut line; per-game readiness requires all 10 players scored. Retire the fixed-team wheel-assignment machinery (round1_assign_action, /api/round1-assign, the spinWheel To-Live auto-assign branch, round1MatchForName, resetRound1Spin, the Reset-spin control, and the per-player Team dropdown) while keeping the main Name wheel as an ordinary name draw. Migrate old v4 saves (drop per-player team/assigned, default lineups). Keep schema version 4, no third-party deps, Decimal/Fraction exact math, and all Round 2 / Rebirth / FEAT-003 per-match tests green. Build commits onto feat/per-match-ranking (do not push or PR).",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

@@ -33,19 +33,13 @@ Type or paste one name per line. Edit a line to rename it; delete the line to re
 
 Spin, optionally remove each winner automatically, remove a selected entry manually, shuffle the list, or copy the tournament names. **Add to tournament roster** fills the next empty tournament slot without changing the wheel. The tournament format itself remains ten players. The wheel list and removal preference are saved and included in backups.
 
-## To Live teams from the Name wheel
+## To Live per-game teams
 
-There is a single wheel. Spinning the main **Name wheel** assigns To Live teams automatically; there is no separate team-draw wheel or **Open team wheel** button.
+To Live no longer assigns fixed teams from a wheel. The main **Name wheel** is an ordinary name draw with no team-assignment behaviour, and there is no team-draw wheel, **Open team wheel** button, per-player Team dropdown, or **Reset spin** control.
 
-**Name to player rule.** The Name wheel spins over the entry list, while teams attach to the ten fixed tournament players in **Players & rules**. When the wheel lands on an entry, the dashboard matches it to a tournament player by name, ignoring surrounding spaces and letter case:
+Instead, each of the five To Live games gets its own **fresh random 5v5 split**, generated automatically on the server with cryptographic randomness. The two sides are **cosmetic only**: advancement is decided by each player's **total goals** (and goals-per-match average) across all five games, not by which side wins, so the per-game split never affects scoring or who advances. It simply groups the ten players into Team A and Team B for that single game's variety.
 
-1. The landed name matches a tournament player who has **no team yet** → that exact player is instantly assigned a random Team A or B. The server flips an unbiased coin, saves it, and returns the result; the coin flip is never computed in the browser. No extra click is needed.
-2. The landed name matches a tournament player who **already has a team** → nothing is reassigned; the winner is shown with a short note that they already have a team.
-3. The landed name is **not** a tournament player → it behaves as an ordinary name draw (remove the entry or add it to an empty roster slot) and no team is assigned.
-
-If several roster slots share the same name, the first still-unassigned match in player order is chosen. Teams are capped at five, so once a side already has five players every remaining assignment goes to the other side, and the draw always finishes exactly five A and five B.
-
-You can still change any team by hand from the dropdown in the To Live score table. **Reset spin**, reachable from the **To Live** screen, is the only way to undo wheel draws: it clears every wheel-assigned team but keeps teams you set manually. The wheel assignments are saved and included in backups.
+The five splits are generated once, saved, and included in backups, so they stay stable across reloads. If you want to vary the matchups for a specific game, use its **Reshuffle teams** button on the To Live screen to draw a new random split for that game. Reshuffling is **locked once a game has any score entered**, so it can never silently invalidate recorded goals; clear the game's scores first if you need to reshuffle it.
 
 ## Automatic Round 2 sit-out wheel
 
@@ -62,7 +56,7 @@ Previously entered eight-match Round 2 scores keep their original schedule when 
 ## Tournament flow
 
 1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
-2. **To Live:** assign five players per team, by spinning the single Name wheel (landing on a tournament player auto-assigns them a capped random Team A/B) or picking teams by hand, then enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
+2. **To Live:** each of the five games gets an automatic fresh random 5v5 split. The two sides are cosmetic (ranking is by total goals, not wins), so they never affect scoring; an optional per-game **Reshuffle teams** button draws a new split and locks once that game has any score. Enter all five games, with a score for every one of the ten players each game including explicit zeroes. Rank all ten players together by total goals (and goals per match): the top eight advance, the bottom two are cut. A tie across eighth and ninth requires extra games.
 3. **To Die:** the eight survivors enter the automatic sit-out draw and follow its eight-game rotation. Six play 3v3 and two sit out each match. Everyone plays six games and sits twice, with three appearances in each four-game half and no consecutive rests. Each pair are teammates once or twice and opponents two or three times. Enter all six scheduled goal scores, including zeroes; sit-out cells stay blank. A missing score for an active player prevents completion. Rank all eight together using only this round's goals per match: top six overall advance, bottom two are cut. A tie across sixth and seventh requires extra games. There are no permanent Round 2 teams. The app saves and locks the random slots before scoring.
 4. **Rebirth:** the six survivors start at zero. Follow the displayed schedule of all ten unique 3v3 splits once each. Every player plays ten matches; each pair are teammates four times and opponents six times. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–10 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all ten games are complete.
 5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
@@ -98,7 +92,7 @@ Slots 1–8 are randomly assigned once when the first sit-out draw starts. The t
 
 ## Extra games
 
-Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 4th and 5th within one team in To Live, the cluster straddling 6th and 7th in To Die, and the tied podium group in Rebirth. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
+Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 8th and 9th across all ten players in To Live, the cluster straddling 6th and 7th in To Die, and the tied podium group in Rebirth. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
 
 Click **Add extra game** after regulation play for the tied group. Enter a score for every player in that tied group. For a final extra game, enter both goals and W/L; it uses normal scoring without the games 1–2 multiplier.
 
@@ -122,7 +116,7 @@ If players remain tied after an extra game, add another extra game and score onl
 - Player records use permanent IDs, so renaming someone does not move their scores.
 - If an earlier edit changes the survivor list, later scores are retained but blocked until you explicitly reset the affected stage. This prevents old scores from being silently assigned to new survivors.
 - Simultaneous edits from another browser tab produce a conflict instead of silently overwriting progress. Reload the older tab.
-- Tournament data and backups are excluded from git. The repository starts with blank player names, assignments, and results.
+- Tournament data and backups are excluded from git. The repository starts with blank player names, scores, and results.
 
 Use a custom save location with `python app.py --data path/to/tournament.json`.
 
@@ -134,4 +128,4 @@ python -m unittest discover -s tests -v
 
 If Node.js is available, verify Round 2 UI controls with `node tests/test_ui.cjs`.
 
-The tests cover advancement, team-local ranks, blank versus zero, exact averages, multiple extra games, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration, large wheel lists, wheel persistence, independent live goal/win points, eight-match Round 2 balance, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.
+The tests cover advancement, top-eight-of-ten To Live ranking by total goals, the per-game cosmetic 5v5 splits (valid 5/5 partitions, idempotent generation, advancement independent of the A/B grouping, and the reshuffle guard that refuses a scored game), per-game readiness requiring all ten scores, blank versus zero, exact averages, multiple extra games, the 8th/9th boundary-bubble fold, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration (including old fixed-team To Live saves that drop their per-player team and assignment fields), large wheel lists, wheel persistence, independent live goal/win points, eight-match Round 2 balance, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.

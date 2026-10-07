@@ -70,7 +70,10 @@ function cumulativeStandings(key,n){
   rows.sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
   return rows.map((r,i)=>({rank:i+1,name:r.name,total:r.total,average:r.average,status:r.played?'PLAYED':'PENDING'}));
  }
- const schedule=v.schedule||v.games.map((_,g)=>({A:ids,B:[],sit:[]}));
+ // To Live has no sit-out schedule; every player plays every game. Derive an
+ // {A,B,sit:[]} shape from the per-game cosmetic lineups so the popup grouping
+ // matches, falling back to all-of-A when a game's split is not yet generated.
+ const schedule=v.schedule||v.games.map(m=>({A:(m.teams&&m.teams.A.length?m.teams.A.concat(m.teams.B):ids),B:[],sit:[]}));
  const rows=v.rows.map(r=>{
   const d=state[key].players[r.id];let total=0,played=0;
   for(let g=0;g<=n;g++){
@@ -140,15 +143,18 @@ function closeResult(){
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
- let html=title('ROUND 01','To Live','5v5 · Five games · Top four from each team advance.','10 → 8 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 01','To Live','Five games. Each game gets a fresh random 5v5 split (teams are cosmetic — ranking is by total goals). Top eight of ten advance.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
- const assignedCount=state.round1.assigned.length;
- html+=panel('Assign teams',`<p>Spin the main <b>Name wheel</b> to assign teams: whenever it lands on a tournament player who still has no team, that player instantly gets a random Team A or B (unbiased coin flip, capped at 5 per side so it ends 5 / 5). No extra click, no separate wheel. You can still override any team in the table below. “Reset spin” clears only the wheel-drawn teams; manual picks are kept.</p><div class="wheel-actions"><button data-tab="wheel">Open the Name wheel ↗</button><button class="danger" data-action="r1-reset" ${sitoutBusy||spinning||!state.round1.assigned.length?'disabled':''}>Reset spin</button></div><p class="hint">${assignedCount} player${assignedCount===1?'':'s'} assigned by the wheel so far.</p>`);
- html+=panel('Player scores',table(['PLAYER','TEAM',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','TEAM RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${select(`round1.players.${r.id}.team`,['A','B'],`${r.name} team`)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>5 players per team</small>`);
  round1Game=Math.min(round1Game,4);
+ const g=round1Game,match=v.games[g].teams,rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=`<div class="match-tabs" aria-label="To Live match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
+ const scored=v.games[g].counts.A+v.games[g].counts.B>0;
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p></div><button class="danger" data-action="r1-reroll" data-match="${g}" ${sitoutBusy||spinning||scored?'disabled':''}>Reshuffle teams</button></div><div class="teams-grid">`;
+ for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${rowmap[p].played}/5 PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
+ html+='</div><p class="hint">Teams are reshuffled per game and do not affect scoring. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
- return html+'<div class="notice">All ten players play every game. Enter 0 for a game played with no goals.</div>'+extras('round1');
+ html+=panel('Player scores',table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>Top 8 of 10 advance</small>`);
+ return html+extras('round1');
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
@@ -189,28 +195,18 @@ function finalPage(){const v=view.final,g=finalGame;
  return html+extras('final');
 }
 function wheelPage(){if(wheelMode==='round2')return sitoutWheelPage();const names=wheelNames();
- return title('MONITOR 01 / RANDOM SELECT','Name your fate.','Add, change, or delete names below. Every line is one entry. This wheel has no fixed player limit.',`${names.length} ENTRIES`)+wheelModeTabs()+`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Name selection wheel"></canvas><button class="wheel-hub" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'…':'SPIN'}</button></div><div class="wheel-actions"><button class="accent" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'DRAWING…':'SPIN THE WHEEL ↗'}</button></div><div id="wheel-result" class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>${spinning?'THE WHEEL IS TURNING':wheelLast?'SELECTED ENTRY':'AWAITING YOUR DRAW'}</small><strong>${spinning?'WHO WILL IT BE?':wheelLast?esc(wheelLast.name):names.length?'Your next name awaits.':'Add names to begin.'}</strong>${wheelLast&&!spinning&&wheelLast.note?'<p class="hint">'+esc(wheelLast.note)+'</p>':''}${wheelLast&&!spinning?'<div class="toolbar"><button data-action="remove-winner" '+(wheelLast.removed?'disabled':'')+'>'+(wheelLast.removed?'Removed from wheel':'Remove this entry')+'</button><button data-action="roster-winner">Add to tournament roster</button></div>':''}</div><p class="draw-help">Landing on a tournament player’s name auto-assigns them a random Team A or B (unbiased coin flip, capped 5 / 5). Names that are not tournament players stay a plain draw — remove the entry or add it to an empty roster slot. “Reset spin” lives on the To Live screen.</p></section><section class="entry-editor"><div class="panel-head"><h2>The entry list</h2><span id="entry-count" class="count">${names.length} NAMES</span></div><label for="wheel-entries" class="hint">One name per line. Type or paste a list. Delete a line to remove an entry. Repeated names receive extra entries.</label><textarea id="wheel-entries" data-path="wheel.text" spellcheck="false" placeholder="Type a name, then press Enter…" ${spinning?'disabled':''}>${esc(state.wheel.text)}</textarea><div class="toolbar"><button data-action="wheel-roster" ${spinning?'disabled':''}>Use tournament names</button><button data-action="wheel-shuffle" ${spinning||names.length<2?'disabled':''}>Shuffle</button><button class="danger" data-action="wheel-clear" ${spinning||!names.length?'disabled':''}>Clear list</button></div><label class="field hint"><span>Remove each winner automatically</span><input type="checkbox" data-check="wheel.remove_winner" ${state.wheel.remove_winner?'checked':''} ${spinning?'disabled':''}></label><p class="hint">Names save automatically and are included in your tournament backup. Large lists remain selectable even when labels are too small to display.</p></section></div>`;
+ return title('MONITOR 01 / RANDOM SELECT','Name your fate.','Add, change, or delete names below. Every line is one entry. This wheel has no fixed player limit.',`${names.length} ENTRIES`)+wheelModeTabs()+`<div class="wheel-layout"><section class="wheel-stage"><div class="wheel-wrap"><canvas id="wheel-canvas" width="880" height="880" aria-label="Name selection wheel"></canvas><button class="wheel-hub" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'…':'SPIN'}</button></div><div class="wheel-actions"><button class="accent" data-action="spin" ${spinning||!names.length?'disabled':''}>${spinning?'DRAWING…':'SPIN THE WHEEL ↗'}</button></div><div id="wheel-result" class="wheel-result ${spinning?'is-spinning':''}" role="status" aria-live="polite"><small>${spinning?'THE WHEEL IS TURNING':wheelLast?'SELECTED ENTRY':'AWAITING YOUR DRAW'}</small><strong>${spinning?'WHO WILL IT BE?':wheelLast?esc(wheelLast.name):names.length?'Your next name awaits.':'Add names to begin.'}</strong>${wheelLast&&!spinning&&wheelLast.note?'<p class="hint">'+esc(wheelLast.note)+'</p>':''}${wheelLast&&!spinning?'<div class="toolbar"><button data-action="remove-winner" '+(wheelLast.removed?'disabled':'')+'>'+(wheelLast.removed?'Removed from wheel':'Remove this entry')+'</button><button data-action="roster-winner">Add to tournament roster</button></div>':''}</div><p class="draw-help">Spin to draw a random entry from the list. Remove the entry or add it to an empty tournament roster slot. To Live teams are split randomly per game on the To Live screen, so this wheel is a plain name draw.</p></section><section class="entry-editor"><div class="panel-head"><h2>The entry list</h2><span id="entry-count" class="count">${names.length} NAMES</span></div><label for="wheel-entries" class="hint">One name per line. Type or paste a list. Delete a line to remove an entry. Repeated names receive extra entries.</label><textarea id="wheel-entries" data-path="wheel.text" spellcheck="false" placeholder="Type a name, then press Enter…" ${spinning?'disabled':''}>${esc(state.wheel.text)}</textarea><div class="toolbar"><button data-action="wheel-roster" ${spinning?'disabled':''}>Use tournament names</button><button data-action="wheel-shuffle" ${spinning||names.length<2?'disabled':''}>Shuffle</button><button class="danger" data-action="wheel-clear" ${spinning||!names.length?'disabled':''}>Clear list</button></div><label class="field hint"><span>Remove each winner automatically</span><input type="checkbox" data-check="wheel.remove_winner" ${state.wheel.remove_winner?'checked':''} ${spinning?'disabled':''}></label><p class="hint">Names save automatically and are included in your tournament backup. Large lists remain selectable even when labels are too small to display.</p></section></div>`;
 }
 function wheelModeTabs(){return `<div class="toolbar wheel-modes"><button data-wheel-mode="free" class="${wheelMode==='free'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>Open name draw</button><button data-wheel-mode="round2" class="${wheelMode==='round2'?'accent':''}" ${spinning||sitoutBusy?'disabled':''}>To Die · sit-out draw</button></div>`;}
-// NAME->PLAYER MAPPING RULE (single source of truth; see README). The main name wheel spins over
-// arbitrary wheel entries (wheelNames()), while teams attach to fixed roster players p1..p10
-// (state.names). Resolve a landed entry to the FIRST tournament player (IDS order) whose name
-// matches it (trimmed + lowercased) and who still has no Round 1 team. Returns a player id or null.
-function round1MatchForName(name){
- const key=String(name??'').trim().toLowerCase();
- if(!key)return null;
- return ids.find(p=>state.names[p].trim().toLowerCase()===key&&state.round1.players[p].team==='')||null;
-}
-async function resetRound1Spin(){
+async function rerollRound1Game(game){
  if(sitoutBusy||spinning)return;
- if(!confirm('Clear all wheel-assigned Round 1 teams? Manual team picks are kept.'))return;
  sitoutBusy=true;
  try{
   await flush();
-  const res=await fetch('/api/round1-assign',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'reset',revision})});
+  const res=await fetch('/api/round1-lineup',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'reroll',game:game+1,revision})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
-  ({state,view,revision}=data);$('#save-status').textContent='Teams cleared';error('');
- }finally{sitoutBusy=false;render();}
+  ({state,view,revision}=data);$('#save-status').textContent='Teams reshuffled';error('');
+ }catch(err){error(err.message);}finally{sitoutBusy=false;render();}
 }
 function sitoutCandidates(){
  const v=view.round2,g=Math.min(round2Game,Math.max(0,v.draw.revealed-1));
@@ -279,30 +275,6 @@ async function spinWheel(){
  await new Promise(resolve=>{function frame(now){const t=duration?Math.min(1,(now-started)/duration):1;wheelAngle=start+(end-start)*(1-Math.pow(1-t,4));drawWheel(names,wheelAngle);if(t<1)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});
  wheelAngle=target;wheelLast={name:names[index],index,removed:false,note:''};spinning=false;
  if(state.wheel.remove_winner){names.splice(index,1);state.wheel.text=names.join('\n');wheelLast.removed=true;changed();}
- // Auto-assign a team when the landed entry matches an unassigned tournament player (see NAME->PLAYER MAPPING RULE).
- const landedName=wheelLast.name;
- if(!view.names_ok){
-  // Teams aren't meaningful until the roster is complete; tell the operator so a matching landing isn't a silent no-op.
-  const nameMatch=ids.some(p=>state.names[p].trim().toLowerCase()===String(landedName).trim().toLowerCase());
-  if(nameMatch)wheelLast.note='Finish entering 10 unique player names first to auto-assign To Live teams.';
- }else{
-  const player=round1MatchForName(landedName);
-  if(player){
-   try{
-    await flush();
-    const res=await fetch('/api/round1-assign',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'spin',player,revision})});
-    const data=await res.json();if(!res.ok)throw new Error(data.error);
-    ({state,view,revision}=data);
-    const team=state.round1.players[player].team;
-    wheelLast.note=`${landedName} joins Team ${team} for To Live.`;
-    $('#save-status').textContent=`Assigned Team ${team}`;error('');
-   }catch(err){error(err.message);}
-  }else{
-   // Case (b): a tournament player who already has a team. Case (c) (non-roster) leaves no note.
-   const teamed=ids.find(p=>state.names[p].trim().toLowerCase()===String(landedName).trim().toLowerCase());
-   if(teamed)wheelLast.note=`${landedName} already has Team ${state.round1.players[teamed].team}.`;
-  }
- }
  render();
 }
 function render(){
@@ -355,7 +327,7 @@ async function save(){
  })();await saveTask;if(dirty&&!saveFailed)return save();
 }
 async function flush(){clearTimeout(timer);if(saving)await saveTask;await save();if(dirty||saveFailed)throw new Error('Save your changes successfully before continuing.');}
-function resetStage(key){for(const k of key==='round2'?['round2','final']:[key]){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');else if(k==='round1')d.team='';}}}
+function resetStage(key){for(const k of key==='round2'?['round2','final']:[key]){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?10:k==='round2'?8:5).fill(null);if(k==='final')d.results=Array(10).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelLast=null;wheelAngle=0;}
 document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.path||el.tagName==='SELECT')return;if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,el.type==='number'?(el.value===''?null:Number(el.value)):el.value);if(el.dataset.path==='wheel.text')resetWheelResult();changed();});
@@ -370,7 +342,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.step){const current=value(b.dataset.target);setValue(b.dataset.target,Math.max(0,Math.min(100000,(current??0)+Number(b.dataset.step))));changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
- if(action==='r1-reset'){await resetRound1Spin();return;}
+ if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}
  if(action==='r2-start'){await progressRound2('start');return;}
  if(action==='r2-done'){const match=Number(b.dataset.match);await progressRound2('done',match);if(view.round2.games[match-1]&&view.round2.games[match-1].ready)await openMatchResult('round2',match-1);return;}
  if(action==='submit-match'){await flush();await openMatchResult(key,Number(b.dataset.match));return;}
@@ -382,7 +354,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-r2-game'&&confirm('Clear all goal scores for this Round 2 game?')){await flush();for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[round2Game]=null;changed();await save();}
  if(action==='clear-game'&&confirm('Clear goals and results for this game only?')){await flush();for(const p of view.final.schedule[finalGame].A.concat(view.final.schedule[finalGame].B)){state.final.players[p].goals[finalGame]=null;state.final.players[p].results[finalGame]='';}changed();await save();}
  if(action==='reset-stage'&&confirm('Clear this round’s scores and all later scores? Earlier rounds are kept.')){await flush();resetStage(key);changed();await save();}
- if(action==='reset-all'&&confirm('Clear the tournament and wheel? Download a backup first to keep them.')){await flush();state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4]}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{team:'',goals:Array(5).fill(null)}]))};resetWheelResult();changed();await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament and wheel? Download a backup first to keep them.')){await flush();state={version:4,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4]}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(10).fill(null),results:Array(10).fill('')}:k==='round2'?{goals:Array(8).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();changed();await save();}
  if(action==='spin')await spinWheel();
  if(action==='wheel-clear'&&!spinning&&confirm('Remove every name from the wheel? Tournament players stay unchanged.')){state.wheel.text='';resetWheelResult();changed();await save();}
  if(action==='wheel-roster'&&!spinning){if(state.wheel.text.trim()&&!confirm('Replace the wheel list with the current tournament names?'))return;state.wheel.text=Object.values(state.names).filter(n=>n.trim()).join('\n');resetWheelResult();changed();await save();}

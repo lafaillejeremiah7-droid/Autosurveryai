@@ -13,7 +13,7 @@ def blank_draw():
     return {'order':[], 'revealed':0, 'completed':0, 'mode':'random'}
 
 def blank_round(games=5):
-    return {'players': {p: {**({'team': ''} if games==5 else {}), 'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'assigned':[]} if games==5 else {}), **({'draw':blank_draw()} if games==8 else {})}
+    return {'players': {p: {'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'lineups':[]} if games==5 else {}), **({'draw':blank_draw()} if games==8 else {})}
 
 def new_state():
     return {'version': 4, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
@@ -42,6 +42,21 @@ def round2_schedule(roster):
 def has_inputs(stage):
     return bool(stage['extras']) or any(d.get('team') or any(v is not None for v in d['goals']) or any(d.get('results',[])) for d in stage['players'].values())
 
+def _normalize_round1(s):
+    """Strip the retired fixed-team fields from a round1 stage in place.
+
+    Old v4 saves carried a per-player 'team' and a round1 'assigned' list from
+    the retired wheel-assignment model. Teams are now cosmetic per-game splits,
+    so drop both (preserving goals) and default 'lineups' (regenerated lazily).
+    """
+    r1=s.get('round1')
+    if isinstance(r1,dict):
+        r1.pop('assigned',None)
+        r1.setdefault('lineups',[])
+        for d in r1.get('players',{}).values():
+            if isinstance(d,dict): d.pop('team',None)
+    return s
+
 def migrate(s):
     if s.get('version')==3:
         s=deepcopy(s);stage=s['round2'];draw=blank_draw()
@@ -56,8 +71,8 @@ def migrate(s):
                 if any(d['goals'][i] is not None for d in stage['players'].values()): last=i+1
             draw={'order':list(roster),'revealed':max(last,min(completed+1,8)),'completed':completed,'mode':'preserved'}
         stage['draw']=draw;s['version']=4
-        return s
-    if s.get('version') not in (1,2): return s
+        return _normalize_round1(s)
+    if s.get('version') not in (1,2): return _normalize_round1(deepcopy(s))
     s=deepcopy(s)
     if s['version']==1:
         old=s['final']
@@ -93,12 +108,10 @@ def validate(s):
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
         if len(s['settings']['prizes']) != 3: raise ValueError('Enter exactly three prizes.')
         for v in s['settings']['prizes']: numeric(v)
-        s['round1'].setdefault('assigned',[])
-        assigned=s['round1']['assigned']
-        if not isinstance(assigned,list) or len(assigned)!=len(set(assigned)) or any(p not in IDS for p in assigned):
-            raise ValueError('Invalid wheel-assigned player list.')
-        for p in assigned:
-            if s['round1']['players'][p]['team'] not in ['A','B']: raise ValueError('Wheel-assigned players must have a team.')
+        s['round1'].setdefault('lineups',[])
+        lineups=s['round1']['lineups']
+        if not isinstance(lineups,list) or (lineups and not _valid_lineups(lineups)):
+            raise ValueError('Invalid To Live game teams.')
         for stage in ['round1','round2','final']:
             a=s[stage]
             if set(a['players'])!=set(IDS) or len(a['extras'])>50: raise ValueError('Invalid player records or too many extra games.')
@@ -119,7 +132,6 @@ def validate(s):
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
                     if len(d['results'])!=10 or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
-                elif stage=='round1' and d['team'] not in ['','A','B']: raise ValueError('Teams must be A or B.')
             for extra in a['extras']:
                 if not isinstance(extra,dict) or set(extra)!=set(IDS): raise ValueError('Invalid extra-game records.')
                 for value in extra.values():
@@ -220,41 +232,41 @@ def resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start_r
     return out
 
 def round1_view(s, names_ok):
-    stage=s['round1'];roster=IDS;size=5;cut=4;stale=False
+    stage=s['round1'];roster=IDS;cut=8;stale=False
     rows=[]; scores={}; issues=[]
     for p in roster:
         d=stage['players'][p]; played=sum(v is not None for v in d['goals']); total=sum(v or 0 for v in d['goals'])
         scores[p]=Fraction(total,played) if played else Fraction(0)
-        rows.append({'id':p,'name':s['names'][p] or f'Player {IDS.index(p)+1}', 'team':d['team'], 'goals':total,'played':played,
+        rows.append({'id':p,'name':s['names'][p] or f'Player {IDS.index(p)+1}', 'goals':total,'played':played,
                      'average':float(scores[p]),'rank':None,'status':'PENDING'})
     if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
-    for t in ['A','B']:
-        n=sum(r['team']==t for r in rows)
-        if n!=size: issues.append(f'Team {t}: assign {size} players ({n} assigned).')
+    # Read cosmetic per-game splits without mutating s (pure view). Empty => not
+    # yet generated: the server calls round1_lineups(s) to persist them.
+    lineups=stage.get('lineups') if _valid_lineups(stage.get('lineups')) else []
     games=[]
     for g in range(5):
-        counts={t:sum(stage['players'][p]['team']==t and stage['players'][p]['goals'][g] is not None for p in roster) for t in ['A','B']}
-        required=5
-        games.append({'game':g+1,'counts':counts,'ready':all(v==required for v in counts.values())})
-    if not all(g['ready'] for g in games): issues.append('Complete all five games: 5 scores per team per game. Enter 0 for no goals.')
+        split=lineups[g] if lineups else None
+        counts={t:sum(stage['players'][p]['goals'][g] is not None for p in split[t]) for t in ['A','B']} if split else {'A':0,'B':0}
+        ready=bool(lineups) and all(stage['players'][p]['goals'][g] is not None for p in roster)
+        games.append({'game':g+1,'teams':split or {'A':[],'B':[]},'counts':counts,'ready':ready})
+    if not lineups: issues.append('Generating game teams. Reload To Live to shuffle the first split.')
+    if not all(g['ready'] for g in games): issues.append('Complete all five games: enter a score for every player each game. Enter 0 for no goals.')
     ready=not issues
     rowmap={r['id']:r for r in rows}
     reg_total={r['id']:r['goals'] for r in rows}; reg_played={r['id']:r['played'] for r in rows}
     extras=stage['extras']
     def resolve_avg(group, start):
         return resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start, cut)
-    for t in ['A','B']:
-        ids=[r['id'] for r in rows if r['team']==t]
-        if ready:
-            for p,info in rank_bubble(ids,scores,extras,cut,True,resolve_avg).items():
-                rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
-        else:
-            rank=1
-            for group in order_groups(ids,scores,extras):
-                for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
-                rank+=len(group)
+    if ready:
+        for p,info in rank_bubble(roster,scores,extras,cut,True,resolve_avg).items():
+            rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
+    else:
+        rank=1
+        for group in order_groups(roster,scores,extras):
+            for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
+            rank+=len(group)
     tied=any(r['status']==TIE for r in rows)
-    if tied: issues.append('Play extra games for the highlighted tied players.')
+    if tied: issues.append('Tie across 8th and 9th: play extra games for the highlighted players.')
     survivors=[r['id'] for r in rows if r['status']=='ADVANCE'] if ready and not tied else []
     return {'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
@@ -399,6 +411,55 @@ def round2_draw_action(s, action, game=None):
         draw['completed']=game;draw['revealed']=max(draw['revealed'],min(game+1,8))
     else: raise ValueError('Unknown Round 2 draw action.')
     return bind_rosters(s)
+
+
+def _round1_split():
+    """One fresh cosmetic 5v5 split of all 10 IDS using cryptographic shuffle."""
+    order=list(IDS); secrets.SystemRandom().shuffle(order)
+    return {'A':order[:5], 'B':order[5:]}
+
+def _valid_lineups(lineups):
+    """True when lineups is a list of exactly 5 valid 5/5 partitions of IDS."""
+    if not isinstance(lineups,list) or len(lineups)!=5: return False
+    want=set(IDS)
+    for e in lineups:
+        if not isinstance(e,dict) or set(e)!={'A','B'}: return False
+        a=e['A']; b=e['B']
+        if not isinstance(a,list) or not isinstance(b,list) or len(a)!=5 or len(b)!=5: return False
+        if set(a+b)!=want or len(set(a+b))!=10: return False
+    return True
+
+def round1_lineups(s):
+    """Return the 5 per-game cosmetic 5v5 splits, generating+storing if absent.
+
+    Teams are cosmetic (ranking is by total goals, not wins), so a fresh random
+    partition is drawn for each of the five games with secrets.SystemRandom()
+    (mirrors round2_draw_action's shuffle). Idempotent: once five valid splits
+    exist they are returned unchanged so reloads/backups stay stable.
+    """
+    stage=s['round1']
+    if not _valid_lineups(stage.get('lineups')):
+        stage['lineups']=[_round1_split() for _ in range(5)]
+    return stage['lineups']
+
+def round1_lineup_action(s, action, game=None):
+    """Optional guarded per-game re-roll of a cosmetic To Live split.
+
+    'game' is 1-based (matches the frontend's game numbering). A reroll RAISES
+    if any player already has an entered score for that game, so a reroll never
+    silently invalidates recorded goals (round2_draw_action guard philosophy).
+    Unknown actions raise. Returns a deepcopy.
+    """
+    s=deepcopy(s);stage=s['round1'];round1_lineups(s)
+    if action=='reroll':
+        if type(game) is not int or not 1<=game<=5:
+            raise ValueError('Choose a game from 1 to 5 to reshuffle.')
+        g=game-1
+        if any(stage['players'][p]['goals'][g] is not None for p in IDS):
+            raise ValueError('That game already has scores. Clear them before reshuffling teams.')
+        stage['lineups'][g]=_round1_split()
+    else: raise ValueError('Unknown Round 1 lineup action.')
+    return s
 
 
 def round1_assign_action(s, action, player=None):

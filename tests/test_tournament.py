@@ -4,12 +4,30 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule, round2_draw_action, round1_assign_action, blank_round
+from engine import IDS, TIE, new_state, validate, evaluate, bind_rosters, order_groups, final_schedule, round2_schedule, round2_draw_action, round1_lineups, round1_lineup_action, blank_round
 from app import Store, make_server
+
+def spread(total, games=5):
+    """Distinct whole-number per-game goals that sum to `total`."""
+    base,extra=divmod(total,games)
+    return [base+(1 if j<extra else 0) for j in range(games)]
+
+def _shuffle_split(seed):
+    """A deterministic but seed-varying valid 5/5 partition of all ten IDS."""
+    order=IDS[seed%10:]+IDS[:seed%10]
+    return {'A':order[:5],'B':order[5:]}
+
+# Distinct To Live totals so the top-8-by-total-goals survivors are unambiguous.
+# Ranked descending: p1>p2>p3>p4>p6>p7>p8>p9 advance; p5 and p10 are the clear
+# bottom two cut at the 8th/9th line. Order matches the old per-team survivor
+# order (p1,p2,p3,p4,p6,p7,p8,p9) so the downstream To Die/Rebirth chain is
+# unchanged. Teams are cosmetic per-game splits now, so no 'team' field.
+ROUND1_TOTALS={'p1':30,'p2':25,'p3':20,'p4':15,'p6':12,'p7':10,'p8':8,'p9':6,'p5':4,'p10':2}
 
 def fixture(final=True):
     s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)}
-    for i,p in enumerate(IDS):s['round1']['players'][p]={'team':'A' if i<5 else 'B','goals':[4-i%5]*5}
+    for p in IDS:s['round1']['players'][p]={'goals':spread(ROUND1_TOTALS[p])}
+    round1_lineups(s)
     v=evaluate(s);players=v['round1']['survivors']
     schedule=round2_schedule(players)
     s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':8,'completed':8,'mode':'random'}
@@ -49,25 +67,30 @@ class Rules(unittest.TestCase):
         self.assertEqual((row()['played'],row()['average']),(5,8))
         self.assertFalse(evaluate(s)['round2']['complete'])
     def test_cut_tie_and_incomplete_extra(self):
-        # To Live per-team 4th/5th bubble (team A: p4 vs p5 tied at avg 0.0).
+        # To Live all-10 8th/9th boundary bubble. p9 (8th, advancing) and p5
+        # (9th, cut) both total 30 goals -> tied at average 6.0 across the cut.
         # Approved fold model: an extra game where BOTH score equally keeps them
         # tied on effective average, so another extra game is requested; once
-        # their effective averages differ the bubble resolves. (Old model only
-        # resolved once every tied player had a score in the same extra game.)
-        s=fixture();s['round1']['players']['p4']['goals']=[0]*5
-        v=evaluate(s);self.assertEqual(v['round1']['rows'][3]['status'],TIE);self.assertEqual(v['round1']['survivors'],[])
-        e=dict.fromkeys(IDS);e['p4']=2;e['p5']=2;s['round1']['extras']=[e]
+        # their effective averages differ the bubble resolves and a cut player
+        # can overtake the tied-advancing one. The clear top finisher (p1) is
+        # never disturbed.
+        s=fixture();s['round1']['players']['p5']['goals']=spread(6)  # Ties p9 at 6 total (ranks 8-9).
+        v=evaluate(s)['round1'];self.assertEqual(v['survivors'],[])
+        self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p5','p9'})
+        e=dict.fromkeys(IDS);e['p5']=2;e['p9']=2;s['round1']['extras']=[e]
         v=evaluate(s)['round1']  # Equal extra goals -> still exactly tied on average.
         self.assertFalse(v['complete'])
-        self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p4','p5'})
-        p4=next(r for r in v['rows'] if r['id']=='p4')  # Folded: (0+2)/(5+1).
-        self.assertEqual((p4['goals'],p4['played']),(2,6));self.assertAlmostEqual(p4['average'],2/6)
-        e2=dict.fromkeys(IDS);e2['p4']=3;e2['p5']=1;s['round1']['extras']=[e,e2]
-        v=evaluate(s)['round1']  # p4 pulls ahead on effective average.
+        self.assertEqual({r['id'] for r in v['rows'] if r['status']==TIE},{'p5','p9'})
+        p9=next(r for r in v['rows'] if r['id']=='p9')  # Folded: (6+2)/(5+1).
+        self.assertEqual((p9['goals'],p9['played']),(8,6));self.assertAlmostEqual(p9['average'],8/6)
+        e2=dict.fromkeys(IDS);e2['p5']=5;e2['p9']=1;s['round1']['extras']=[e,e2]
+        v=evaluate(s)['round1']  # p5 pulls ahead on effective average and overtakes.
         self.assertTrue(v['complete'])
-        p4=next(r for r in v['rows'] if r['id']=='p4');p5=next(r for r in v['rows'] if r['id']=='p5')
-        self.assertEqual((p4['goals'],p4['played'],p4['status']),(5,7,'ADVANCE'))
-        self.assertEqual((p5['goals'],p5['played'],p5['status']),(3,7,'CUT'))
+        p5=next(r for r in v['rows'] if r['id']=='p5');p9=next(r for r in v['rows'] if r['id']=='p9')
+        self.assertEqual((p5['goals'],p5['played'],p5['status']),(13,7,'ADVANCE'))
+        self.assertEqual((p9['goals'],p9['played'],p9['status']),(9,7,'CUT'))
+        p1=next(r for r in v['rows'] if r['id']=='p1')  # Clear top finisher undisturbed.
+        self.assertEqual((p1['rank'],p1['status'],p1['goals'],p1['played']),(1,'ADVANCE',30,5))
     def test_multigame_tie_preserves_resolved_positions(self):
         group=order_groups(['a','b','c'],dict(a=5,b=5,c=5),[dict(a=2,b=0,c=0),dict(b=4,c=3)])
         self.assertEqual(group,[['a'],['b'],['c']])
@@ -239,7 +262,6 @@ class Rules(unittest.TestCase):
         s=fixture();s['names']['p1']='New name';self.assertFalse(evaluate(s)['round2']['stale'])
         s['round1']['players']['p5']['goals']=[8]*5;v=evaluate(s);self.assertTrue(v['round2']['stale']);self.assertFalse(v['round2']['complete'])
     def test_incorrect_team_counts(self):
-        s=fixture();s['round1']['players']['p5']['team']='B';self.assertFalse(evaluate(s)['round1']['complete'])
         s=fixture();s['round2']['players']['p1']['goals'][0]=0;self.assertFalse(evaluate(s)['round2']['complete'])
 
 class Draws(unittest.TestCase):
@@ -295,87 +317,63 @@ class Draws(unittest.TestCase):
             self.assertEqual(store.state,original)
             self.assertEqual(Store(store.path).state['round2']['draw'],original['round2']['draw'])
 
-class Round1Assign(unittest.TestCase):
-    def spin_all(self,s):
-        for _ in range(10):s=round1_assign_action(s,'spin')
-        return s
-    def test_full_assignment_always_five_five_randomized(self):
-        for _ in range(200):
-            s=self.spin_all(new_state())
-            teams=[s['round1']['players'][p]['team'] for p in IDS]
-            self.assertEqual(teams.count('A'),5);self.assertEqual(teams.count('B'),5)
-            self.assertEqual(set(s['round1']['assigned']),set(IDS))
-            self.assertEqual(validate(deepcopy(s)),s)
-    def test_cap_forces_valid_split_under_extreme_bias(self):
-        for forced in (0,1):  # Coin always 'A' then always 'B'; the cap must still land 5/5.
-            with patch('engine.secrets.randbelow',return_value=forced):
-                s=self.spin_all(new_state())
-            teams=[s['round1']['players'][p]['team'] for p in IDS]
-            self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
-    def test_assigned_excluded_and_grows_by_one(self):
-        s=new_state()
-        for n in range(1,11):
-            s=round1_assign_action(s,'spin')
-            self.assertEqual(len(s['round1']['assigned']),n)
-            self.assertEqual(len(set(s['round1']['assigned'])),n)
-        snapshot=deepcopy(s['round1']['players'])
-        again=round1_assign_action(s,'spin')  # No unassigned players remain.
-        self.assertEqual(again['round1']['players'],snapshot)
-        self.assertEqual(len(again['round1']['assigned']),10)
-    def test_reset_clears_only_wheel_assigned(self):
-        s=new_state();s['round1']['players']['p1']['team']='A'  # Manual assignment, not on the wheel.
-        s=self.spin_all(s)
-        self.assertNotIn('p1',s['round1']['assigned'])
-        s=round1_assign_action(s,'reset')
-        self.assertEqual(s['round1']['assigned'],[])
-        self.assertEqual(s['round1']['players']['p1']['team'],'A')  # Manual survives.
-        self.assertTrue(all(s['round1']['players'][p]['team']=='' for p in IDS if p!='p1'))
-    def test_manual_override_coexists_and_validates(self):
-        s=self.spin_all(new_state())
-        flip={'A':'B','B':'A'}[s['round1']['players']['p1']['team']]
-        s['round1']['players']['p1']['team']=flip
-        self.assertEqual(validate(deepcopy(s)),s)  # Manual override of a wheel pick still validates.
-    def test_spin_respects_preexisting_manual_without_exceeding_five(self):
-        with patch('engine.secrets.randbelow',return_value=0):  # Coin always wants 'A'.
-            s=new_state()
-            for p in ['p1','p2','p3','p4','p5']:s['round1']['players'][p]['team']='A'  # Five manual A already.
-            s=self.spin_all(s)
-        teams=[s['round1']['players'][p]['team'] for p in IDS]
-        self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
-        self.assertTrue(all(s['round1']['players'][p]['team']=='B' for p in IDS[5:]))
-    def test_backward_compat_missing_assigned_defaults(self):
-        s=new_state();del s['round1']['assigned']  # Pre-existing version-4 save without the field.
-        validated=validate(s)
-        self.assertEqual(validated['round1']['assigned'],[])
-        old=legacy_fixture();del old['round1']['assigned']  # Migrated v2 save.
-        self.assertEqual(validate(old)['round1']['assigned'],[])
-    def test_unknown_action_raises(self):
-        with self.assertRaises(ValueError):round1_assign_action(new_state(),'nope')
-    def test_targeted_player_spin_assigns_that_player(self):
-        s=round1_assign_action(new_state(),'spin','p7')
-        self.assertIn(s['round1']['players']['p7']['team'],('A','B'))
-        self.assertEqual(s['round1']['assigned'],['p7'])
-        self.assertTrue(all(s['round1']['players'][p]['team']=='' for p in IDS if p!='p7'))
-    def test_targeted_player_spin_is_idempotent_when_already_teamed(self):
-        s=round1_assign_action(new_state(),'spin','p7')
-        snapshot=deepcopy(s)
-        again=round1_assign_action(s,'spin','p7')  # p7 already has a team -> no-op.
-        self.assertEqual(again,snapshot)
-        bad=round1_assign_action(s,'spin','p99')  # Unknown id -> no-op.
-        self.assertEqual(bad,snapshot)
-    def test_targeted_player_still_respects_five_cap(self):
-        with patch('engine.secrets.randbelow',return_value=0):  # Coin always wants 'A'.
-            s=new_state()
-            for p in ['p1','p2','p3','p4','p5']:s['round1']['players'][p]['team']='A'  # Side A already full.
-            s=round1_assign_action(s,'spin','p10')  # Cap must force the deficient side B.
-        self.assertEqual(s['round1']['players']['p10']['team'],'B')
-        self.assertEqual(s['round1']['assigned'],['p10'])
-    def test_targeted_spins_reach_five_five(self):
-        s=new_state()
-        for p in IDS:s=round1_assign_action(s,'spin',p)  # Drive a full set targeting each player.
-        teams=[s['round1']['players'][p]['team'] for p in IDS]
-        self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
-        self.assertEqual(set(s['round1']['assigned']),set(IDS))
+class Round1Lineups(unittest.TestCase):
+    def test_lineups_are_valid_five_five_partitions_and_idempotent(self):
+        s=new_state();first=round1_lineups(s)
+        self.assertEqual(len(first),5)
+        for e in first:
+            self.assertEqual(set(e),{'A','B'})
+            self.assertEqual((len(e['A']),len(e['B'])),(5,5))
+            self.assertEqual(sorted(e['A']+e['B']),sorted(IDS))  # Covers all ten, no repeats.
+        self.assertEqual(s['round1']['lineups'],first)  # Stored on the state.
+        again=round1_lineups(s)  # Idempotent: never rerolls once valid splits exist.
+        self.assertEqual(again,first)
+        self.assertEqual(validate(deepcopy(s)),s)  # Round-trips through validation.
+    def test_advancement_independent_of_ab_grouping(self):
+        # Ranking is by TOTAL goals, so which players share Team A/B is cosmetic.
+        s=fixture();round1_lineups(s)
+        before=evaluate(s)['round1']['survivors']
+        self.assertEqual(len(before),8)
+        for g in range(5):s['round1']['lineups'][g]=_shuffle_split(g)  # Alter every split.
+        after=evaluate(s)['round1']['survivors']
+        self.assertEqual(before,after)  # Same eight advance regardless of grouping.
+    def test_reroll_refuses_scored_game_and_succeeds_on_unscored(self):
+        s=fixture()  # Every game is fully scored.
+        with self.assertRaises(ValueError):round1_lineup_action(s,'reroll',1)
+        with self.assertRaises(ValueError):round1_lineup_action(s,'reroll','nope')  # Bad game -> raises.
+        with self.assertRaises(ValueError):round1_lineup_action(s,'reroll')  # Unknown action family.
+        with self.assertRaises(ValueError):round1_lineup_action(new_state(),'spin',1)  # Unknown action.
+        fresh=new_state();round1_lineups(fresh)  # No scores yet.
+        before=deepcopy(fresh['round1']['lineups'])
+        with patch('engine.secrets.SystemRandom.shuffle',side_effect=lambda a:a.reverse()):
+            out=round1_lineup_action(fresh,'reroll',2)
+        self.assertNotEqual(out['round1']['lineups'][1],before[1])  # Only game 2 rerolled.
+        self.assertEqual(out['round1']['lineups'][0],before[0])     # Game 1 untouched.
+        self.assertEqual(sorted(out['round1']['lineups'][1]['A']+out['round1']['lineups'][1]['B']),sorted(IDS))
+    def test_old_save_migration_drops_team_and_assigned(self):
+        # A legacy v4 save from the retired fixed-team wheel model carries a
+        # per-player round1 'team' and a round1 'assigned' list; validate() must
+        # drop both (preserving goals) and lineups regenerate afterward.
+        s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)}
+        for i,p in enumerate(IDS):
+            s['round1']['players'][p]={'team':'A' if i<5 else 'B','goals':[i%3]*5}
+        s['round1']['assigned']=list(IDS)
+        validated=validate(deepcopy(s))
+        self.assertNotIn('assigned',validated['round1'])
+        for i,p in enumerate(IDS):
+            self.assertNotIn('team',validated['round1']['players'][p])  # Team dropped.
+            self.assertEqual(validated['round1']['players'][p]['goals'],[i%3]*5)  # Goals preserved.
+        lineups=round1_lineups(validated)
+        self.assertEqual(len(lineups),5)
+        self.assertTrue(all(sorted(e['A']+e['B'])==sorted(IDS) for e in lineups))
+    def test_per_game_readiness_needs_all_ten_scores(self):
+        s=fixture();round1_lineups(s)
+        self.assertTrue(all(g['ready'] for g in evaluate(s)['round1']['games']))
+        s['round1']['players']['p3']['goals'][2]=None  # One missing score in game 3.
+        v=evaluate(s)['round1']
+        self.assertFalse(v['games'][2]['ready'])  # That game is not ready.
+        self.assertTrue(all(v['games'][g]['ready'] for g in (0,1,3,4)))  # Others still ready.
+        self.assertFalse(v['complete'])  # Round is incomplete.
 
 class HTTP(unittest.TestCase):
     def test_round2_draw_endpoint_and_completion(self):
@@ -402,22 +400,24 @@ class HTTP(unittest.TestCase):
                 self.assertEqual(json.load(urlopen(url+'/api/backup'))['round2']['draw'],done['state']['round2']['draw'])
             finally:server.shutdown();server.server_close();thread.join()
 
-    def test_round1_assign_endpoint(self):
+    def test_round1_lineup_endpoint(self):
         with tempfile.TemporaryDirectory() as d:
             store=Store(Path(d)/'data.json');server=make_server(store,0);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
             url=f'http://127.0.0.1:{server.server_port}'
             try:
                 info=json.load(urlopen(url+'/api/state'));headers={'Content-Type':'application/json','X-Session-Token':info['token']}
                 def put(route,body):return json.load(urlopen(Request(url+route,data=json.dumps(body).encode(),headers=headers,method='PUT')))
-                result=None
-                for _ in range(10):result=put('/api/round1-assign',{'revision':store.revision,'action':'spin'})
-                teams=[result['state']['round1']['players'][p]['team'] for p in IDS]
-                self.assertEqual((teams.count('A'),teams.count('B')),(5,5))
-                self.assertEqual(set(result['state']['round1']['assigned']),set(IDS))
-                self.assertEqual(json.load(urlopen(url+'/api/backup'))['round1']['assigned'],result['state']['round1']['assigned'])
-                reset=put('/api/round1-assign',{'revision':store.revision,'action':'reset'})
-                self.assertTrue(all(t=='' for t in [reset['state']['round1']['players'][p]['team'] for p in IDS]))
-                self.assertEqual(reset['state']['round1']['assigned'],[])
+                state=json.load(urlopen(url+'/api/state'))['state']
+                lineups=state['round1']['lineups']  # Server generates and persists the five splits.
+                self.assertEqual(len(lineups),5)
+                self.assertTrue(all(sorted(e['A']+e['B'])==sorted(IDS) for e in lineups))
+                self.assertEqual(json.load(urlopen(url+'/api/backup'))['round1']['lineups'],lineups)
+                before=lineups[0]
+                result=put('/api/round1-lineup',{'revision':store.revision,'action':'reroll','game':1})
+                self.assertEqual(len(result['state']['round1']['lineups']),5)
+                self.assertTrue(all(sorted(e['A']+e['B'])==sorted(IDS) for e in result['state']['round1']['lineups']))
+                self.assertEqual(result['state']['round1']['lineups'][1],before and lineups[1])  # Other games unchanged.
+                with self.assertRaises(HTTPError):put('/api/round1-lineup',{'revision':store.revision,'action':'nope'})
             finally:server.shutdown();server.server_close();thread.join()
 
     def test_persistence_and_revision_conflict(self):
