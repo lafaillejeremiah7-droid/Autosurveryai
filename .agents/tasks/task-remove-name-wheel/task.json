@@ -1,0 +1,7 @@
+{
+  "task_id": "task-remove-name-wheel",
+  "task_description": "Delete the standalone 'Name your fate' Name wheel (Monitor/Room 01) entirely from the Brawl Hockey dashboard, because it duplicates 'The roster' in Players & rules. Players are entered directly in Players & rules; there is no random spin/draw feature anymore. Must NOT break the To Die sit-out draw (which shares the wheel screen rendering via wheelMode==='round2'). Old saved backups that still contain a populated wheel object must continue to load without error (keep the inert `wheel` field in engine new_state()/validate(), schema version 4, no migration bump). Both test suites stay green; a single-invocation live probe confirms the app serves, the rooms grid has no wheel tile, the To Die sit-out draw still renders, and an old-style backup with a wheel object still loads via the server.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
