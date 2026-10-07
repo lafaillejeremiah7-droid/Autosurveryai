@@ -560,33 +560,58 @@ function eliminatedNames(key){
 }
 // A single eliminated stickman, labelled with the player's name. Decorative, so the
 // figure itself is aria-hidden; the name is carried both as text and in the markup so
-// tests and reduced-motion summaries can read it. `i` spaces the figures across the stage.
-function cutsceneFigure(name,i,count){
- const span=760/(count+1),x=70+span*(i+1);
- return `<g class="cut-figure" data-name="${esc(name)}" transform="translate(${x},205)">`+
-  '<circle cx="0" cy="-34" r="12" fill="none" stroke="#ffe7cf" stroke-width="3"/>'+
-  '<line x1="0" y1="-22" x2="0" y2="14" stroke="#ffe7cf" stroke-width="3"/>'+
-  '<line x1="0" y1="-12" x2="-16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
-  '<line x1="0" y1="-12" x2="16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
-  '<line x1="0" y1="14" x2="-14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
-  '<line x1="0" y1="14" x2="14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
-  `<text class="cut-name" x="0" y="62" text-anchor="middle" fill="#ffcf8d" font-size="15" font-weight="700">${esc(name)}</text>`+
+// tests and reduced-motion summaries can read it. Drawn at the group origin; the escort
+// group (see cutsceneEscort) positions and carries it toward the furnace. The figure is
+// held HORIZONTALLY (lying across the throwers' arms) so it reads as being carried.
+function cutsceneFigure(name){
+ return `<g class="cut-figure" data-name="${esc(name)}">`+
+  '<g class="cut-figure-body" transform="rotate(-78)">'+
+   '<circle cx="0" cy="-34" r="12" fill="none" stroke="#ffe7cf" stroke-width="3"/>'+
+   '<line x1="0" y1="-22" x2="0" y2="14" stroke="#ffe7cf" stroke-width="3"/>'+
+   '<line x1="0" y1="-12" x2="-16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
+   '<line x1="0" y1="-12" x2="16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
+   '<line x1="0" y1="14" x2="-14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
+   '<line x1="0" y1="14" x2="14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
+  '</g>'+
+  `<text class="cut-name" x="0" y="56" text-anchor="middle" fill="#ffcf8d" font-size="15" font-weight="700">${esc(name)}</text>`+
   '</g>';
 }
-// A group of 'thrower' stickmen (arms up, mid-heave) that toss the cut players.
-function cutsceneThrowers(){
- let g='';
- for(let i=0;i<3;i++){const x=70+i*34;
-  g+=`<g transform="translate(${x},230)" opacity="${0.55+i*0.15}">`+
-   '<circle cx="0" cy="-30" r="10" fill="none" stroke="#c99b7f" stroke-width="3"/>'+
-   '<line x1="0" y1="-20" x2="0" y2="12" stroke="#c99b7f" stroke-width="3"/>'+
-   '<line x1="0" y1="-14" x2="-15" y2="-30" stroke="#c99b7f" stroke-width="3"/>'+
-   '<line x1="0" y1="-14" x2="15" y2="-30" stroke="#c99b7f" stroke-width="3"/>'+
-   '<line x1="0" y1="12" x2="-11" y2="36" stroke="#c99b7f" stroke-width="3"/>'+
-   '<line x1="0" y1="12" x2="11" y2="36" stroke="#c99b7f" stroke-width="3"/>'+
-   '</g>';
- }
- return `<g class="cut-throwers" aria-hidden="true">${g}</g>`;
+// One 'thrower' stickman (arms raised to hold/carry the victim). `walk` toggles the leg
+// stance so the shuffle animation can swap between two groups mid-carry.
+function cutsceneThrower(x,opacity,walk){
+ const legs=walk
+  ?'<line x1="0" y1="12" x2="-13" y2="36" stroke="#c99b7f" stroke-width="3"/>'+
+    '<line x1="0" y1="12" x2="9" y2="34" stroke="#c99b7f" stroke-width="3"/>'
+  :'<line x1="0" y1="12" x2="-9" y2="34" stroke="#c99b7f" stroke-width="3"/>'+
+    '<line x1="0" y1="12" x2="13" y2="36" stroke="#c99b7f" stroke-width="3"/>';
+ return `<g transform="translate(${x},0)" opacity="${opacity}">`+
+  '<circle cx="0" cy="-30" r="10" fill="none" stroke="#c99b7f" stroke-width="3"/>'+
+  '<line x1="0" y1="-20" x2="0" y2="12" stroke="#c99b7f" stroke-width="3"/>'+
+  // arms reach UP to carry the figure overhead
+  '<line x1="0" y1="-14" x2="-15" y2="-34" stroke="#c99b7f" stroke-width="3"/>'+
+  '<line x1="0" y1="-14" x2="15" y2="-34" stroke="#c99b7f" stroke-width="3"/>'+
+  legs+
+  '</g>';
+}
+// An escort: a pair of thrower stickmen carrying ONE eliminated figure overhead, drawn
+// at the stage's left edge. The whole group is translated right (carrying the victim)
+// toward the furnace by playCutscene; the inner figure then gets heaved into the mouth.
+// Two leg-stance variants (.walk-a / .walk-b) alternate via CSS to fake a walking shuffle.
+function cutsceneEscort(name,i){
+ const legStart=230; // ground line for the throwers
+ // Resting x spreads the escorts across the left/middle so the reduced-motion static
+ // summary reads clearly; the animated carry overrides this with its own transform.
+ const restX=90+i*150;
+ const throwers=
+  cutsceneThrower(-14,0.85,false)+cutsceneThrower(16,0.95,true);
+ return `<g class="cut-escort" data-name="${esc(name)}" transform="translate(${restX},${legStart})">`+
+  // the carried figure sits just above the throwers' raised arms
+  `<g class="cut-carry" transform="translate(2,-54)">${cutsceneFigure(name)}</g>`+
+  `<g class="cut-walk cut-walk-a">${throwers}</g>`+
+  `<g class="cut-walk cut-walk-b" aria-hidden="true">`+
+   cutsceneThrower(-14,0.85,true)+cutsceneThrower(16,0.95,false)+
+  '</g>'+
+  '</g>';
 }
 // The giant furnace on the right, its glowing mouth reusing the fire gradient look.
 function cutsceneFurnace(){
@@ -604,18 +629,20 @@ let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
 // a local <defs> copy keeps it self-contained if the world scene is ever removed.
 function buildCutscene(names){
  const reduced=reducedMotion();
- const figures=names.map((n,i)=>cutsceneFigure(n,i,names.length)).join('');
+ // When animating, start each escort just off-screen left and stagger it in; the static
+ // (reduced-motion) summary lines the escorts up across the stage so every name reads.
+ const escorts=names.map((n,i)=>cutsceneEscort(n,i)).join('');
  const svg='<svg viewBox="0 0 900 400" role="img" aria-hidden="true">'+
   '<defs><radialGradient id="furnace-fire"><stop stop-color="#fff4c4"/><stop offset=".18" stop-color="#ffcb76"/><stop offset=".48" stop-color="#ef753c" stop-opacity=".85"/><stop offset="1" stop-color="#d1492b" stop-opacity="0"/></radialGradient></defs>'+
-  cutsceneFurnace()+cutsceneThrowers()+
-  `<g class="cut-figures">${figures}</g>`+
+  cutsceneFurnace()+
+  `<g class="cut-escorts">${escorts}</g>`+
   '<g class="cutscene-poof" transform="translate(770,188)"><circle r="46" fill="#f4e4c7"/><circle r="30" fill="#fff" opacity=".8"/><text y="7" text-anchor="middle" fill="#c0392b" font-size="26" font-weight="900">POOF!</text></g>'+
   '</svg>';
  const stage=$('#cutscene-stage');if(stage)stage.innerHTML=svg.replace('url(#fire)','url(#furnace-fire)');
  const caption=$('#cutscene-caption');
  if(caption)caption.innerHTML=reduced
   ?`<strong>ELIMINATED:</strong> ${names.map(esc).join(', ')}`
-  :`The crowd heaves ${names.length===1?'one survivor':names.length+' survivors'} toward the furnace…`;
+  :`The crowd carries ${names.length===1?'one survivor':names.length+' survivors'} to the furnace…`;
 }
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
@@ -651,23 +678,47 @@ function playCutscene(names){
    cutsceneTimers.push(setTimeout(endCutscene,1800));
    return;
   }
-  // Animated comic toss: each cut figure arcs toward the furnace mouth, then a POOF.
+  // Animated carry: the thrower escorts WALK each victim in from the left to a spot in
+  // front of the furnace, then HEAVE the carried figure into the mouth, then a POOF. The
+  // victims are handled one at a time (staggered) so the crowd clearly walks each over.
   const stage=$('#cutscene-stage');
-  const figs=stage&&stage.querySelectorAll?[...stage.querySelectorAll('.cut-figure')]:[];
-  figs.forEach((fig,i)=>{
-   if(!fig.animate)return;
-   const delay=300+i*520;
-   fig.animate([
-    {transform:'translateY(0) rotate(0deg)',opacity:1,offset:0},
-    {transform:'translate(260px,-120px) rotate(220deg)',opacity:1,offset:.6},
-    {transform:'translate(540px,10px) rotate(540deg)',opacity:0,offset:1}
-   ],{duration:900,delay,easing:'cubic-bezier(.3,-.2,.7,1)',fill:'forwards'});
-  });
+  const escorts=stage&&stage.querySelectorAll?[...stage.querySelectorAll('.cut-escort')]:[];
   const poof=stage&&stage.querySelector?stage.querySelector('.cutscene-poof'):null;
-  const total=300+figs.length*520+700;
-  cutsceneTimers.push(setTimeout(()=>{if(poof&&poof.classList)poof.classList.add('go');},Math.max(300,total-500)));
+  const CARRY=1200,HEAVE=520,STEP=CARRY+HEAVE+260; // per-victim beat
+  // Escort start/stage positions in the 900x400 viewBox (ground line y=230).
+  const START_X=-120,STAGE_X=640,STAGE_Y=230;
+  escorts.forEach((grp,i)=>{
+   const delay=240+i*STEP;
+   const carry=grp.querySelector?grp.querySelector('.cut-carry'):null;
+   if(grp.animate){
+    // Walk the whole bundle (throwers + carried figure) from off-screen to the furnace.
+    grp.animate([
+     {transform:`translate(${START_X}px,${STAGE_Y}px)`,offset:0},
+     {transform:`translate(${STAGE_X}px,${STAGE_Y}px)`,offset:1}
+    ],{duration:CARRY,delay,easing:'ease-in-out',fill:'forwards'});
+   }
+   // Then the throwers HEAVE the carried figure the short remaining distance into the
+   // glowing mouth (a quick shove up-and-in) and it fades as it enters.
+   if(carry&&carry.animate){
+    carry.animate([
+     {transform:'translate(2px,-54px) rotate(0deg)',opacity:1,offset:0},
+     {transform:'translate(70px,-96px) rotate(60deg)',opacity:1,offset:.5},
+     {transform:'translate(130px,-42px) rotate(140deg)',opacity:0,offset:1}
+    ],{duration:HEAVE,delay:delay+CARRY,easing:'cubic-bezier(.4,-.3,.8,1)',fill:'forwards'});
+   }
+   // POOF at the mouth right as this victim disappears in.
+   if(poof&&poof.classList){
+    cutsceneTimers.push(setTimeout(()=>{
+     poof.classList.remove('go');
+     // reflow so the animation can retrigger for each victim
+     if(poof.getBoundingClientRect)void poof.getBoundingClientRect();
+     poof.classList.add('go');
+    },delay+CARRY+HEAVE-80));
+   }
+  });
+  const total=240+escorts.length*STEP+400;
   // Natural completion -> single dismiss path.
-  cutsceneTimers.push(setTimeout(endCutscene,total+600));
+  cutsceneTimers.push(setTimeout(endCutscene,total));
  });
 }
 

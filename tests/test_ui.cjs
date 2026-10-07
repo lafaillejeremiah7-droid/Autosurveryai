@@ -553,6 +553,14 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext("playCutscene(['Alpha','Bravo']);",context);
  assert.equal(vm.runInContext('cutsceneActive',context),true,'playCutscene marks the cutscene active and shows the overlay');
  assert.equal(overlayEl.hidden,false,'the overlay is visible while the cutscene plays');
+ // CARRY animation: each victim rides inside an ESCORT (thrower stickmen that carry the
+ // figure) rather than lobbing itself across. There is one escort per name, each wrapping
+ // its own labelled .cut-figure in a .cut-carry group that the throwers heave in.
+ const carryStage=context.document.querySelector('#cutscene-stage').innerHTML;
+ assert.equal((carryStage.match(/class="cut-escort"/g)||[]).length,2,'one carrying escort per eliminated player');
+ assert.equal((carryStage.match(/class="cut-carry"/g)||[]).length,2,'each escort holds its victim in a carried group');
+ assert((carryStage.match(/cut-walk/g)||[]).length>=2,'escorts include walking thrower stickmen');
+ for(const n of ['Alpha','Bravo'])assert(carryStage.includes(`data-name="${n}"`),'the carried figure is labelled '+n);
  vm.runInContext('endCutscene();',context);
  assert.equal(vm.runInContext('cutsceneActive',context),false,'endCutscene (Skip/click/Esc) clears the active flag');
  assert.equal(overlayEl.hidden,true,'endCutscene hides the overlay so the standings show');
@@ -560,13 +568,13 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext('state=fixture.state;view=fixture.view;',context);
  const skipSubmit=click({action:'submit-match',stage:'round1',match:'4'});
  await flushMicro();
- assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled round replays the cutscene before standings');
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled round replays the carry cutscene before standings');
  vm.runInContext('endCutscene();',context);   // skip
  await skipSubmit;
  assert(resultEl.innerHTML.includes('total round ranking'),'after skipping the cutscene the fullscreen standings are shown');
  await click({action:'close-result'});
  // (D) REDUCED MOTION: with matchMedia matches:true (the sandbox default) the animated
- //     toss is replaced by a STATIC summary carrying an 'ELIMINATED: names' caption.
+ //     carry is replaced by a STATIC summary carrying an 'ELIMINATED: names' caption.
  assert.equal(vm.runInContext("reducedMotion()",context),true,'sandbox defaults to reduced motion');
  vm.runInContext("playCutscene(['Casey','Dakota']);",context);
  const captionEl=context.document.querySelector('#cutscene-caption');
@@ -577,6 +585,6 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext('cutsceneActive=false;',context);
  await vm.runInContext('playCutscene([])',context);
  assert.equal(vm.runInContext('cutsceneActive',context),false,'playCutscene with no names resolves without showing the overlay');
- console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, skippable single-dismiss path, reduced-motion static ELIMINATED summary, and empty-list skip passed.');
+ console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, throwers CARRY each victim (escort markup) into the furnace, skippable single-dismiss path, reduced-motion static ELIMINATED summary, and empty-list skip passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
