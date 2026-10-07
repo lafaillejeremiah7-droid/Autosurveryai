@@ -8,8 +8,12 @@ const root=path.resolve(__dirname,'..');
 const payload=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
 const elements={},events={};
-const element=()=>({dataset:{},scrollTop:0,innerHTML:'',textContent:'',open:false,classList:{toggle(){},remove(){},add(){}},addEventListener(){},focus(){},appendChild(e){e.parentElement=this;},showModal(){this.open=true;},close(){this.open=false;},animate(){return {finished:Promise.resolve()};},querySelector(){return null;}});
-const document={querySelector:s=>elements[s]??=(element()),querySelectorAll:()=>[],addEventListener:(type,fn)=>events[type]=fn,body:element()};
+// classList gains contains()/_set so FEAT-002's pause gating (document.body.classList
+// .contains('world-paused')) can be exercised; element() gains createElement-friendly
+// extras (style.setProperty, remove, animate().cancel) used by the ambient blast loop.
+const makeClassList=()=>{const set=new Set();return {toggle(c){if(set.has(c)){set.delete(c);return false;}set.add(c);return true;},remove(c){set.delete(c);},add(c){set.add(c);},contains(c){return set.has(c);}};};
+const element=()=>({dataset:{},scrollTop:0,innerHTML:'',textContent:'',open:false,classList:makeClassList(),style:{setProperty(){}},addEventListener(){},removeChild(e){if(e)e.parentElement=null;},remove(){if(this.parentElement&&this.parentElement.removeChild)this.parentElement.removeChild(this);},focus(){},appendChild(e){e.parentElement=this;},showModal(){this.open=true;},close(){this.open=false;},animate(){return {finished:Promise.resolve(),cancel(){}};},querySelector(){return null;}});
+const document={querySelector:s=>elements[s]??=(element()),querySelectorAll:()=>[],addEventListener:(type,fn)=>events[type]=fn,body:element(),createElement:()=>element()};
 const context={document,window:{addEventListener(){},matchMedia:()=>({matches:true})},fetch:()=>new Promise(()=>{}),setTimeout:()=>1,clearTimeout(){},setInterval(){},console,fixture:payload,confirm:()=>true};
 vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'static/app.js'),'utf8'),context);
 vm.runInContext('state=fixture.state;view=fixture.view;',context);
@@ -429,5 +433,47 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert.equal(vm.runInContext('undoSnapshot',context),null,'undo cleared the clear-extras snapshot');
  context.fetch=()=>new Promise(()=>{});
  console.log('Extra-games delete controls: per-extra-game Remove (splices one), Clear all extra games (empties the list), both with one-level undo and full isolation passed.');
+
+ // ---- FEAT-002: ambient background blast loop (nukes/explosions every 1-5s) with a
+ //      WORLD-LAYER-ONLY shake, gated by Pause-world + prefers-reduced-motion, exposing
+ //      start/stop, and leaving a cutsceneActive guard for the FEAT-003 cutscene. ----
+ // (a) The ambient loop exposes start/stop functions that can be invoked without throwing.
+ assert.equal(vm.runInContext('typeof startWorldBlasts',context),'function','startWorldBlasts is exposed');
+ assert.equal(vm.runInContext('typeof stopWorldBlasts',context),'function','stopWorldBlasts is exposed');
+ assert.equal(vm.runInContext('typeof cutsceneActive',context),'boolean','a shared cutsceneActive guard exists for the cutscene');
+ // (b1) GATED BY REDUCED MOTION: matchMedia defaults to {matches:true} so reducedMotion()
+ //      is true. Starting must be a no-op (no timer scheduled).
+ vm.runInContext('document.body.classList.remove("world-paused");stopWorldBlasts();',context);
+ assert.equal(vm.runInContext('window.matchMedia("(prefers-reduced-motion: reduce)").matches',context),true,'sandbox defaults to reduced motion');
+ vm.runInContext('startWorldBlasts();',context);
+ assert.equal(vm.runInContext('blastTimer',context),null,'startWorldBlasts is a no-op under prefers-reduced-motion');
+ // (c) Flip reduced motion OFF so the loop may run, then assert start schedules a timer
+ //     and stop cancels it (blastTimer back to null).
+ context.window.matchMedia=()=>({matches:false});
+ vm.runInContext('document.body.classList.remove("world-paused");stopWorldBlasts();startWorldBlasts();',context);
+ assert.notEqual(vm.runInContext('blastTimer',context),null,'with motion allowed and world running, start schedules a blast timer');
+ vm.runInContext('stopWorldBlasts();',context);
+ assert.equal(vm.runInContext('blastTimer',context),null,'stopWorldBlasts cancels the pending timer');
+ // (b2) GATED BY PAUSE-WORLD: with motion allowed but body.world-paused set, start is a no-op.
+ vm.runInContext('document.body.classList.add("world-paused");stopWorldBlasts();startWorldBlasts();',context);
+ assert.equal(vm.runInContext('blastTimer',context),null,'startWorldBlasts is a no-op while the world is paused');
+ vm.runInContext('document.body.classList.remove("world-paused");',context);
+ // (d) worldClick on #world-toggle wires start/stop: pausing stops the loop, resuming
+ //     restarts it (motion is allowed in this branch).
+ const worldToggleBtn={id:'world-toggle',dataset:{},setAttribute(){},querySelector:()=>null,firstChild:null};
+ vm.runInContext('stopWorldBlasts();',context);
+ events.click({target:{closest:()=>worldToggleBtn}});   // first toggle -> paused
+ assert.equal(vm.runInContext('document.body.classList.contains("world-paused")',context),true,'toggle pauses the world');
+ assert.equal(vm.runInContext('blastTimer',context),null,'pausing via #world-toggle stops the ambient loop');
+ events.click({target:{closest:()=>worldToggleBtn}});   // second toggle -> resumed
+ assert.equal(vm.runInContext('document.body.classList.contains("world-paused")',context),false,'toggle resumes the world');
+ assert.notEqual(vm.runInContext('blastTimer',context),null,'resuming via #world-toggle restarts the ambient loop');
+ vm.runInContext('stopWorldBlasts();',context);
+ // (e) The cutsceneActive guard suppresses the world shake path (shakeWorld is a no-op
+ //     while a cutscene is active, so the ambient effect never vibrates the overlay).
+ vm.runInContext('cutsceneActive=true;shakeWorld();',context);   // must not throw
+ vm.runInContext('cutsceneActive=false;',context);
+ context.window.matchMedia=()=>({matches:true});   // restore the sandbox default
+ console.log('FEAT-002 ambient blasts: start/stop exposed, gated by reduced-motion and Pause-world, #world-toggle wiring, stop cancels the timer, and the cutsceneActive shake guard passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 

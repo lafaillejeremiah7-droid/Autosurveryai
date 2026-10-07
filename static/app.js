@@ -512,6 +512,59 @@ function setStartTime(){
  state.settings.start_at=new Date(value).toISOString();changed();updateCountdown();
 }
 function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});updateCountdown();}clock();setInterval(clock,1000);
-const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';}if(b.dataset.action==='edit-start')setStartTime();};
+// FEAT-002: ambient background nukes/explosions on a 1-5s random cadence with a
+// WORLD-LAYER-ONLY camera shake. Shared guard `cutsceneActive` lets the elimination
+// cutscene (FEAT-003) suppress the shake while it runs. Everything is gated by the
+// Pause-world toggle (document.body 'world-paused') and prefers-reduced-motion.
+let cutsceneActive=false,blastTimer=null,blastShake=null;
+const worldPaused=()=>document.body.classList.contains('world-paused');
+const blastGated=()=>reducedMotion()||worldPaused();
+function spawnBlast(){
+ const layer=document.querySelector('#world-blasts');if(!layer)return;
+ const el=document.createElement&&document.createElement('div');if(!el)return;
+ const nuke=Math.random()<0.5;
+ el.className='world-blast'+(nuke?' nuke':'');
+ const dur=nuke?1300:900;
+ el.style.left=(8+Math.random()*84)+'%';el.style.top=(32+Math.random()*55)+'%';
+ el.style.setProperty('--blast-dur',dur+'ms');
+ el.innerHTML='<div class="blast-core"></div><div class="blast-ring"></div>';
+ layer.appendChild(el);
+ const done=()=>{if(el.parentElement&&el.parentElement.removeChild)el.parentElement.removeChild(el);else if(el.remove)el.remove();};
+ if(el.addEventListener)el.addEventListener('animationend',done,{once:true});
+ // Fallback removal (and the sole path in the vm sandbox, where no real animations run)
+ // so blast nodes never accumulate.
+ setTimeout(done,dur+400);
+ // Trigger the CSS pop on the next frame so the class change animates.
+ if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>el.classList.add('pop'));else el.classList.add('pop');
+ return el;
+}
+function shakeWorld(){
+ if(cutsceneActive)return;
+ const wrap=document.querySelector('#world-shake');if(!wrap||!wrap.animate)return;
+ if(blastShake&&blastShake.cancel)try{blastShake.cancel();}catch{}
+ blastShake=wrap.animate([
+  {transform:'translate(0,0)'},{transform:'translate(-6px,3px) rotate(-.4deg)'},
+  {transform:'translate(7px,-4px) rotate(.4deg)'},{transform:'translate(-5px,4px)'},
+  {transform:'translate(4px,-3px)'},{transform:'translate(-2px,2px)'},{transform:'translate(0,0)'}
+ ],{duration:500,easing:'cubic-bezier(.36,.07,.19,.97)'});
+}
+function blastTick(){
+ if(blastGated()){stopWorldBlasts();return;}
+ spawnBlast();
+ if(!cutsceneActive)shakeWorld();
+ const delay=1000+Math.floor(Math.random()*4000); // random 1000-5000ms
+ blastTimer=setTimeout(blastTick,delay);
+}
+function startWorldBlasts(){
+ if(blastGated())return;        // no-op under reduced motion or when world is paused
+ if(blastTimer!==null)return;   // already running
+ const delay=1000+Math.floor(Math.random()*4000);
+ blastTimer=setTimeout(blastTick,delay);
+}
+function stopWorldBlasts(){
+ if(blastTimer!==null){clearTimeout(blastTimer);blastTimer=null;}
+ if(blastShake&&blastShake.cancel){try{blastShake.cancel();}catch{}blastShake=null;}
+}
+const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';if(paused)stopWorldBlasts();else if(!reducedMotion())startWorldBlasts();}if(b.dataset.action==='edit-start')setStartTime();};
 
-fetch('/api/state').then(r=>r.json()).then(data=>{({state,view,revision,token}=data);round2Game=Math.min(view.round2.draw.completed,7);render();$('#save-status').textContent='All changes saved';}).catch(e=>error('Cannot reach the Python app. '+e.message));
+fetch('/api/state').then(r=>r.json()).then(data=>{({state,view,revision,token}=data);round2Game=Math.min(view.round2.draw.completed,7);render();$('#save-status').textContent='All changes saved';startWorldBlasts();}).catch(e=>error('Cannot reach the Python app. '+e.message));
