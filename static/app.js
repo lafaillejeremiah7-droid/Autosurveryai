@@ -48,15 +48,21 @@ function panel(name,body,right=''){return `<section class="panel"><div class="pa
 // final clears only final). Clearing routes through doDestructive so it is undoable.
 const clearRoundBlurb={round1:'Clears To Live and every later round (To Die and Rebirth). Earlier rounds do not exist for To Live, so nothing before it is touched.',round2:'Clears To Die and Rebirth. To Live and its results are kept.',final:'Clears Rebirth only. To Live and To Die are kept.'};
 function clearRoundPanel(key){return panel('Clear this round','<p class="hint">'+clearRoundBlurb[key]+' You can Undo this straight afterwards.</p><button class="danger" data-action="clear-round" data-stage="'+key+'">'+clearRoundCopy[key]+'</button>');}
+function roomLock(key){
+ if(key==='round1')return view.names_ok?'':'Enter ten unique player names in Players & rules.';
+ if(key==='round2'||key==='sitout')return !view.names_ok?'Enter ten unique player names first.':view.round1.complete?'':'Finish To Live and resolve its cut ties.';
+ if(key==='final')return !view.names_ok?'Enter ten unique player names first.':!view.round1.complete?'Finish To Live and resolve its cut ties.':view.round2.complete?'':'Finish To Die and resolve its cut ties.';
+ return '';
+}
+function lockAttrs(key){const reason=roomLock(key);return reason?' disabled aria-disabled="true" title="'+esc(reason)+'"':'';}
 function survivalStages(){
- let available=true;
- return [['round1','To Live'],['round2','To Die'],['final','Rebirth']].map(([key,label])=>{
-  const v=view[key],status=!available?'sealed':v.complete?'complete':'current';
-  available=available&&!!v.complete;
+ const setup={key:'settings',label:'Players & rules',status:view.names_ok?'complete':'current',detail:view.names_ok?'Roster ready · rules editable':'Enter ten unique names'};
+ return [setup,...[['round1','To Live'],['round2','To Die'],['final','Rebirth']].map(([key,label])=>{
+  const v=view[key],reason=roomLock(key),status=reason?'sealed':v.complete?'complete':'current';
   const cut=v.rows.filter(r=>r.status==='CUT').map(r=>r.name);
-  const detail=status==='sealed'?'Awaiting qualification':status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches';
+  const detail=reason||(status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches');
   return {key,label,status,detail};
- });
+ })];
 }
 function renderRoom(){
  const registered=Object.values(state.names).filter(x=>x.trim()).length;
@@ -70,9 +76,9 @@ function renderRoom(){
  ];
  const stages=survivalStages(),stageMap=Object.fromEntries(stages.map(s=>[s.key,s]));
  const route=$('#survival-route');
- if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+(s.status==='current'?'aria-current="step"':'')+'><small>0'+(i+1)+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
+ if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+lockAttrs(s.key)+' '+(s.status==='current'?'aria-current="step"':'')+'><small>0'+(i+1)+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
  window.CityWorld?.setTournament?.(stages);
- $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" aria-label="Enter '+label+' room"><span class="room-entry">ENTER ROOM ↗</span><span class="room-label"><small>ROOM '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+sub+'</span></span></button>').join('');
+ $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' room"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER ROOM ↗')+'</span><span class="room-label"><small>ROOM '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
  window.BrawlMonuments?.render(view,state);
  window.CityWorld?.refreshRooms();
  window.CityWorld?.setSettings(state.settings);
@@ -97,7 +103,7 @@ function overview(){
  let html=title('ROOM 05 / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
- html+=`<div class="round-path">${[['round1','01 · To Live','10 players → 8 survivors'],['round2','02 · To Die','8 players → 6 survivors'],['final','03 · Rebirth','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
+ html+=`<div class="round-path">${[['round1','01 · To Live','10 players → 8 survivors'],['round2','02 · To Die','8 players → 6 survivors'],['final','03 · Rebirth','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  const rowmap=key=>Object.fromEntries(view[key].rows.map(r=>[r.id,r]));const a=rowmap('round1'),b=rowmap('round2'),c=rowmap('final');
  html+=panel('Every player',table(['PLAYER','TO LIVE','TO DIE','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
@@ -228,6 +234,7 @@ function restoreInputFocus(root,focus){
 }
 function renderResult(){
  const dialog=$('#result-dialog');if(!dialog.open)return;
+ if(roomLock(resultStage)){closeResult();return;}
  renderSaveControls();
  const scrollTop=$('#result-content').scrollTop||0;
  const openDetails=[...document.querySelectorAll('#result-content details')].map(d=>d.open);
@@ -239,6 +246,7 @@ function renderResult(){
 }
 async function openMatchResult(key,match){
  if(cutsceneActive)return;
+ const locked=roomLock(key);if(locked){error(locked);return;}
  const v=view[key],meta=stageMeta[key];
  if(v.stale||!v.games[match]||!v.games[match].ready){error(v.stale?'Clear this round first — its player roster changed.':`Finish entering match ${match+1} scores and results first.`);return;}
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
@@ -394,10 +402,11 @@ function drawWheel(names=[],angle=wheelAngle){
 function render(){
  if(!state)return;renderRoom();renderUndo();renderSaveControls();
  if(!$('#screen-dialog').open)return;
+ if(roomLock(tab))tab=!view.names_ok?'settings':!view.round1.complete?'round1':'round2';
  const focus=captureInputFocus('#content');
  const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('#content .scroll')].map(e=>e.scrollLeft);
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
- $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
+ $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=tab==='sitout'?'BH / ROOM 03 / TO DIE':`BH / ROOM 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
  $('#content').innerHTML=(state.legacy_round2?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. To Die now uses eight rotating games, so those stages start fresh. To Live, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():tab==='sitout'?sitoutWheelPage():round(tab));
  window.BrawlMonuments?.renderScreen(view,state);
@@ -411,7 +420,9 @@ async function openScreen(key,source){
  if(!state||spinning||sitoutBusy||roomTransition||cutsceneActive)return;
  roomTransition=true;
  try{
-  await flush();tab=key;
+  await flush();
+  const locked=roomLock(key);if(locked){error(locked);return;}
+  tab=key;
   const dialog=$('#screen-dialog'),already=dialog.open;
   lastMonitor=key==='sitout'?'round2':key;
   if(!already){

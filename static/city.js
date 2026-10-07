@@ -128,7 +128,8 @@
   needsLayout=true;geometryDirty=true;dirty=true;
  }
  function roomMesh(mesh,room){
-  const [x,,z]=room.pos,s=room.size,h=s*.82,wall=[.92,.96,.97],dark=[.06,.16,.21],light=room.color;
+  const locked=tournament.some(t=>t.key===room.key&&t.status==='sealed');
+  const [x,,z]=room.pos,s=room.size,h=s*.82,wall=locked?[.025,.035,.045]:[.92,.96,.97],dark=[.06,.16,.21],light=locked?[.045,.055,.065]:room.color;
   mesh.box(x,-.32,z,s*1.45,.65,s*1.42,[.3,.44,.5]);
   mesh.box(x,.12,z,s,.24,s,[.64,.78,.8]);
   mesh.box(x,h/2,z-s/2,s,h,.23,wall);
@@ -212,10 +213,16 @@
    }
    if(stop.status==='current')m.ring(x,.27,z,size*.78,.12,room.color.map(v=>v*(.72+Math.sin(t*3)*.2)));
    if(i===0)continue;
-   const prev=stops[i-1].room,a=add(prev.pos,[0,.24,prev.size*.9]),b=add(room.pos,[0,.24,size*.9]);
+   const prev=stops[i-1].room,a=add(prev.pos,[0,.24,prev.size*2]),b=add(room.pos,[0,.24,size*2]);
    const roadColor=sealed?[.10,.16,.19]:[.32,.9,.72];
+   const length=Math.hypot(...sub(b,a)),steps=Math.max(3,Math.ceil(length/2));
+   for(let step=0;step<steps;step++){
+    const point=a.map((v,j)=>mix(v,b[j],step/(steps-1)));
+    m.box(point[0],.03,point[2],1.6,.3,1.6,sealed?[.035,.04,.05]:[.12,.23,.25]);
+   }
    m.line(a,b,.7,[.025,.055,.075]);m.line(a,b,.13,roadColor);
    m.line(add(room.pos,[0,.24,size*.48]),b,.13,roadColor);
+   m.line(add(prev.pos,[0,.24,prev.size*.48]),a,.13,roadColor);
    if(!sealed){
     const u=unlocks[stop.key]!==undefined&&routeTime-unlocks[stop.key]<1.1?clamp((routeTime-unlocks[stop.key])/1.1):(t*.28)%1;
     const light=a.map((v,j)=>mix(v,b[j],u));m.gem(light[0],light[1]+.15,light[2],.45,[.7,1,.87],3);
@@ -418,7 +425,7 @@
     if(stage.status==='sealed')delete unlocks[stage.key];
     else if(previous?.status==='sealed')unlocks[stage.key]=routeTime;
    }
-   tournament=stages.map(s=>({...s}));dirty=true;
+   tournament=stages.map(s=>({...s}));geometryDirty=true;dirty=true;
   },
   setSettings(value){settings={...value};sample(Date.now());dirty=true;},
   refreshRooms(){needsLayout=true;dirty=true;},

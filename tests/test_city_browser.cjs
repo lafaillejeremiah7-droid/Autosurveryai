@@ -1,6 +1,6 @@
 // Optional browser regression. Uses the same environment as test_cutscene_browser.cjs.
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {spawn}=require('node:child_process');
+const {spawn,execFileSync}=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'brawl-city-'));
 const server=spawn(process.env.PYTHON||'python3',['app.py','--port','0','--no-browser','--data',path.join(tmp,'state.json')],{cwd:root});
@@ -12,6 +12,12 @@ let browser;
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto(url);await page.waitForFunction(()=>window.CityWorld&&CityWorld.getStatus().rooms===5);
  assert.equal(await page.evaluate(()=>CityWorld.getStatus().progress),0);
+ assert.equal(await page.locator('#monitors .city-room:disabled').count(),3);
+ await page.evaluate(()=>openScreen('round1'));
+ assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);
+ const fixture=JSON.parse(execFileSync('python3',['-c',"import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;print(json.dumps(fixture()))"],{cwd:root,encoding:'utf8'}));
+ await page.evaluate(async fixture=>{const d=await(await fetch('/api/state')).json();const r=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':d.token},body:JSON.stringify({state:fixture,revision:d.revision,restore:true})});if(!r.ok)throw Error(await r.text());},fixture);
+ await page.reload();await page.waitForFunction(()=>!!view);
  // Real animated entry and Escape must leave every room usable.
  for(const key of ['settings','round1','round2','final','overview']){
   await page.locator('#monitors [data-open="'+key+'"]').click();

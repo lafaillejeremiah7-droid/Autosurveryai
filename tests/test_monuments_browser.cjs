@@ -8,11 +8,13 @@ const server=spawn('python3',['app.py','--port','0','--no-browser','--data',path
  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{}),args:JSON.parse(process.env.CHROMIUM_ARGS||'[]')});
  const page=await browser.newPage({viewport:{width:1440,height:980}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(url);await page.waitForFunction(()=>window.BrawlMonuments&&document.querySelectorAll('.player-tower').length===10);
+ assert.equal(await page.locator('#monitors button:disabled').count(),3);
+ await page.evaluate(()=>openScreen('final'));assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);
  const restore=async fixture=>{await page.evaluate(async fixture=>{const d=await(await fetch('/api/state')).json();const r=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':d.token},body:JSON.stringify({state:fixture,revision:d.revision,restore:true})});if(!r.ok)throw Error(await r.text());const data=await r.json();({state,view,revision}=data);render();},fixture);};
- await restore(fixtures.tie);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),0);
+ await restore(fixtures.tie);assert.equal(await page.locator('#monitors button:disabled').count(),2);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),0);
  await page.locator('#player-towers').scrollIntoViewIfNeeded();
- await restore(fixtures.first);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),2);
- await restore(fixtures.second);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),4);
+ await restore(fixtures.first);assert.equal(await page.locator('#monitors button:disabled').count(),1);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),2);
+ await restore(fixtures.second);assert.equal(await page.locator('#monitors button:disabled').count(),0);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),4);
  assert.equal(await page.locator('#city-podium').getAttribute('data-settled'),'false');
  assert.equal(await page.locator('#city-podium .podium-tie').count(),3,'all six zero-point finalists share tied positions');
  await page.locator('#city-podium').scrollIntoViewIfNeeded();await restore(fixtures.final);
@@ -31,7 +33,8 @@ const server=spawn('python3',['app.py','--port','0','--no-browser','--data',path
  await restore(fixtures.final);await page.locator('#city-podium').scrollIntoViewIfNeeded();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'mobile-final.png'),fullPage:true});
- await restore(fixtures.tie);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),0);assert.equal(await page.locator('#city-podium').getAttribute('data-settled'),'false');
+ await page.evaluate(()=>openScreen('final'));
+ await restore(fixtures.tie);assert.equal(await page.evaluate(()=>tab),'round1');assert.equal(await page.locator('#nav [data-tab=final]').isDisabled(),true);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),0);assert.equal(await page.locator('#city-podium').getAttribute('data-settled'),'false');
  await page.reload();await page.waitForFunction(()=>!!view);assert.equal(await page.locator('.player-tower[data-cut=true]').count(),0);
  assert.deepEqual(errors,[]);
  console.log('Monument browser passed: unresolved ties, two/four eliminations, live tied podium, settled prizes, rank updates, rollback, reload, and mobile layout.');

@@ -104,3 +104,12 @@ body{position:relative;min-height:100svh;background:#132d42}
 @media(max-width:999px){.player-towers{grid-template-columns:repeat(5,minmax(0,1fr));height:400px}.tower-label strong{font-size:11px}}
 @media(max-width:599px){.district-heading{display:block;padding:12px}.district-heading h2{font-size:20px}.player-towers{height:340px;gap:6px}.tower-label{padding:5px 2px}.tower-label strong{font-size:9px}.tower-label span{font-size:6px}.monument-podium{gap:7px;height:225px}.podium-label{padding:7px 5px}.podium-label strong{font-size:13px}.podium-label small,.podium-label span,.podium-label b{font-size:8px}.podium-label b{display:block;float:none;margin-top:4px}#screen-podium .monument-podium{padding:0 8px}.podium-heading{padding:12px}.podium-heading .eyebrow{font-size:8px}}
 @media(prefers-reduced-motion:reduce){#screen-podium[data-settled=true] .podium-block{animation:none}}
+
+.survival-route{grid-template-columns:repeat(4,minmax(0,1fr))}
+.route-stop:disabled,.city-room:disabled{cursor:not-allowed;opacity:1}
+.route-stop.sealed,.city-room.sealed .room-label{background:#05080bf5;border-color:#30363c;color:#77818b;box-shadow:none}
+.city-room.sealed .room-label small,.city-room.sealed .room-label>span{color:#8e969f}
+.city-room.sealed .room-label strong:before{content:none}
+.city-room.sealed:hover .room-label{background:#05080bf5;border-color:#30363c}
+#nav button:disabled,.round-path button:disabled{background:#080c10;color:#737d87;cursor:not-allowed;opacity:.7}
+@media(max-width:700px){.survival-route{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.survival-route:before{display:none}}

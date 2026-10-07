@@ -1,10 +1,14 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../static/app.js'),'utf8');
 const context={view:{}};vm.createContext(context);
-vm.runInContext(source.slice(source.indexOf('function survivalStages(){'),source.indexOf('function renderRoom(){')),context);
+vm.runInContext(source.slice(source.indexOf('function roomLock(key){'),source.indexOf('function renderRoom(){')),context);
 const stage=(complete=false,ready=false)=>({complete,ready,rows:[{status:'CUT',name:'Alex'},{status:'ADVANCE',name:'Jordan'}],games:[{ready:true},{ready:false}]});
-const states=()=>JSON.parse(JSON.stringify(vm.runInContext('survivalStages()',context)));
-context.view={round1:stage(),round2:stage(),final:stage()};
+const states=()=>JSON.parse(JSON.stringify(vm.runInContext('survivalStages().slice(1)',context)));
+context.view={names_ok:false,round1:stage(),round2:stage(),final:stage()};
+assert.deepEqual(states().map(s=>s.status),['sealed','sealed','sealed']);
+assert(vm.runInContext("roomLock('round1')",context));
+assert.equal(vm.runInContext("roomLock('settings')",context),'');
+context.view.names_ok=true;
 assert.deepEqual(states().map(s=>s.status),['current','sealed','sealed']);
 context.view.round1.ready=true;
 assert.equal(states()[0].detail,'Resolve extra-game ties');
