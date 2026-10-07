@@ -55,3 +55,21 @@ body{position:relative;min-height:100svh;background:#132d42}
 @media(prefers-reduced-motion:reduce){.city-condition i{transition:none}}
 
 .room-grid{overflow:clip}
+
+.survival-route{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin:24px 0 0;position:relative}
+.survival-route:before{content:"";position:absolute;left:8%;right:8%;top:26px;height:2px;background:#73efc6;box-shadow:0 0 12px #73efc6}
+.route-stop{position:relative;text-align:left;padding:13px 16px;background:#091b27ee;border:1px solid #64828c;min-width:0;border-radius:3px;color:#dbe9ec}
+.route-stop small,.route-stop span{display:block;font:10px monospace;line-height:1.6;overflow-wrap:anywhere}
+.route-stop strong{display:block;font-size:19px;margin:3px 0}
+.route-stop.current{border-color:#a4ffe0;box-shadow:0 0 20px #57edbc42;animation:route-pulse 2.4s ease-in-out infinite}
+.route-stop.complete{border-color:#67cda7}.route-stop.complete small{color:#86eabd}
+.route-stop.sealed{border-style:dashed;color:#8d9ba8;background:#0c1724}
+.city-room.current .room-label{border-color:#a4ffe0;box-shadow:0 0 20px #57edbc55}
+.city-room.sealed .room-label{border-style:dashed;color:#9eacb8}.city-room.complete .room-label small{color:#86eabd}
+.entering-room .survival-route,.inside-room .survival-route{opacity:0;pointer-events:none}
+@keyframes route-pulse{50%{box-shadow:0 0 26px #57edbc80}}
+.world-paused .route-stop{animation-play-state:paused}
+@media(max-width:599px){.survival-route{gap:7px;margin-top:20px}.route-stop{padding:9px 7px}.route-stop strong{font-size:14px}.route-stop small,.route-stop span{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.route-stop.current{animation:none}}
+.shelter .city-condition{position:relative;top:auto;right:auto;width:200px;margin:12px 0 0 auto}
+.survival-route{margin-top:14px}

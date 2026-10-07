@@ -48,6 +48,16 @@ function panel(name,body,right=''){return `<section class="panel"><div class="pa
 // final clears only final). Clearing routes through doDestructive so it is undoable.
 const clearRoundBlurb={round1:'Clears To Live and every later round (To Die and Rebirth). Earlier rounds do not exist for To Live, so nothing before it is touched.',round2:'Clears To Die and Rebirth. To Live and its results are kept.',final:'Clears Rebirth only. To Live and To Die are kept.'};
 function clearRoundPanel(key){return panel('Clear this round','<p class="hint">'+clearRoundBlurb[key]+' You can Undo this straight afterwards.</p><button class="danger" data-action="clear-round" data-stage="'+key+'">'+clearRoundCopy[key]+'</button>');}
+function survivalStages(){
+ let available=true;
+ return [['round1','To Live'],['round2','To Die'],['final','Rebirth']].map(([key,label])=>{
+  const v=view[key],status=!available?'sealed':v.complete?'complete':'current';
+  available=available&&!!v.complete;
+  const cut=v.rows.filter(r=>r.status==='CUT').map(r=>r.name);
+  const detail=status==='sealed'?'Awaiting qualification':status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches';
+  return {key,label,status,detail};
+ });
+}
 function renderRoom(){
  const registered=Object.values(state.names).filter(x=>x.trim()).length;
  $('#room-stats').innerHTML='<div><b>'+registered+'<small> / 10</small></b><small>REGISTERED</small></div><div><b>'+money(view.pool)+'</b><small>PRIZE POOL</small></div>';
@@ -58,7 +68,11 @@ function renderRoom(){
   ['final','04','Rebirth',view.final.games.filter(g=>g.ready).length+' / 10 MATCHES'],
   ['overview','05','Leaderboard',money(view.awarded)+' AWARDED']
  ];
- $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room" data-open="'+key+'" aria-label="Enter '+label+' room"><span class="room-entry">ENTER ROOM ↗</span><span class="room-label"><small>ROOM '+no+' / '+(view[key]?.complete?'COMPLETE':'LIVE')+'</small><strong>'+label+'</strong><span>'+sub+'</span></span></button>').join('');
+ const stages=survivalStages(),stageMap=Object.fromEntries(stages.map(s=>[s.key,s]));
+ const route=$('#survival-route');
+ if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+(s.status==='current'?'aria-current="step"':'')+'><small>0'+(i+1)+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
+ window.CityWorld?.setTournament?.(stages);
+ $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" aria-label="Enter '+label+' room"><span class="room-entry">ENTER ROOM ↗</span><span class="room-label"><small>ROOM '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+sub+'</span></span></button>').join('');
  window.CityWorld?.refreshRooms();
  window.CityWorld?.setSettings(state.settings);
  updateCountdown();

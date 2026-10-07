@@ -32,6 +32,10 @@ When a round's final match is submitted and the round is settled, a skippable ca
 - **Rebirth:** rotating 3v3 final, automatic points and standings.
 - **Leaderboard:** cuts, podium, prizes, and CSV export.
 
+## Survival path
+
+A glowing road connects To Live → To Die → Rebirth. The current round pulses, completed rounds show their cuts, and upcoming rooms have closed shutters until qualification is settled. When you return to headquarters after settling a round, a light travels along the road and the next room opens. Ties keep the next entrance sealed. Corrections and Undo update the path; reloading restores the correct stage without replaying unlocks. Sealed rooms remain inspectable so you can review their requirements. Reduced motion shows the settled state immediately.
+
 ## To Live per-game teams
 
 Players are entered directly in **Players & rules**. There is no standalone name wheel, team-draw wheel, **Open team wheel** button, per-player Team dropdown, or **Reset spin** control.

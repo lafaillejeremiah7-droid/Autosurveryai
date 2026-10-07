@@ -14,7 +14,7 @@ let browser;
  assert.equal(await page.evaluate(()=>CityWorld.getStatus().progress),0);
  // Real animated entry and Escape must leave every room usable.
  for(const key of ['settings','round1','round2','final','overview']){
-  await page.locator('[data-open="'+key+'"]').click();
+  await page.locator('#monitors [data-open="'+key+'"]').click();
   await page.locator('#screen-dialog[open]').waitFor();
   assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),true);
   await page.keyboard.press('Escape');
@@ -36,7 +36,7 @@ let browser;
  await page.locator('#world-toggle').click();assert.equal(await page.evaluate(()=>CityWorld.getStatus().paused),true);
  await page.locator('#world-toggle').click();assert.equal(await page.evaluate(()=>CityWorld.getStatus().paused),false);
  await page.emulateMedia({reducedMotion:'reduce'});await page.setViewportSize({width:390,height:844});
- await page.locator('[data-open="settings"]').click();await page.locator('#screen-dialog[open]').waitFor();
+ await page.locator('#monitors [data-open="settings"]').click();await page.locator('#screen-dialog[open]').waitFor();
  await page.locator('[data-action="clear-start"]').click();await page.waitForFunction(()=>!state.settings.start_at&&!dirty&&!saving);
  await page.keyboard.press('Escape');await page.waitForFunction(()=>CityWorld.getStatus().progress===0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -45,7 +45,7 @@ let browser;
  fallback.on('pageerror',e=>errors.push(e.message));
  await fallback.goto(url);await fallback.waitForFunction(()=>window.CityWorld&&CityWorld.getStatus().rooms===5);
  assert.equal(await fallback.evaluate(()=>CityWorld.getStatus().mode),'static');
- await fallback.locator('[data-open="settings"]').click();await fallback.locator('#screen-dialog[open]').waitFor();await fallback.keyboard.press('Escape');
+ await fallback.locator('#monitors [data-open="settings"]').click();await fallback.locator('#screen-dialog[open]').waitFor();await fallback.keyboard.press('Escape');
  assert.deepEqual(errors,[]);
  console.log('City browser passed: five animated room entrances/Escape, countdown form and reload persistence, increasing damage through zero, motion toggle, mobile layout, reduced motion, and no-WebGL fallback.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();});

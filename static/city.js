@@ -53,6 +53,7 @@
   if(rand(id+12)<.12)continue;
   buildings.push({id,x,z,w:6+rand(id+33)*5,d:6+rand(id+8)*4,h:8+Math.pow(rand(id+70),2)*57,threshold:.18+rand(id+411)*.58,tint:rand(id+126)});
  }
+ let tournament=[],unlocks={},routeTime=0;
  const roomKeys=['settings','round1','round2','final','overview'];
  const roomColors=[[.6,.91,1],[.47,.94,.71],[1,.66,.29],[1,.34,.3],[.93,.77,.45]];
  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -191,6 +192,28 @@
  }
  function effects(t){
   const m=new Mesh(),p=state.progress;
+  const stops=tournament.map(stage=>({...stage,room:rooms.find(r=>r.key===stage.key)})).filter(s=>s.room);
+  for(let i=0;i<stops.length;i++){
+   const stop=stops[i],room=stop.room,[x,,z]=room.pos,size=room.size;
+   const opening=media.matches||mode==='static'||unlocks[stop.key]===undefined?1:clamp((routeTime-unlocks[stop.key]-1.1)/1.1);
+   const sealed=stop.status==='sealed',amount=sealed?0:opening;
+   // Two physical shutter panels slide apart after the route's light reaches the room.
+   if(sealed||amount<1)for(const side of [-1,1]){
+    m.box(x+side*size*(.24+amount*.55),size*.4,z+size*.49,size*.47,size*.78,.22,[.075,.12,.16]);
+    m.box(x+side*size*(.24+amount*.55),size*.4,z+size*.51,size*.39,.08,.03,sealed?[.4,.19,.12]:room.color,3);
+   }
+   if(stop.status==='current')m.ring(x,.27,z,size*.78,.12,room.color.map(v=>v*(.72+Math.sin(t*3)*.2)));
+   if(i===0)continue;
+   const prev=stops[i-1].room,a=add(prev.pos,[0,.24,prev.size*.9]),b=add(room.pos,[0,.24,size*.9]);
+   const roadColor=sealed?[.10,.16,.19]:[.32,.9,.72];
+   m.line(a,b,.7,[.025,.055,.075]);m.line(a,b,.13,roadColor);
+   m.line(add(room.pos,[0,.24,size*.48]),b,.13,roadColor);
+   if(!sealed){
+    const u=unlocks[stop.key]!==undefined&&routeTime-unlocks[stop.key]<1.1?clamp((routeTime-unlocks[stop.key])/1.1):(t*.28)%1;
+    const light=a.map((v,j)=>mix(v,b[j],u));m.gem(light[0],light[1]+.15,light[2],.45,[.7,1,.87],3);
+   }
+  }
+
   // Early sky traffic becomes falling, burning aircraft as destruction rises.
   const planes=p<.2?2:Math.floor(3+p*4);
   for(let i=0;i<planes;i++){
@@ -311,10 +334,10 @@
   requestAnimationFrame(frame);
   if(document.hidden){lastFrame=now;return;}
   if(now-lastFrame<(mode==='static'?300:width<600?40:32))return;
-  const dt=Math.min(.1,(now-lastFrame)/1000);lastFrame=now;
+  const routeDelta=(now-lastFrame)/1000,dt=Math.min(.1,routeDelta);lastFrame=now;
   if(now-lastSample>950){sample(Date.now());lastSample=now;}
   const moving=!paused&&!media.matches&&!suspended&&!inside&&mode==='webgl';
-  if(moving)elapsed+=dt;
+  if(moving){elapsed+=dt;routeTime+=routeDelta;}
   if(needsLayout)layout();
   if(geometryDirty||lastBuild!==state.progress)rebuild();
   if(!moving&&!transition&&!dirty)return;
@@ -332,6 +355,16 @@
   return new Promise(done=>{transition={at:performance.now(),duration:nextInside?780:650,from:{eye:camera.eye.slice(),target:camera.target.slice()},to,done};});
  }
  window.CityWorld={
+  setTournament(stages){
+   const signature=JSON.stringify(stages.map(s=>[s.key,s.status]));
+   if(signature===JSON.stringify(tournament.map(s=>[s.key,s.status])))return;
+   for(const stage of stages){
+    const previous=tournament.find(s=>s.key===stage.key);
+    if(stage.status==='sealed')delete unlocks[stage.key];
+    else if(previous?.status==='sealed')unlocks[stage.key]=routeTime;
+   }
+   tournament=stages.map(s=>({...s}));dirty=true;
+  },
   setSettings(value){settings={...value};sample(Date.now());dirty=true;},
   refreshRooms(){needsLayout=true;dirty=true;},
   setPaused(value){paused=!!value;dirty=true;},
