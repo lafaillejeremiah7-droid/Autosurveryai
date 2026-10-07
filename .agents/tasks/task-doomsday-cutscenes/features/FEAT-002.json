@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Ambient explosions/nukes every 1-5 seconds in the background with a vibrating screen shake applied to the WORLD LAYER ONLY. Build it with inline SVG/CSS/Web Animations API already used in the codebase (reuse the existing url(#fire) look). Gate it by the existing Pause-world toggle (#world-toggle -> document.body.classList 'world-paused') and by prefers-reduced-motion (reducedMotion() helper + CSS @media block). The shake must never touch <main>/#room content, #content, or the dialogs so data entry stays readable and steady. Frontend-only; no engine.py/app.py changes.",
+  "status": "pending",
+  "steps": [
+    "In static/index.html: inside <div id='world' class='world' aria-hidden='true'>, add a dedicated wrapper/layer that the shake transform targets WITHOUT moving the SVG scene off the content (e.g. wrap the existing .world-scene SVG and a new blast layer in a shake wrapper, OR apply the shake transform to #world itself). Add a container element (aria-hidden) for dynamically spawned blast elements so new nukes/explosions can be appended there. Reuse the existing SVG <defs> gradients (url(#fire)); if a shockwave/mushroom shape helps, add minimal inline SVG/CSS - no external assets.",
+    "In static/app.js: implement an ambient blast loop. Use a self-rescheduling timer (setTimeout) that picks a random interval in [1000,5000]ms, spawns a blast at a random position in the world blast layer (a flash/nuke using the fire gradient look, optionally a shockwave/mushroom), animates it in via el.animate([...]) or a CSS keyframe class, and removes it when done (reuse a small pool or append-then-remove; NO unbounded DOM growth). On each blast, apply a brief 'camera shake' to the WORLD LAYER ONLY (transform-based vibrate via el.animate or a short-lived CSS class on #world or the world shake wrapper). Expose start/stop functions (e.g. startWorldBlasts()/stopWorldBlasts()) so they can be unit-tested and toggled.",
+    "Gate the loop: it must NOT run (and must stop + cancel any in-flight shake) when document.body has class 'world-paused' (Pause-world) OR when reducedMotion() is true. Under reduced motion: NO shake and either no blasts or a single static glow (nothing vibrating). Wire start/stop into worldClick(e) in app.js so toggling #world-toggle stops the loop and the shake when pausing and restarts it when resuming (only if reduced motion is off). Also stop on page hidden if the existing .page-hidden pattern is used (optional, keep consistent).",
+    "Make the ambient shake NOT fight the cutscene: while the cutscene overlay (FEAT-003) is active, the ambient shake must be suppressed or confined to its own background (do not vibrate the screen during the cutscene). Add a small shared flag/guard the cutscene can set; keep it minimal so FEAT-003 can hook it.",
+    "In static/style.css: add the blast element styles and @keyframes for the nuke flash/shockwave (reuse the fire palette), plus the world-only shake keyframes/class. Ensure the shake transform-origin and target are the world layer only. In the existing @media(prefers-reduced-motion:reduce) block, ensure the new blast/shake animations are disabled (the block already does animation:none!important for *, confirm the blasts honor it, and ensure JS also checks reducedMotion()). Respect .world-paused by pausing/removing blasts.",
+    "Extend tests/test_ui.cjs: because the vm sandbox stubs setTimeout/clearTimeout/matchMedia, add assertions that (a) the ambient loop exposes start/stop functions that can be invoked without throwing, (b) starting the loop is a no-op (does not schedule/spawn) when reducedMotion() is true or when body has 'world-paused', and (c) stopping cancels any pending timer. Keep the stubs' style (events/elements maps). If direct DOM spawn is hard to assert in the sandbox, at least assert the gating booleans/branches via the exposed functions and a toggled pause/reduced-motion stub.",
+    "Run python3 -m unittest discover -s tests and node tests/test_ui.cjs; both must stay green. Do a live probe (script file, single invocation) to confirm the page still serves and app.js has no syntax errors (curl / and /app.js -> 200)."
+  ],
+  "acceptance_criteria": [
+    "A JS ambient loop spawns background blasts at random intervals in [1000,5000]ms and applies a brief shake to the world layer only; #content, <main>/#room, #screen-dialog, and #result-dialog never receive the shake transform.",
+    "Toggling #world-toggle to paused stops the blast loop AND the shake; resuming restarts it (only when reduced motion is off). document.body.world-paused gating verified.",
+    "Under prefers-reduced-motion (reducedMotion() true and/or the CSS @media block) there is no shake and no vibrating blasts (either none or a single static glow).",
+    "No unbounded DOM growth: spawned blast nodes are removed/reused after animating.",
+    "The ambient shake is suppressed/confined while the cutscene overlay is active (does not vibrate content or the standings).",
+    "python3 -m unittest discover -s tests ends OK and node tests/test_ui.cjs exits 0, including new assertions that start/stop exist and are gated by pause + reduced-motion.",
+    "engine.py and app.py are unchanged; schema stays version 4; old backups still load."
+  ],
+  "verification": [
+    "python3 -m unittest discover -s tests -v",
+    "node tests/test_ui.cjs",
+    "bash /projects/sandbox/probe_cutscenes.sh (single invocation; confirm / and /app.js return 200 so app.js parses)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

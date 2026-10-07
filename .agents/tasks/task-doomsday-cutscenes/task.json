@@ -1,0 +1,7 @@
+{
+  "task_id": "task-doomsday-cutscenes",
+  "task_description": "Add background ambient explosions/nukes every 1-5s with a world-layer-only vibrating shake, and a skippable cartoon/stickman furnace elimination cutscene that plays at the end of all three rounds (To Live, To Die, Rebirth) showing that round's eliminated players by name. Frontend/UX only (static/index.html, static/app.js, static/style.css); engine.py and app.py unchanged. Must respect the existing Pause-world toggle and prefers-reduced-motion, keep the shake off content/dialogs, and keep all Python + Node UI tests green. Branch feat/doomsday-cutscenes off main. Do not push or open a PR.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
