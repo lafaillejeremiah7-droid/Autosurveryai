@@ -94,15 +94,19 @@ function matchSubmit(key,match){
 function resultPopup(key,match){
  const meta=stageMeta[key],rows=cumulativeStandings(key,match);
  const avgHead=key==='final'?'AVG PTS':'AVG / MATCH';
- const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead],rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${fmt(r.average)}</td></tr>`));
+ const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead,'STATUS'],rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${fmt(r.average)}</td><td>${badge(r.status)}</td></tr>`));
  return `<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / CUMULATIVE</div><h1 id="result-title">Match ${match+1} of ${meta.count} standings</h1><p>Cumulative round standings through match ${match+1}. Provisional only — the full round ranking appears after the last match.</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>${panel('Standings so far',body)}`;
 }
 function resultFullscreen(key){
  const v=view[key],meta=stageMeta[key];
  const tied=v.rows.some(r=>r.status&&r.status.startsWith('TIE'));
- const avgHead=key==='final'?'AVG PTS':'AVG / MATCH';
+ const avgHead=key==='final'?'AVG PTS / GAME':'AVG / MATCH';
  const rowsSorted=[...v.rows].sort((a,b)=>(a.rank||99)-(b.rank||99));
- const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead,'STATUS'],rowsSorted.map(r=>`<tr><td class="calc">${fmt(r.rank)}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total??r.goals)}</td><td class="calc">${fmt(r.average!==undefined?r.average:r.total)}</td><td>${badge(r.status)}</td></tr>`));
+ // round1/round2 rows carry an 'average' (goals per match). Final rows carry no
+ // 'average', so derive average points per game from total points / games played
+ // rather than falling back to the total (which would print the total twice).
+ const avgOf=r=>key==='final'?(r.played?r.total/r.played:0):(r.average!==undefined?r.average:0);
+ const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead,'STATUS'],rowsSorted.map(r=>`<tr><td class="calc">${fmt(r.rank)}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total??r.goals)}</td><td class="calc">${fmt(avgOf(r))}</td><td>${badge(r.status)}</td></tr>`));
  let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div><h1 id="result-title">${meta.label} — total round ranking</h1><p>${tied?'A tie sits across the cut line. Extra games are needed before this round can close.':'Round complete. No ties remain across the cut line.'}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
  html+=`<div class="result-banner ${tied?'tie':'done'}">${tied?'⚠ EXTRA GAMES NEEDED — resolve the tied players below.':'✓ ROUND SETTLED — no extra games needed.'}</div>`;
  html+=panel('Total round ranking',body);

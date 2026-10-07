@@ -112,6 +112,9 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert(resultEl.innerHTML.includes('Match 1 of 5 standings'),'popup names the match');
  assert(resultEl.innerHTML.includes('Standings so far'));
  assert(resultEl.innerHTML.includes('RANK')&&resultEl.innerHTML.includes('TOTAL GOALS'),'popup shows cumulative columns');
+ // (2b) The popup surfaces the provisional-status column (user point 2 + README).
+ assert(/<th>STATUS<\/th>/.test(resultEl.innerHTML),'popup has a provisional STATUS column header');
+ assert(/>PLAYED</.test(resultEl.innerHTML),'popup renders a PLAYED provisional status for scored players');
  for(const r of payload.view.round1.rows)assert(resultEl.innerHTML.includes(r.name),'popup lists every player name');
  await click({action:'close-result'});
  assert.equal(vm.runInContext('resultStage',context),null,'close-result dismisses the popup');
@@ -121,6 +124,21 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
  assert(resultEl.innerHTML.includes('total round ranking'));
  assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'fullscreen shows ADVANCE/CUT badges');
  assert(resultEl.innerHTML.includes('ROUND SETTLED'),'a complete round reports no extra games needed');
+ await click({action:'close-result'});
+ // (3b) The Rebirth (final) fullscreen's average column shows average POINTS per game
+ //      (total/played), NOT a second copy of the total. Verify the computed value appears
+ //      and that it differs from the total for a player whose total != average.
+ vm.runInContext('state=fixture.state;view=fixture.view;',context);
+ await click({action:'submit-match',stage:'final',match:'9'});
+ assert(vm.runInContext('resultFinal',context)===true,'final match 10 opens the fullscreen');
+ assert(/AVG PTS \/ GAME/.test(resultEl.innerHTML),'final fullscreen labels the average column as points per game');
+ assert(/FINAL/.test(resultEl.innerHTML),'final fullscreen shows FINAL podium badges');
+ const topFinal=payload.view.final.rows.find(r=>r.played>0&&r.total!==r.total/r.played);
+ if(topFinal){
+  const expectAvg=Number((topFinal.total/topFinal.played).toLocaleString(undefined,{maximumFractionDigits:3}));
+  assert(resultEl.innerHTML.includes('>'+expectAvg+'<')||resultEl.innerHTML.includes(String(expectAvg)),'final fullscreen renders avg points per game (total/played), not the total');
+  assert(topFinal.total!==topFinal.total/topFinal.played,'sanity: chosen final row has avg distinct from total');
+ }
  await click({action:'close-result'});
  // (4) With a TIE, the fullscreen offers the add-extra-game control and folds live after an extra score.
  const tie=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
