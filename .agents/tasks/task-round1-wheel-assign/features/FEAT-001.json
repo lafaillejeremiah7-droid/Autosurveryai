@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Establish and record the green baseline for the existing Brawl Hockey app before making changes. Confirm the Python unittest suite and the optional Node UI harness both pass, and confirm the server can be smoke-tested within a single shell invocation. Also confirm (by reading engine.py/app.py/README) whether the user's Round 2 request ('re-roll the 8 surviving names via the wheel, not re-enter them') is ALREADY satisfied by the existing round2_draw_action sit-out draw, since that determines whether any Round 2 change is needed.",
+  "status": "completed",
+  "steps": [
+    "From /projects/sandbox/Autosurveryai run `python3 -m unittest discover -s tests -v` and confirm all tests pass (expected baseline: 24 tests OK).",
+    "Run `node tests/test_ui.cjs` and confirm it prints its success line and exits 0 (Node v22 is installed). If Node is somehow unavailable, note it; it is optional.",
+    "Smoke-test the server in ONE shell invocation: write a small throwaway script under /projects/sandbox (e.g. /projects/sandbox/_smoke.sh) that starts `python3 app.py --no-browser --port <port>` in the background, waits for it to come up, curls GET /api/state, prints the HTTP status and whether the JSON contains 'token' and 'revision', then kills the server. Run it. Confirm /api/state returns 200 with token+revision. Remove the throwaway script afterward.",
+    "Read engine.py round2_draw_action + round2_view + bind_rosters and README.md 'Automatic Round 2 sit-out wheel' section. Determine whether the 8 Round 1 survivors already carry over automatically and are spun on the wheel (never retyped). Record the finding in this feature's `findings` field: whether the user's Round 2 point is already satisfied (expected: YES, it is already satisfied by round2_draw_action which shuffles survivors via secrets.SystemRandom and reveals sit-out pairs match by match; the 8 names are bound automatically via bind_rosters and never re-entered)."
+  ],
+  "acceptance_criteria": [
+    "`python3 -m unittest discover -s tests -v` reports all tests passing with no failures or errors.",
+    "`node tests/test_ui.cjs` exits 0 and prints its success message (or is explicitly noted as unavailable).",
+    "A single-invocation server smoke test confirms GET /api/state returns HTTP 200 with a JSON body containing 'token' and 'revision'.",
+    "The feature `findings` field records a clear YES/NO on whether the Round 2 'spin the survivors instead of re-entering' behavior already exists, with the function names that implement it."
+  ],
+  "verification": [
+    "python3 -m unittest discover -s tests -v",
+    "node tests/test_ui.cjs"
+  ],
+  "blocked_reason": null,
+  "findings": "BASELINE GREEN (no production code changed). (1) `python3 -m unittest discover -s tests -v` => Ran 24 tests, OK (exit 0), on Python 3.9.25. (2) `node tests/test_ui.cjs` => exit 0, printed 'Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.' on Node v22. (3) Single-invocation server smoke test (throwaway /projects/sandbox/_smoke.sh, since removed): started `python3 app.py --no-browser --port 8791`, waited for readiness, `GET /api/state` => HTTP 200 with JSON body containing both 'token' and 'revision'. Each shell invocation uses a fresh PID namespace confirmed; backgrounding + probe + kill done in one command.\n\nROUND 2 'spin the 8 survivors instead of re-entering them' => ALREADY SATISFIED: YES. The 8 Round 1 survivors carry over automatically and are spun on the wheel, never retyped. Implementing functions in engine.py: round1_view(s, names_ok) computes the ADVANCE 'survivors' list; bind_rosters(s) auto-binds round1 survivors into s['round2']['roster'] (and round2 survivors into s['final']['roster']) once, so names are never re-entered; round2_draw_action(s, 'start') takes order=list(view['round1']['survivors']) and shuffles it unbiased via secrets.SystemRandom().shuffle(order), saving a fixed random rotation; round2_view(...) + round2_schedule reveal the sit-out pairs match by match (revealed/completed gating). app.py exposes this via the PUT /api/round2-draw route (store.save(..., allow_draw=True)). README.md 'Automatic Round 2 sit-out wheel' documents: 'The wheel automatically uses the eight survivors' and 'The server shuffles the eight players into a balanced rotation once and saves that order.' Conclusion: NO Round 2 change is needed; the user's Round 2 point is already implemented. Remaining user request (Round 1 wheel team-assign w/ coin-flip + 5-cap + manual override + Reset spin) is NOT yet implemented and is scoped to FEAT-002 (engine+API) and FEAT-003 (frontend)."
+}

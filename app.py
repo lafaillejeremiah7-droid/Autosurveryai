@@ -4,7 +4,7 @@ import argparse, csv, io, json, os, secrets, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
-from engine import new_state, validate, evaluate, bind_rosters, round2_draw_action, has_inputs
+from engine import new_state, validate, evaluate, bind_rosters, round2_draw_action, round1_assign_action, has_inputs
 
 ROOT=Path(__file__).resolve().parent
 MAX_BODY=2_000_000
@@ -54,7 +54,7 @@ def make_server(store,port=8765):
                 name,kind=files[route];return self.send(200,(ROOT/'static'/name).read_bytes(),kind)
             self.send(404,{'error':'Not found'})
         def do_PUT(self):
-            if self.path not in ['/api/state','/api/round2-draw']:return self.send(404,{'error':'Not found'})
+            if self.path not in ['/api/state','/api/round2-draw','/api/round1-assign']:return self.send(404,{'error':'Not found'})
             if self.headers.get('X-Session-Token')!=token:return self.send(403,{'error':'Reload the dashboard before saving.'})
             try:
                 length=int(self.headers.get('Content-Length','0'))
@@ -64,6 +64,8 @@ def make_server(store,port=8765):
                     if data.get('revision')!=store.revision:return self.send(409,{'error':'Another tab changed this tournament. Reload before editing.'})
                     if self.path=='/api/round2-draw':
                         store.save(round2_draw_action(store.state,data['action'],data.get('game')),allow_draw=True)
+                    elif self.path=='/api/round1-assign':
+                        store.save(round1_assign_action(store.state,data['action'],data.get('player')))
                     else: store.save(data['state'],allow_draw=data.get('restore') is True)
                     return self.send(200,store.payload())
             except (ValueError,KeyError,TypeError) as e:self.send(400,{'error':str(e)})

@@ -33,6 +33,20 @@ Type or paste one name per line. Edit a line to rename it; delete the line to re
 
 Spin, optionally remove each winner automatically, remove a selected entry manually, shuffle the list, or copy the tournament names. **Add to tournament roster** fills the next empty tournament slot without changing the wheel. The tournament format itself remains ten players. The wheel list and removal preference are saved and included in backups.
 
+## To Live teams from the Name wheel
+
+There is a single wheel. Spinning the main **Name wheel** assigns To Live teams automatically; there is no separate team-draw wheel or **Open team wheel** button.
+
+**Name to player rule.** The Name wheel spins over the entry list, while teams attach to the ten fixed tournament players in **Players & rules**. When the wheel lands on an entry, the dashboard matches it to a tournament player by name, ignoring surrounding spaces and letter case:
+
+1. The landed name matches a tournament player who has **no team yet** → that exact player is instantly assigned a random Team A or B. The server flips an unbiased coin, saves it, and returns the result; the coin flip is never computed in the browser. No extra click is needed.
+2. The landed name matches a tournament player who **already has a team** → nothing is reassigned; the winner is shown with a short note that they already have a team.
+3. The landed name is **not** a tournament player → it behaves as an ordinary name draw (remove the entry or add it to an empty roster slot) and no team is assigned.
+
+If several roster slots share the same name, the first still-unassigned match in player order is chosen. Teams are capped at five, so once a side already has five players every remaining assignment goes to the other side, and the draw always finishes exactly five A and five B.
+
+You can still change any team by hand from the dropdown in the To Live score table. **Reset spin**, reachable from the **To Live** screen, is the only way to undo wheel draws: it clears every wheel-assigned team but keeps teams you set manually. The wheel assignments are saved and included in backups.
+
 ## Automatic Round 2 sit-out wheel
 
 1. After To Live is complete, open **To Die** and click **Draw Match 1 sit-outs**. The wheel automatically uses the eight survivors.
@@ -48,7 +62,7 @@ Previously entered eight-match Round 2 scores keep their original schedule when 
 ## Tournament flow
 
 1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
-2. **To Live:** assign five players per team and enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
+2. **To Live:** assign five players per team, by spinning the single Name wheel (landing on a tournament player auto-assigns them a capped random Team A/B) or picking teams by hand, then enter five games. Four from each team advance by goals per match. All players must have all five scores, including explicit zeroes.
 3. **To Die:** the eight survivors enter the automatic sit-out draw and follow its eight-game rotation. Six play 3v3 and two sit out each match. Everyone plays six games and sits twice, with three appearances in each four-game half and no consecutive rests. Each pair are teammates once or twice and opponents two or three times. Enter all six scheduled goal scores, including zeroes; sit-out cells stay blank. A missing score for an active player prevents completion. Rank all eight together using only this round's goals per match: top six overall advance, bottom two are cut. A tie across sixth and seventh requires extra games. There are no permanent Round 2 teams. The app saves and locks the random slots before scoring.
 4. **Rebirth:** the six survivors start at zero. Follow the displayed schedule of all ten unique 3v3 splits once each. Every player plays ten matches; each pair are teammates four times and opponents six times. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–10 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all ten games are complete.
 5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
