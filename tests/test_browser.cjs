@@ -47,6 +47,17 @@ let browser,page;
  // All monitors at desktop and phone widths, with no page-level horizontal overflow.
  for(const [width,height,label] of [[1440,1000,'desktop'],[390,844,'phone']]){
   await page.setViewportSize({width,height});
+  const scene=await page.locator('#walkway-view').evaluate(el=>{
+   const box=el.getBoundingClientRect(),style=getComputedStyle(el);
+   return {x:box.left,y:box.top,width:box.width,height:box.height,position:style.position,
+    border:style.borderTopWidth,parent:el.parentElement?.tagName};
+  });
+  assert.equal(scene.position,'fixed','3D city should fill the browser viewport, not a box');
+  assert.equal(scene.parent,'BODY','3D city should sit behind the entire page');
+  assert.equal(scene.x,0);assert.equal(scene.y,0);
+  assert(Math.abs(scene.width-width)<=1&&Math.abs(scene.height-height)<=1,'3D city must fill the screen');
+  assert.equal(scene.border,'0px','3D background cannot have a framed border');
+  assert(await page.evaluate(()=>window.CityWorld.getStatus().cameraEye[1]>15),'POV camera should be elevated');
   await snap(label+'-room');
   for(const key of ['settings','round1','round2','final','overview']){
    await open(key);
