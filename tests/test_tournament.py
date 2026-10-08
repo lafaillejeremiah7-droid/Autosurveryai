@@ -216,7 +216,7 @@ class Rules(unittest.TestCase):
             self.assertEqual(set(game['A']+game['B']),set(roster))
             self.assertNotIn('sit',game)
             pairs.add(frozenset((frozenset(game['A']),frozenset(game['B']))))
-        self.assertGreaterEqual(len(pairs),4)
+        self.assertEqual(len(pairs),5)
         for p in roster:
             self.assertEqual(sum(p in g['A']+g['B'] for g in schedule),5)
         self.assertEqual(validate(s),s)
