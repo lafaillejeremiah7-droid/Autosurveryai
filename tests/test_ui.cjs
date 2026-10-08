@@ -17,15 +17,15 @@ const document={querySelector:s=>elements[s]??=(element()),querySelectorAll:()=>
 const context={document,window:{addEventListener(){},matchMedia:()=>({matches:true})},fetch:()=>new Promise(()=>{}),setTimeout:()=>1,clearTimeout(){},setInterval(){},console,fixture:payload,confirm:()=>true};
 vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'static/app.js'),'utf8'),context);
 vm.runInContext('state=fixture.state;view=fixture.view;',context);
-for(let g=0;g<8;g++){
+for(let g=0;g<5;g++){
  const html=vm.runInContext(`round2Game=${g};round2Page()`,context);
  const paths=[...html.matchAll(/data-path="round2\.players\.(p\d+)\.goals\.(\d+)"/g)];
- assert.equal(paths.length,6);assert.equal((html.match(/data-r2-game=/g)||[]).length,8);
+ assert.equal(paths.length,8);assert.equal((html.match(/data-r2-game=/g)||[]).length,5);
  assert.deepEqual(paths.map(m=>m[1]).sort(),[...payload.view.round2.schedule[g].A,...payload.view.round2.schedule[g].B].sort());
  assert(paths.every(m=>Number(m[2])===g));assert(html.includes('Overall standings'));assert(!html.includes('undefined'));
 }
 vm.runInContext("resetStage('round2')",context);
-assert.equal(vm.runInContext("state.round2.players.p1.goals.length",context),8);
+assert.equal(vm.runInContext("state.round2.players.p1.goals.length",context),5);
 assert.equal(vm.runInContext("state.final.players.p1.goals.length",context),8);
 assert.equal(vm.runInContext("state.round1.players.p1.goals[0]",context),2);
 // Exercise actual delegated match-selector and goal-counter handlers.
@@ -36,24 +36,25 @@ const click=dataset=>events.click({target:{closest:()=>({dataset,disabled:false}
 // WITHOUT resolving the sandbox's never-firing setTimeout timers.
 const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
 (async()=>{
- await click({r2Game:'7'});assert.equal(vm.runInContext('round2Game',context),7);
- const p=payload.view.round2.schedule[7].A[0],target=`round2.players.${p}.goals.7`;
+ await click({r2Game:'4'});assert.equal(vm.runInContext('round2Game',context),4);
+ const p=payload.view.round2.schedule[4].A[0],target=`round2.players.${p}.goals.4`;
+ await click({action:'clear-r2-game'});
  await click({step:'1',target});assert.equal(vm.runInContext(`value('${target}')`,context),1);
  await click({action:'clear-r2-game'});assert.equal(vm.runInContext(`value('${target}')`,context),null);
- await click({action:'reset-all'});assert.equal(vm.runInContext('state.version',context),4);
- assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),8);
+ await click({action:'reset-all'});assert.equal(vm.runInContext('state.version',context),5);
+ assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),5);
  const ready=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import Draws;from engine import evaluate,round2_draw_action;s=round2_draw_action(Draws().fresh(),'start');g=evaluate(s)['round2']['schedule'][0];[(s['round2']['players'][p]['goals'].__setitem__(0,0)) for p in g['A']+g['B']];s=round2_draw_action(s,'done',1);print(json.dumps({'state':s,'view':evaluate(s),'revision':2}))"],{cwd:root,encoding:'utf8'}));
  context.responsePayload=ready;context.fetch=async(url,options)=>{assert.equal(url,'/api/round2-draw');const body=JSON.parse(options.body);assert.equal(body.action,'done');assert.equal(body.game,1);return {ok:true,json:async()=>ready};};
- vm.runInContext('animateSitoutPair=async()=>{};',context);
+ 
  await click({action:'r2-done',match:'1'});
- assert.equal(vm.runInContext('round2Game',context),1);assert.equal(vm.runInContext('tab',context),'sitout');
- const drawHTML=vm.runInContext('sitoutWheelPage()',context);
- for(const p of ready.view.round2.schedule[1].sit)assert(drawHTML.includes(ready.state.names[p]));
- const lockedHTML=vm.runInContext('round2Page()',context);
- assert(lockedHTML.includes('data-r2-game="2" disabled'));assert(lockedHTML.includes('Match 2 of 8 done'));
- const wheelHTML=vm.runInContext("state=fixture.state;tab='sitout';sitoutWheelPage()",context);assert(wheelHTML.includes('Two sit out. Six play.'));
- // Name wheel removal: the standalone 'Name your fate' draw is gone. There is no
+ assert.equal(vm.runInContext('round2Game',context),1);assert.equal(vm.runInContext('tab',context),'round2');
+ const fixedHTML=vm.runInContext('round2Page()',context);
+ assert(fixedHTML.includes('FIXED 4v4'),'new round uses fixed teams');
+ assert(fixedHTML.includes('data-r2-game="2" disabled'),'third match stays locked until second is completed');
+ assert(fixedHTML.includes('Match 2 of 5'),'new round uses five games');
+ assert(!fixedHTML.includes('SITTING OUT')&&!fixedHTML.includes('sit-out wheel'),'there is no sit-out wheel');
+ // // Name wheel removal: the standalone 'Name your fate' draw is gone. There is no
  // more wheelMode and no navigable Name wheel room. The tabs array must not expose
  // a 'wheel'/'Name wheel' entry, renderRoom() must not emit a data-open="wheel"
  // tile, and no navigable tab may render the 'Name your fate' screen.
@@ -102,7 +103,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext("typeof wheelLast",context),'undefined','the Name-wheel result global is gone');
  console.log('Like Never Before UI: per-game cosmetic A/B splits with ten goal inputs, reshuffle control, no fixed-team wheel/reset/select.');
  console.log('Name wheel removal: no "wheel"/"Name wheel" tab, no data-open="wheel" tile, no "Name your fate" screen on any navigable tab, and the standalone wheel helpers are gone.');
- console.log('Round 2 UI: all eight lineups, six editable players, game selection, counters, clearing and reset passed.');
+ console.log('Round 2 UI: all five lineups, eight editable players, game selection, counters, clearing and reset passed.');
 
  // ---- FEAT-003: per-match submit control, cumulative popup, final fullscreen + extra-game fold ----
  // (1) Like Never Before and You Wanted to Win, Right? each render a 'Submit Match N of X' control.
@@ -189,7 +190,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import cut_tie_state;from engine import evaluate;s=cut_tie_state('round2');print(json.dumps({'state':s,'view':evaluate(s),'revision':9}))"],{cwd:root,encoding:'utf8'}));
  vm.runInContext(`state=${JSON.stringify(tie.state)};view=${JSON.stringify(tie.view)};revision=9;`,context);
  assert(tie.view.round2.rows.some(r=>r.status&&r.status.startsWith('TIE')),'tie fixture has a TIE row');
- await click({action:'submit-match',stage:'round2',match:'7'});
+ await click({action:'submit-match',stage:'round2',match:'4'});
  // FEAT-003: an UNRESOLVED tie (view.round2.complete false) must NOT play the cutscene;
  // the normal extra-game fullscreen shows instead.
  assert.equal(vm.runInContext('cutsceneActive',context),false,'no cutscene fires while a tie is unresolved');
@@ -224,12 +225,12 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(rebirthClear.includes('>Clear You Wanted to Win, Right?</'),'You Wanted to Win, Right? clear copy is Clear You Wanted to Win, Right?');
  assert(rebirthClear.toLowerCase().includes('clears you wanted to win, right? only'),'You Wanted to Win, Right? clear panel states it clears only You Wanted to Win, Right?');
  // (B) EXTENDED ROUND1 CASCADE: resetStage('round1') clears round1 + round2 + final
- //     goals while array lengths stay 5/8/8, lineups cleared, round2 draw reset.
+ //     goals while array lengths stay 5/5/8, lineups cleared, round2 draw reset.
  vm.runInContext('state=fixture.state;',context);
  assert.equal(vm.runInContext('state.round1.players.p1.goals[0]',context),2);  // Sanity: scores present before.
  vm.runInContext("resetStage('round1')",context);
  assert.equal(vm.runInContext('state.round1.players.p1.goals.length',context),5,'round1 keeps 5 slots');
- assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),8,'round2 keeps 8 slots');
+ assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),5,'round2 keeps 8 slots');
  assert.equal(vm.runInContext('state.final.players.p1.goals.length',context),8,'final keeps 8 slots');
  assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'round1 goals all cleared');
  assert(vm.runInContext('Object.values(state.round2.players).every(d=>d.goals.every(x=>x===null))',context),'round2 goals all cleared');
