@@ -113,7 +113,7 @@ let browser,page;
  for(let g=0;g<5;g++){
   const current=await page.evaluate(()=>view.round2.schedule[round2Game]);
   if(firstTeams){assert.deepEqual(current.A,firstTeams.A);assert.deepEqual(current.B,firstTeams.B);}else firstTeams=current;
-  const scorers=['A','B'].flatMap(t=>current[t].filter(p=>!['p4','p9'].includes(p)));
+  const scorers=['A','B'].flatMap(t=>{const eligible=current[t].filter(p=>!['p4','p9'].includes(p));const limit=t==='A'?3:2;return Array.from({length:Math.min(limit,eligible.length)},(_,i)=>eligible[(g+i)%eligible.length]);});
   for(const p of [...current.A,...current.B]){
    await page.locator(`[data-path="round2.players.${p}.goals.${g}"]`).fill(scorers.includes(p)?'1':'0');await saved();
   }
