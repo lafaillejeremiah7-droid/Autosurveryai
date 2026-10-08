@@ -769,7 +769,7 @@ function playCutscene(names,roundLabel=''){
   const TARGET_MS=5000;
   const activate=(i)=>{
    if(i>=escorts.length){endCutscene();return;}
-   escorts.forEach((g,j)=>{g.classList.toggle('active',j===i);g.setAttribute('aria-hidden',j===i?'false':'true');});
+   escorts.forEach((g,j)=>{g.classList.toggle('active',j===i);g.setAttribute('aria-hidden',j===i?'false':'true');g.style.transform=j===i?'translate(450px,230px)':'';});
    const target=names[i]||'UNKNOWN';
    const caption=$('#cutscene-caption');if(caption)caption.innerHTML='<strong>NUCLEAR LOCK:</strong> '+esc(target)+' — impact sequence active';
    overlay.classList.remove('nuke-impact');void overlay.offsetWidth;overlay.classList.add('nuke-impact');
