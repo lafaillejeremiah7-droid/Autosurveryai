@@ -12,7 +12,7 @@
 
 <header class="room-header">
  <a href="#" class="brand" id="home-link" aria-label="Brawl Hockey headquarters"><span class="brand-mark">BH</span><span>BRAWL HOCKEY<small>DOOMSDAY DIVISION</small></span></a>
- <div class="header-controls"><div class="connection"><i></i> LOCAL SESSION <span id="room-clock"></span></div><button id="world-toggle" class="world-toggle" aria-pressed="false">Ⅱ <span>Pause world</span></button></div>
+ <div class="header-controls"><div class="connection"><i></i> LOCAL SESSION <span id="room-clock"></span></div><button id="sound-toggle" type="button" aria-pressed="true">Sound on</button><button id="world-toggle" class="world-toggle" aria-pressed="false">Ⅱ <span>Pause world</span></button></div>
 </header>
 <div id="error" role="alert" hidden></div>
 <main class="room" id="room">
@@ -48,6 +48,7 @@
 <!-- FEAT-003: full-screen nuclear elimination cutscene overlay. Each eliminated player
      is targeted individually before the end-of-round standings; skippable (button + click + Esc).
      Hidden by default; app.js fills #cutscene-stage and flips the `open` attribute. -->
+<div id="round-strike-hud" hidden><strong id="round-strike-status">EXITING ROOM</strong><button id="round-strike-skip" type="button">Skip / Esc</button></div>
 <dialog id="cutscene" class="cutscene" aria-modal="true" aria-labelledby="cutscene-label" aria-hidden="true" hidden tabindex="-1">
  <div class="cutscene-head"><div class="eyebrow">STRIKE AUTHORIZATION</div><h2 id="cutscene-label">Nuclear elimination</h2></div>
  <div id="cutscene-stage" class="cutscene-stage" aria-hidden="true"></div>
