@@ -24,9 +24,9 @@ let browser,page;
   await page.reload();await page.waitForFunction(()=>!!view);
  };
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
- for(const [key,last,label] of [['round1',4,'Like Never Before'],['round2',7,'What Do You Want?'],['final',7,'You Wanted to Win, Right?']]){
+ for(const [key,last,label] of [['round1',4,'Like Never Before'],['round2',4,'What Do You Want?'],['final',7,'You Wanted to Win, Right?']]){
   await restore(fixtures[key]);
-  await page.evaluate(()=>{window.audioEvents=[];for(const name of ['portal','help','scream','cut','explosion']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
+  await page.evaluate(()=>{window.audioEvents=[];for(const name of ['portal','scream','cut','explosion','finalOmen','finalPurge','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
   await page.evaluate(()=>{window.towerCalls=[];const world=window.CityWorld||{};const original=world.eliminateTower?.bind(world);world.eliminateTower=id=>{window.towerCalls.push(id);original?.(id);};window.CityWorld=world;});
   await page.evaluate(key=>openScreen(key),key);
   await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
@@ -49,7 +49,7 @@ let browser,page;
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
   assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','city strike exits the scoring room; portal-only skip keeps it');
   assert.deepEqual(await page.evaluate(()=>window.towerCalls),[],'removed towers must not receive elimination events');
-  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.filter(s=>s!=='explosion'),['portal','help','scream','cut','portal','help','scream','cut']);assert.equal(sounds.filter(s=>s==='explosion').length,1,'cube has one impact sound');}if(key==='final')assert.equal(sounds.filter(s=>s==='explosion').length,1);
+  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.filter(s=>s!=='explosion'),['portal','scream','cut','portal','scream','cut']);assert.equal(sounds.filter(s=>s==='explosion').length,1,'cube has one impact sound');}if(key==='final')assert.equal(sounds.filter(s=>s==='explosion').length,1);
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
