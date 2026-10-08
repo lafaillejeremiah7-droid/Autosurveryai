@@ -24,6 +24,47 @@ for(let g=0;g<5;g++){
  assert.deepEqual(paths.map(m=>m[1]).sort(),[...payload.view.round2.schedule[g].A,...payload.view.round2.schedule[g].B].sort());
  assert(paths.every(m=>Number(m[2])===g));assert(html.includes('Overall standings'));assert(!html.includes('undefined'));
 }
+// A three-goal match ends immediately: set every remaining blank score to 0
+// across both teams, preserving existing goals and other games.
+for(const key of ['round1','round2','final']){
+ const teams=key==='round1'?payload.state.round1.lineups[0]:payload.view[key].schedule[0];
+ const fixtureState=JSON.parse(JSON.stringify(payload.state));
+ for(const p of [...teams.A,...teams.B])fixtureState[key].players[p].goals[0]=null;
+ const a=teams.A,b=teams.B;
+ fixtureState[key].players[a[0]].goals[0]=2;
+ fixtureState[key].players[b[0]].goals[0]=1;
+ const nextGameBefore=fixtureState[key].players[a[1]].goals[1];
+ const mockFields=[...a,...b].map(p=>({dataset:{path:`${key}.players.${p}.goals.0`},value:''}));
+ const duplicate={dataset:{path:`${key}.players.${a[2]}.goals.0`},value:''};
+ mockFields.push(duplicate);
+ const originalQueryAll=document.querySelectorAll;
+ document.querySelectorAll=selector=>selector==='input[data-path]'?mockFields:[];
+ vm.runInContext(`state=${JSON.stringify(fixtureState)};view=fixture.view;`,context);
+ // Two goals do not fill the blanks prematurely.
+ assert.equal(vm.runInContext(`value('${key}.players.${a[1]}.goals.0')`,context),null);
+ assert.equal(vm.runInContext(`enterGoal('${key}.players.${a[1]}.goals.0',1)`,context),true);
+ const scored=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(scored[key].players[a[0]].goals[0],2,'a scored 2 remains untouched');
+ assert.equal(scored[key].players[a[1]].goals[0],1,'third goal remains recorded');
+ assert.equal(scored[key].players[b[0]].goals[0],1,'opponent\'s existing goal remains');
+ for(const p of [...a.slice(2),...b.slice(1)])assert.equal(scored[key].players[p].goals[0],0,'unentered goal auto-completes with 0');
+ assert.equal(scored[key].players[a[1]].goals[1],nextGameBefore,'other games are unchanged');
+ assert.equal(mockFields.find(x=>x.dataset.path.endsWith('.'+a[2]+'.goals.0')).value,'0','visible teammate goal is updated');
+ assert.equal(duplicate.value,'0','duplicate Round 1 score input is updated');
+ document.querySelectorAll=originalQueryAll;
+}
+// The null-to-zero behavior also applies when a third goal is typed directly.
+{
+ const key='round2',teams=payload.view.round2.schedule[0],fresh=JSON.parse(JSON.stringify(payload.state));
+ for(const p of [...teams.A,...teams.B])fresh.round2.players[p].goals[0]=null;
+ fresh.round2.players[teams.A[0]].goals[0]=2;
+ vm.runInContext(`state=${JSON.stringify(fresh)};view=fixture.view;`,context);
+ const input={id:'',dataset:{path:`round2.players.${teams.A[1]}.goals.0`},type:'number',value:'1'};
+ events.input({target:input});
+ const result=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ for(const p of [...teams.A.slice(2),...teams.B])assert.equal(result.round2.players[p].goals[0],0,'typed goal auto-fills blank scores');
+}
+vm.runInContext('state=fixture.state;view=fixture.view;',context);
 vm.runInContext("resetStage('round2')",context);
 assert.equal(vm.runInContext("state.round2.players.p1.goals.length",context),5);
 assert.equal(vm.runInContext("state.final.players.p1.goals.length",context),8);
