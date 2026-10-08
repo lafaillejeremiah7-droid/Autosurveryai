@@ -34,6 +34,10 @@
    const p=[[x+r,y,z],[x,y,z+r],[x-r,y,z],[x,y,z-r]],a=[x,y+r*stretch,z],b=[x,y-r*stretch,z];
    for(let i=0;i<4;i++){this.tri(a,p[i],p[(i+1)%4],col,kind);this.tri(b,p[(i+1)%4],p[i],col,kind);}
   }
+  sphere(x,y,z,r,col,kind=3){
+   const point=(a,b)=>[x+r*Math.sin(a)*Math.cos(b),y+r*Math.cos(a),z+r*Math.sin(a)*Math.sin(b)];
+   for(let i=0;i<9;i++)for(let j=0;j<16;j++){const a=i*Math.PI/9,b=(i+1)*Math.PI/9,c=j*Math.PI/8,d=(j+1)*Math.PI/8;this.quad(point(a,c),point(b,c),point(b,d),point(a,d),col,kind);}
+  }
   ring(x,y,z,r,width,col,kind=3){
    for(let i=0;i<24;i++){const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
     this.quad([x+Math.cos(a)*r,y,z+Math.sin(a)*r],[x+Math.cos(b)*r,y,z+Math.sin(b)*r],[x+Math.cos(b)*(r-width),y,z+Math.sin(b)*(r-width)],[x+Math.cos(a)*(r-width),y,z+Math.sin(a)*(r-width)],col,kind);
@@ -53,7 +57,7 @@
   if(rand(id+12)<.12)continue;
   buildings.push({id,x,z,w:6+rand(id+33)*5,d:6+rand(id+8)*4,h:8+Math.pow(rand(id+70),2)*57,threshold:.18+rand(id+411)*.58,tint:rand(id+126)});
  }
- let tournament=[],unlocks={},routeTime=0;
+ let tournament=[],unlocks={},routeTime=0,strike=null,strikeGeneration=0;
  let monuments=null,podiumSites=[],podiumTime=0,riseAt=null;
  const roomKeys=['settings','round1','round2','final','overview'];
  const roomColors=[[.6,.91,1],[.47,.94,.71],[1,.66,.29],[1,.34,.3],[.93,.77,.45]];
@@ -107,7 +111,7 @@
   needsLayout=true;geometryDirty=true;dirty=true;
  }
  function roomMesh(mesh,room){
-  const bombed=['round1','round2','final'].includes(room.key)&&tournament.some(t=>t.key===room.key&&t.status==='complete');
+  const bombed=!(strike?.key===room.key&&strike.phase!=='impact')&&['round1','round2','final'].includes(room.key)&&tournament.some(t=>t.key===room.key&&t.status==='complete');
   const locked=tournament.some(t=>t.key===room.key&&t.status==='sealed');
   const [x,,z]=room.pos,s=room.size,h=s*.82,wall=bombed?[.14,.12,.12]:locked?[.025,.035,.045]:[.92,.96,.97],dark=[.06,.16,.21],light=bombed?[.18,.12,.08]:locked?[.045,.055,.065]:room.color;
   if(bombed){for(let j=0;j<5;j++)mesh.box(x+(j-2)*s*.2,.28,z+s*.53,s*.18,.48,s*.22,[.17,.14,.12],0,j*.6);}
@@ -217,6 +221,11 @@
    }
   }
 
+  if(strike&&strike.at!==null){
+   const room=rooms.find(r=>r.key===strike.key),[x,,z]=room.pos,h=room.size*.82,age=(performance.now()-strike.at)/1000;
+   if(age<1.4){const u=age/1.4,head=[x-16*(1-u),h+45*(1-u),z-9*(1-u)],tail=[head[0]-2,head[1]+6,head[2]-1];m.line(tail,head,.22,[1,.43,.1]);m.gem(...head,.42,[.85,.9,.95],3,2.8);}
+   else{const u=clamp((age-1.4)/3.6),fade=1-u;m.sphere(x,h*.6,z,Math.max(.1,fade*room.size*.7),[1,.35*fade,.04],3);m.ring(x,.4,z,room.size*(.8+u*3),.3,[fade,.33*fade,.03],3);for(let j=0;j<7;j++)m.gem(x+Math.sin(j*2)*u*9,h+u*12,z+Math.cos(j*2)*u*9,.7+u,[.12,.12,.13],0);}
+  }
   // Player monuments are driven solely by settled tournament results, never disaster time.
   if(monuments){
    for(const site of podiumSites){
@@ -321,6 +330,7 @@
   const next=window.CityTimeline.sample(settings,now);
   if(next.progress!==state.progress){geometryDirty=true;dirty=true;}
   state=next;
+  if(!suspended&&!paused)window.BrawlAudio?.doom(next.progress,next.phase==='DOOMSDAY');
   document.body.style.setProperty('--city-doom',String(state.progress));
   const label=document.getElementById('city-status'),pct=document.getElementById('city-damage'),bar=document.getElementById('city-progress');
   if(label)label.textContent=state.phase;
@@ -333,6 +343,10 @@
    camera={eye:from.eye.map((v,i)=>mix(v,to.eye[i],s)),target:from.target.map((v,i)=>mix(v,to.target[i],s))};
    if(u===1){const done=transition.done;transition=null;done();}
    return;
+  }
+  if(strike&&strike.at!==null&&!media.matches&&mode==='webgl'){
+   const age=(now-strike.at)/1000;camera={eye:strike.camera.eye.slice(),target:strike.camera.target.slice()};
+   if(age>=1.4&&age<3){camera.eye[0]+=Math.sin(now*.08)*.16;camera.eye[1]+=Math.cos(now*.11)*.12;}return;
   }
   if(inside||sceneView!=='street')return;
   camera={eye:baseCamera.eye.slice(),target:baseCamera.target.slice()};
@@ -354,6 +368,12 @@
    const visible=id=>{const e=document.getElementById(id);if(!e)return false;const r=e.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight;};
    if(sceneView==='podium')podiumTime+=routeDelta;
   }
+  if(strike?.at!==null&&strike){
+   const age=(now-strike.at)/1000;
+   if(age>=1.4&&strike.phase!=='impact'){strike.phase='impact';geometryDirty=true;strike.onImpact?.();}
+   const hud=document.getElementById('round-strike-status');if(hud)hud.textContent=age<1.4?'MISSILE INBOUND':'IMPACT — ROUND COMPLETE';
+   if(age>=5){const done=strike.done;strike=null;done?.();}dirty=true;
+  }
   if(needsLayout)layout();
   if(geometryDirty||lastBuild!==state.progress)rebuild();
   if(!moving&&!transition&&!dirty)return;
@@ -373,7 +393,24 @@
  }
  function pose(x,z,tx,tz){return {eye:[x,1.75,z],target:[tx,1.75,tz]};}
  function home(){sceneView='street';return travel([pose(0,camera.eye[2]+8,0,23),baseCamera],false);}
+ function cancelStrike(){
+  strikeGeneration++;const done=strike?.done;strike=null;
+  if(transition){const finish=transition.done;transition=null;finish();}
+  done?.();document.body.classList.remove('round-strike');resize();geometryDirty=true;dirty=true;
+ }
  window.CityWorld={
+  async bombRoom(key,onImpact){
+   if(needsLayout)layout();
+   const room=rooms.find(r=>r.key===key);if(!room)return;
+   const generation=++strikeGeneration;strike={key,phase:'zoom',at:null};
+   sceneView='strike';document.body.classList.add('round-strike');resize();
+   const hud=document.getElementById('round-strike-status');if(hud)hud.textContent='EXITING ROOM — '+key.toUpperCase();
+   const [x,,z]=room.pos;
+   await travel([pose(x,z+room.size*.7,x,z),{eye:[x+5,2.5,z+22],target:[x,3.5,z]}],false);
+   if(generation!==strikeGeneration)return;
+   await new Promise(done=>{strike={key,phase:'inbound',at:performance.now(),camera:{eye:camera.eye.slice(),target:camera.target.slice()},onImpact,done};dirty=true;});
+  },
+  cancelStrike,
   setMonuments(value){
    if(monuments){
     if(value.complete&&!monuments.complete)riseAt=podiumTime;
@@ -396,6 +433,7 @@
   setPaused(value){paused=!!value;dirty=true;},
   setSuspended(value){suspended=!!value;dirty=true;},
   enterRoom(key){
+   if(needsLayout)layout();
    const room=rooms.find(r=>r.key===(key==='sitout'?'round2':key));if(!room)return Promise.resolve();
    const [x,,z]=room.pos,s=room.size;
    const route=[pose(0,camera.eye[2],0,z+s+5),pose(0,z+s+5,x,z),pose(x,z+s*.8,x,z-s),pose(x,z+s*.1,x,z-s*.4)];
@@ -408,7 +446,7 @@
    return travel([pose(20,camera.eye[2],20,z),pose(20,z,0,z-12),pose(0,z,0,z-12)],false);
   },
   home,
-  getStatus(){return {mode,progress:state.progress,phase:state.phase,damagedBuildings:damageCount,buildings:activeBuildings.length,fireSites:fireSites.length,rooms:rooms.length,paused,inside,sceneView,cameraEye:camera.eye.slice(),traveling:!!transition};}
+  getStatus(){return {mode,progress:state.progress,phase:state.phase,damagedBuildings:damageCount,buildings:activeBuildings.length,fireSites:fireSites.length,rooms:rooms.length,paused,inside,sceneView,cameraEye:camera.eye.slice(),traveling:!!transition,strike:strike?{key:strike.key,phase:strike.phase}:null};}
 
  };
  window.addEventListener('resize',resize);
