@@ -11,6 +11,20 @@ const playedLabel=(n,regulation)=>n>regulation?`${regulation} + ${n-regulation} 
 const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const tabs=[['settings','Players & rules'],['round1','Like Never Before'],['round2','What Do You Want?'],['final','You Wanted to Win, Right?'],['overview','Leaderboard']];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Local synthesized effects; speech uses the device's installed voice.
+window.BrawlAudio=(()=>{
+ let ctx=null,muted=false,active=new Set(),lastBoom=0,lastDoom=false;
+ const speech=window.speechSynthesis;
+ function unlock(){try{const C=window.AudioContext||window.webkitAudioContext;if(!ctx&&C)ctx=new C();ctx?.resume();}catch{}}
+ document.addEventListener('pointerdown',unlock);document.addEventListener('keydown',unlock);
+ function tone(freq,duration,volume,type='sine',end=freq){if(muted||!ctx||ctx.state!=='running')return null;const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(1,end),ctx.currentTime+duration);g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+duration);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+duration);active.add(o);o.onended=()=>active.delete(o);return o;}
+ function noise(duration,volume,frequency){if(muted||!ctx||ctx.state!=='running')return;const b=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=b.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,2);const source=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();source.buffer=b;f.type='lowpass';f.frequency.value=frequency;g.gain.value=volume;source.connect(f);f.connect(g);g.connect(ctx.destination);source.start();active.add(source);source.onended=()=>active.delete(source);}
+ function stop(){for(const n of active)try{n.stop();}catch{}active.clear();speech?.cancel();}
+ function explosion(big=false){noise(big?2.3:1.2,big?.32:.16,big?1400:650);tone(big?70:48,big?2:1,.18,'sine',20);}
+ return {unlock,stop,portal(){noise(1.5,.12,1800);tone(55,1.7,.13,'sawtooth',130);},help(){if(muted||!speech||!window.SpeechSynthesisUtterance)return;speech.cancel();const u=new window.SpeechSynthesisUtterance('Help me!');u.rate=1.25;u.pitch=1.5;u.volume=.85;speech.speak(u);},scream(){speech?.cancel();tone(700,1.1,.065,'sawtooth',1100);tone(970,1.1,.035,'triangle',1600);},cut(){stop();},explosion,
+ doom(progress,arrived){if(!arrived)lastDoom=false;if(muted||document.hidden)return;const now=Date.now();if(arrived&&!lastDoom){lastDoom=true;explosion(true);lastBoom=now;}else if(progress>=.65&&now-lastBoom>(arrived?4500:10000-6000*progress)){explosion(progress>.9);lastBoom=now;}},
+ toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
+})();
 const value=path=>path.split('.').reduce((a,k)=>a[k],state);
 const setValue=(path,v)=>{const a=path.split('.');const k=a.pop();a.reduce((o,p)=>o[p],state)[k]=v;};
 function gameTeams(key,g){return key==='round1'?state.round1.lineups[g]:view[key]?.schedule?.[g];}
@@ -513,7 +527,7 @@ function markWinner(team,game=finalGame){const match=view.final.schedule[game];i
 function resetWheelResult(){wheelAngle=0;}
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
-document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
  if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
  if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
  if(b.dataset.r2Game!==undefined){if(sitoutBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
@@ -550,6 +564,7 @@ $('#result-dialog').addEventListener('cancel',e=>{e.preventDefault();closeResult
 $('#home-link').onclick=e=>{e.preventDefault();if($('#screen-dialog').open)closeScreen().catch(err=>error(err.message));};
 $('#retry-save').onclick=()=>save();
 // FEAT-003: Skip button and click-anywhere both route through the single endCutscene path.
+if($('#round-strike-skip'))$('#round-strike-skip').onclick=()=>endCutscene();
 $('#cutscene-skip').onclick=e=>{e.stopPropagation();endCutscene();};
 $('#cutscene').onclick=()=>endCutscene();
 $('#cutscene').addEventListener('cancel',e=>{e.preventDefault();endCutscene();});
@@ -627,7 +642,7 @@ function stopWorldBlasts(){
  if(blastTimer!==null){clearTimeout(blastTimer);blastTimer=null;}
  if(blastShake&&blastShake.cancel){try{blastShake.cancel();}catch{}blastShake=null;}
 }
-const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);if(paused)stopWorldBlasts();else if(!reducedMotion())startWorldBlasts();}if(b.dataset.action==='edit-start')setStartTime();};
+const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume world':'Pause world';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);if(paused)stopWorldBlasts();else if(!reducedMotion())startWorldBlasts();}if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start')setStartTime();};
 
 // FEAT-003: cartoon furnace elimination cutscene. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
@@ -643,7 +658,7 @@ function eliminatedNames(key){
 }
 // Five-second tower strike. The scan is cosmetic; only engine-cut players are targeted.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
-let bombRoundLabel="",bombRoundStage="";
+let bombRoundLabel="",bombRoundStage="",cutsceneRunId=0,cutsceneReturnResult=false;
 function cutsceneRoster(names){
  const roster=Object.values(state?.names||{}).filter(n=>n&&n.trim());
  return [...new Set([...roster,...names])];
@@ -682,7 +697,7 @@ function runTowerStrike(names,i=0){
   }
   schedule(()=>strikePhase('lock',target,xFor(targetIndex)),1000);
   schedule(()=>strikePhase('inbound',target,xFor(targetIndex)),1600);
-  schedule(()=>{strikePhase('impact',target,xFor(targetIndex));try{globalThis.navigator?.vibrate?.([160,50,240,60,320]);}catch{}},2300);
+  schedule(()=>{strikePhase('impact',target,xFor(targetIndex));window.BrawlAudio?.explosion(true);try{globalThis.navigator?.vibrate?.([160,50,240,60,320]);}catch{}},2300);
   schedule(()=>strikePhase('off',target,xFor(targetIndex)),4000);
  }
  schedule(()=>runTowerStrike(names,i+1),5000);
@@ -704,7 +719,7 @@ function buildPortalScene(name){
  <g class="walker-arm rear-arm"><path d="M-9-95Q-15-98-19-87L-27-68Q-29-63-25-56L-14-38Q-9-34-6-41L-14-65L0-86Q5-92-9-95Z"/></g>
  <path d="M-13-108Q0-119 14-105Q19-87 17-64Q11-35 11-6Q0 0-13-6Q-14-31-18-58Q-24-88-13-108Z"/>
  <path d="M-6-119L-6-105L9-105L10-121Z"/>
- <path d="M-13-137Q-15-158 3-158Q20-156 17-138L22-132L17-128Q18-119 7-118L-7-121Z"/>
+ <g class="walker-head"><path d="M-13-137Q-15-158 3-158Q20-156 17-138L22-132L17-128Q18-119 7-118L-7-121Z"/></g>
  <g class="walker-leg front-leg"><path d="M2-6L9 31L3 58L3 65L25 65L26 60L13 57L21 31L17-6Z"/></g>
  <g class="walker-arm front-arm"><path d="M12-98Q18-99 21-88L28-68Q29-63 26-57L17-38Q12-34 9-40L16-65L5-88Q2-96 12-98Z"/></g>
  </g></g>
@@ -723,7 +738,8 @@ function buildPortalScene(name){
 }
 function portalPhase(phase,name){
  const overlay=$('#cutscene');overlay.classList.remove('portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('portal-'+phase);
- const labels={walk:'THE WALK',open:'SOMETHING IS BEHIND YOU',grab:'REACHING FOR YOU',drag:'CLAIMED',gone:'ELIMINATED'};
+ if(phase==='open'){window.BrawlAudio?.portal();window.BrawlAudio?.help();}if(phase==='grab')window.BrawlAudio?.scream();if(phase==='drag')window.BrawlAudio?.cut();
+ const labels={walk:'THE WALK',open:'HELP ME!',grab:'AAAA—',drag:'CLAIMED',gone:'ELIMINATED'};
  $('#cutscene-caption').innerHTML='<strong>'+labels[phase]+'</strong><br>'+esc(name);
 
 }
@@ -739,14 +755,28 @@ function runPortalSequence(names,i=0){
  }
  schedule(()=>runPortalSequence(names,i+1),5000);
 }
-function startRoundBomb(){
- const overlay=$('#cutscene');overlay.classList.remove('portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('cube-bomb-mode');
+async function startRoundBomb(){
+ const run=cutsceneRunId,overlay=$('#cutscene');
+ if(window.CityWorld?.bombRoom){
+  cutsceneReturnResult=$('#result-dialog').open;
+  if(cutsceneReturnResult)$('#result-dialog').close();
+  if($('#screen-dialog').open)$('#screen-dialog').close();
+  document.body.classList.remove('inside-room');
+  if(overlay.open)overlay.close();overlay.hidden=true;
+  window.CityWorld.setSuspended(false);roomTransition=true;if($('#round-strike-hud'))$('#round-strike-hud').hidden=false;
+  try{await window.CityWorld.bombRoom(bombRoundStage,()=>window.BrawlAudio?.explosion(true));}
+  finally{roomTransition=false;if(cutsceneActive&&run===cutsceneRunId)endCutscene();}
+  return;
+ }
+ overlay.classList.remove('portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('cube-bomb-mode');
  $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=bombRoundLabel+' — Cube strike';
  runTowerStrike([bombRoundLabel]);
 }
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
 function endCutscene(){
+ if($('#round-strike-hud'))$('#round-strike-hud').hidden=true;
+ cutsceneRunId++;window.BrawlAudio?.stop();window.CityWorld?.cancelStrike?.();
  cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
@@ -756,6 +786,7 @@ function endCutscene(){
  cutsceneActive=false;
  window.CityWorld?.setSuspended(false);
  startWorldBlasts();
+ if(cutsceneReturnResult){cutsceneReturnResult=false;const dialog=$('#result-dialog');if(!dialog.open)dialog.showModal();renderResult();}
  const r=cutsceneResolve;cutsceneResolve=null;if(r)r();
 }
 // Play the cutscene for `names`; resolves when it ends (naturally or via skip). If there
@@ -764,7 +795,7 @@ function playCutscene(names,roundLabel='',stage=''){
  return new Promise(resolve=>{
   if(cutsceneActive||!names||!names.length){resolve();return;}
   const overlay=$('#cutscene');if(!overlay){resolve();return;}
-  cutsceneResolve=resolve;cutsceneActive=true;window.CityWorld?.setSuspended(true);
+  cutsceneRunId++;cutsceneReturnResult=false;window.BrawlAudio?.unlock();cutsceneResolve=resolve;cutsceneActive=true;window.CityWorld?.setSuspended(true);
   // Suppress the ambient world shake/blasts while the cutscene runs (FEAT-002 guard
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
