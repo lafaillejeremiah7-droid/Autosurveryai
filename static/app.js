@@ -44,7 +44,7 @@ window.BrawlAudio=(()=>{
  }
  function stop(){for(const n of active)try{n.stop();}catch{}active.clear();screamSource=null;}
  function explosion(big=false){noise(big?2.3:1.2,big?.32:.16,big?1400:650);tone(big?70:48,big?2:1,.18,'sine',20);}
- return {unlock,stop,portal(){noise(1.5,.12,1800);tone(55,1.7,.13,'sawtooth',130);},scream,cut(){stop();},explosion,
+ return {unlock,stop,portal(){noise(1.5,.12,1800);tone(55,1.7,.13,'sawtooth',130);},finalOmen(){tone(46,2.2,.13,'sawtooth',41);noise(1.9,.06,550);},finalPurge(){tone(98,.55,.13,'triangle',32);noise(.55,.12,950);},victory(){[392,494,587.33,783.99].forEach(f=>tone(f,2.1,.045,'sine',f));},scream,cut(){stop();},explosion,
  doom(progress,arrived){if(!arrived)lastDoom=false;if(muted||document.hidden)return;const now=Date.now();if(arrived&&!lastDoom){lastDoom=true;explosion(true);lastBoom=now;}else if(progress>=.65&&now-lastBoom>(arrived?4500:10000-6000*progress)){explosion(progress>.9);lastBoom=now;}},
  toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
 })();
@@ -788,13 +788,55 @@ async function startRoundBomb(){
   if(overlay.open)overlay.close();overlay.hidden=true;
   window.CityWorld.setSuspended(false);roomTransition=true;if($('#round-strike-hud'))$('#round-strike-hud').hidden=false;
   try{await window.CityWorld.bombRoom(bombRoundStage,()=>window.BrawlAudio?.explosion(true));}
-  finally{roomTransition=false;if(cutsceneActive&&run===cutsceneRunId)endCutscene();}
+  finally{roomTransition=false;if(cutsceneActive&&run===cutsceneRunId){if(bombRoundStage==='final')revealFinalWinners(run);else endCutscene();}}
   return;
  }
  overlay.classList.remove('portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('cube-bomb-mode');
  $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=bombRoundLabel+' — Cube strike';
  runTowerStrike([bombRoundLabel]);
 }
+
+// Final judgment: three eliminated finalists disappear; the official podium survives.
+let finalWinners=null;
+function finalRoster(cuts){
+ const rows=Array.isArray(view?.final?.rows)?view.final.rows:[];
+ const winners=[1,2,3].map((rank,i)=>({rank,name:rows.find(x=>x.rank===rank)?.name||('PLACE '+rank)}));
+ const lost=cuts.slice(0,3).map(name=>({rank:0,name}));
+ const lineup=[lost[0],winners[1],lost[1],winners[0],lost[2],winners[2]].filter(Boolean);
+ return {winners,lineup};
+}
+function finalTitle(a,b){$('#cutscene-caption').innerHTML='<strong>'+a+'</strong> — '+esc(b)}
+function startFinalSequence(cuts){
+ if(!cutsceneActive)return;
+ const {winners,lineup}=finalRoster(cuts);finalWinners=winners;
+ const people=lineup.map(({rank,name})=>'<div class="fc-person '+(rank?'fc-survivor':'fc-loser')+'" data-rank="'+rank+'"><div class="fc-body"><span class="fc-head"></span><span class="fc-torso"></span><span class="fc-arm left"></span><span class="fc-arm right"></span><span class="fc-leg left"></span><span class="fc-leg right"></span></div><span class="fc-name">'+esc(name)+'</span></div>').join('');
+ const backdrop='<div class="fc-sky"></div><div class="fc-floor"></div>';
+ const cube='<div class="fc-cube"><svg viewBox="0 0 200 200" aria-hidden="true"><path d="M100 4L191 53L100 105L9 53Z" fill="#9a7ab8" stroke="#e1cbf7" stroke-width="3"/><path d="M9 53L100 105V196L9 146Z" fill="#342648" stroke="#ab82d0" stroke-width="3"/><path d="M191 53L100 105V196L191 146Z" fill="#51406d" stroke="#cda6e4" stroke-width="3"/><path class="fc-cracks" d="M48 73L82 103L65 130L103 166L93 190M177 68L130 105L157 139L116 178" fill="none" stroke="#ff688c" stroke-width="5"/></svg></div>';
+ $('#cutscene-stage').innerHTML='<div class="fc-judgment">'+backdrop+cube+'<div class="fc-people">'+people+'</div><div class="fc-blink"></div></div>';
+ const overlay=$('#cutscene');overlay.classList.add('final-mode','fc-intro');overlay.classList.remove('fc-judge','fc-purge','fc-winners');
+ finalTitle('YOU WANTED TO WIN, RIGHT?','THE LAST SIX');
+ const schedule=(fn,ms)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn()},ms));
+ if(reducedMotion()){overlay.classList.add('fc-purge');schedule(startRoundBomb,1400);return;}
+ schedule(()=>{overlay.classList.add('fc-judge');finalTitle('THE FINAL JUDGMENT','SIX ENTERED');window.BrawlAudio?.finalOmen();},1650);
+ schedule(()=>{overlay.classList.add('fc-purge');finalTitle('THREE FALL','THREE REMAIN');window.BrawlAudio?.finalPurge();},3500);
+ schedule(startRoundBomb,5300);
+}
+function revealFinalWinners(run){
+ if(!cutsceneActive||run!==cutsceneRunId)return;
+ const overlay=$('#cutscene');
+ overlay.classList.remove('cube-bomb-mode','fc-intro','fc-judge','fc-purge');overlay.classList.add('final-mode','fc-winners');
+ const name=rank=>finalWinners?.find(x=>x.rank===rank)?.name||'—';
+ const block=(rank,cls,symbol)=>'<div class="fc-medal '+cls+'"><span class="fc-symbol">'+symbol+'</span><span class="fc-winner-name">'+esc(name(rank))+'</span><div class="fc-plinth">'+rank+'</div></div>';
+ const particles=Array.from({length:25},(_,i)=>'<span class="fc-spark" style="--x:'+((i*41)%98+1)+'%;--y:'+((i*61)%87+5)+'%;--delay:'+(-(i%8)*.29)+'s"></span>').join('');
+ $('#cutscene-stage').innerHTML='<div class="fc-victory"><div class="fc-victory-title">THE LAST THREE STANDING</div><div class="fc-podium">'+block(2,'silver','Ⅱ')+block(1,'gold','♛')+block(3,'bronze','Ⅲ')+'</div>'+particles+'</div>';
+ $('#cutscene .eyebrow').textContent='TOURNAMENT COMPLETE';
+ $('#cutscene-label').textContent='You Wanted to Win, Right?';
+ finalTitle('CHAMPION',name(1));
+ overlay.hidden=false;overlay.setAttribute('aria-hidden','false');if(!overlay.open)overlay.showModal();
+ window.BrawlAudio?.victory();
+ cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive&&run===cutsceneRunId)endCutscene()},reducedMotion()?3000:6400));
+}
+
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
 function endCutscene(){
@@ -804,7 +846,7 @@ function endCutscene(){
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
  const overlay=$('#cutscene');
- if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('cube-bomb-mode','open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off','portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');}
+ if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('cube-bomb-mode','open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off','portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone','final-mode','fc-intro','fc-judge','fc-purge','fc-winners');}
  try{globalThis.navigator?.vibrate?.(0);}catch{}
  cutsceneActive=false;
  window.CityWorld?.setSuspended(false);
@@ -824,9 +866,9 @@ function playCutscene(names,roundLabel='',stage=''){
   stopWorldBlasts();
   const portal=stage==='round1'||stage==='round2';
   bombRoundLabel=roundLabel||'Final';bombRoundStage=stage||'final';
-  overlay.classList.toggle('portal-mode',portal);
+  overlay.classList.toggle('portal-mode',portal);overlay.classList.toggle('final-mode',stage==='final');
   $('#cutscene .eyebrow').textContent=portal?'THE VOID IS WAITING':'STRIKE AUTHORIZATION';
-  $('#cutscene-label').textContent=(roundLabel?roundLabel+' — ':'')+(portal?'The portal claims its cut':'Nuclear elimination');
+  $('#cutscene-label').textContent=(roundLabel?roundLabel+' — ':'')+(portal?'The portal claims its cut':stage==='final'?'The final judgment':'Nuclear elimination');
   overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
   // Native top layer keeps the cutscene above both scoring and tie-result dialogs.
   overlay.showModal();
@@ -834,7 +876,7 @@ function playCutscene(names,roundLabel='',stage=''){
   // Capture Esc so skipping does not also close the scoring/results window underneath.
   cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();endCutscene();}};
   if(document.addEventListener)document.addEventListener('keydown',cutsceneKeyHandler,true);
-  if(portal)runPortalSequence(names);else startRoundBomb();
+  if(portal)runPortalSequence(names);else if(stage==='final')startFinalSequence(names);else startRoundBomb();
  });
 }
 
