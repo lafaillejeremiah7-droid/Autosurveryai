@@ -522,7 +522,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(b.dataset.step){const current=value(b.dataset.target);if(!enterGoal(b.dataset.target,Math.max(0,(current??0)+Number(b.dataset.step))))return;refreshGoalControls();changed();await save();return;}
  if(b.dataset.winner){markWinner(b.dataset.winner);changed();await save();return;}
  const action=b.dataset.action,key=b.dataset.stage;
- if(['street-home','visit-towers','visit-podium'].includes(action)){if(roomTransition||cutsceneActive)return;await flush();roomTransition=true;try{$('#walkway-view')?.scrollIntoView?.({block:'center',behavior:'instant'});if(action==='street-home')await window.CityWorld?.home();else await window.CityWorld?.visit(action==='visit-towers'?'towers':'podium');}finally{roomTransition=false;}return;}
+ if(['street-home','visit-podium'].includes(action)){if(roomTransition||cutsceneActive)return;await flush();roomTransition=true;try{$('#walkway-view')?.scrollIntoView?.({block:'center',behavior:'instant'});if(action==='street-home')await window.CityWorld?.home();else await window.CityWorld?.visit('podium');}finally{roomTransition=false;}return;}
  if(action==='clear-start'){await flush();doDestructive('Undo: Clear countdown',()=>{state.settings.start_at='';state.settings.disaster_started_at='';countdownDraft=null;});await save();return;}
  if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}
  if(action==='r2-start'){await progressRound2('start');return;}
@@ -643,27 +643,13 @@ function eliminatedNames(key){
 }
 // Five-second tower strike. The scan is cosmetic; only engine-cut players are targeted.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
-let portalTowerNames=[],portalTowersMarked=new Set();
+let bombRoundLabel="",bombRoundStage="";
 function cutsceneRoster(names){
  const roster=Object.values(state?.names||{}).filter(n=>n&&n.trim());
  return [...new Set([...roster,...names])];
 }
 function buildCutscene(names){
- const towers=cutsceneRoster(names).map((name,i)=>{
-  const x=45+i*(810/Math.max(1,cutsceneRoster(names).length-1));
-  return '<g class="strike-tower" data-name="'+esc(name)+'" transform="translate('+x+',0)">'+
-   '<path class="tower-body" d="M-22 290V145L0 125L22 145V290Z" fill="#183440" stroke="#67b4c9" stroke-width="2"/>'+
-   '<path class="tower-windows" d="M-12 160H12M-12 182H12M-12 204H12M-12 226H12M-12 248H12" stroke="#8be4ef" stroke-width="4"/>'+
-   '<path class="tower-rubble" d="M-29 292l13-22 10 12 15-21 24 31Z" fill="#36242c" stroke="#ff986b"/>'+
-   '<text x="0" y="323" text-anchor="middle" fill="#c2e5ed" font-size="11" font-family="monospace">'+esc(name)+'</text></g>';
- }).join('');
- $('#cutscene-stage').innerHTML='<div class="cinematic-plate" aria-hidden="true"></div><div class="cinematic-target"></div><svg class="tower-strike-svg" viewBox="0 0 900 400" aria-hidden="true">'+
-  '<defs><radialGradient id="strike-fire"><stop stop-color="#fff8bc"/><stop offset=".4" stop-color="#ff9b38"/><stop offset="1" stop-color="#ff3a2700"/></radialGradient></defs>'+
-  '<path d="M0 293H900" stroke="#568e9d"/>'+towers+
-  '<g class="strike-reticle"><rect x="-34" y="115" width="68" height="185" rx="3" fill="none" stroke="#ff697a" stroke-width="3"/><path d="M-45 207H45M0 97V315" stroke="#ff697a" stroke-dasharray="5 10"/></g>'+
-  '<g class="strike-missile"><path d="M-8-20H8V15L0 30L-8 15Z" fill="#d5e9ed" stroke="#fa785d"/><path d="M-6-20L0-65L6-20" fill="#ffb95d"/></g>'+
-  '<g class="strike-blast"><circle class="strike-fireball" cy="220" r="105" fill="url(#strike-fire)"/><ellipse class="strike-shockwave" cy="290" rx="180" ry="25" fill="none" stroke="#ffb862" stroke-width="5"/><path class="strike-mushroom" d="M-18 285L-12 190C-110 220-120 110-55 115C-40 50 45 50 60 115C130 105 105 220 12 190L18 285Z" fill="url(#strike-fire)"/></g></svg>';
- $('#cutscene-caption').innerHTML='<strong>SCANNING TOWERS</strong>';
+ $('#cutscene-stage').innerHTML=`<div class="cinematic-target"></div><svg class="tower-strike-svg cube-strike-svg" viewBox="0 0 900 400" aria-hidden="true"><defs><radialGradient id="strike-fire"><stop stop-color="#fff8bc"/><stop offset=".4" stop-color="#ff9b38"/><stop offset="1" stop-color="#ff3a2700"/></radialGradient></defs><path d="M0 320H900" stroke="#34444f"/><g class="round-bomb-cube"><path d="M355 155L450 118L545 155L450 195Z" fill="#667985" stroke="#adc8cd"/><path d="M355 155L450 195V302L355 260Z" fill="#354f5b" stroke="#adc8cd"/><path d="M450 195L545 155V260L450 302Z" fill="#203644" stroke="#adc8cd"/><path d="M371 174L434 201V277L371 251ZM466 202L529 177V250L466 276Z" fill="#080f18" stroke="#97edd7" stroke-width="3"/></g><g class="cube-strike-rubble"><path d="M325 306L367 270L405 310L450 277L493 312L543 279L587 317Z" fill="#34272b"/></g><g class="strike-reticle"><rect x="-110" y="108" width="220" height="200" rx="6" fill="none" stroke="#ff697a" stroke-width="3"/></g><g class="strike-missile"><path d="M-8-20H8V15L0 30L-8 15Z" fill="#d5e9ed"/><path d="M-6-20L0-65L6-20" fill="#ffb95d"/></g><g class="strike-blast"><circle class="strike-fireball" cy="220" r="105" fill="url(#strike-fire)"/><ellipse class="strike-shockwave" cy="290" rx="180" ry="25" fill="none" stroke="#ffb862" stroke-width="5"/><path class="strike-mushroom" d="M-18 285L-12 190C-110 220-120 110-55 115C-40 50 45 50 60 115C130 105 105 220 12 190L18 285Z" fill="url(#strike-fire)"/></g></svg>`;
 }
 function strikePhase(phase,name,x){
  const overlay=$('#cutscene');
@@ -682,9 +668,9 @@ function runTowerStrike(names,i=0){
  if(!cutsceneActive)return;
  if(i>=names.length){endCutscene();return;}
  // Rebuild each beat to restart missile, blast and shake animations for every target.
- const roster=cutsceneRoster(names),target=names[i],targetIndex=roster.indexOf(target);
+ const roster=names,target=names[i],targetIndex=roster.indexOf(target);
  buildCutscene(names);
- const xFor=n=>45+n*(810/Math.max(1,roster.length-1));
+ const xFor=n=>450;
  const schedule=(fn,delay)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},delay));
  if(reducedMotion()){
   strikePhase('off',target,xFor(targetIndex));
@@ -732,24 +718,17 @@ function buildPortalScene(name){
  <path d="M335 272L414 237M350 282L427 249M438 218L454 227M452 242L466 230M463 249L473 241" fill="none" stroke="#c3a3c4" stroke-width="2" opacity=".45"/>
  <path d="M465 193L475 196L461 211M492 198L503 203L477 220M509 214L515 222L483 235" fill="#c8b6cf" opacity=".7"/></g></g>
  <g class="portal-dust" fill="#b5a0d5">${Array.from({length:14},(_,i)=>`<circle cx="${300+i*17}" cy="${180+(i*37)%145}" r="${1+i%3}" style="--dust-delay:${i*-.17}s"/>`).join('')}</g>
- <g class="portal-tower-aftermath"><rect width="900" height="420" fill="#050910"/><path d="M0 325L120 296L200 325L280 279L360 325L530 300L650 325L730 285L900 325V420H0Z" fill="#0e1721"/><ellipse cx="450" cy="344" rx="125" ry="14" fill="#131b24"/><g class="portal-falling-tower"><path d="M410 340V118H490V340Z" fill="#192530" stroke="#52606c" stroke-width="2"/><path d="M425 136H475M425 160H475M425 184H475M425 208H475M425 232H475M425 256H475M425 280H475M425 304H475" stroke="#99ffe0" stroke-width="5" class="portal-tower-lights"/><path d="M450 101L461 115L450 129L439 115Z" fill="#99ffe0" class="portal-tower-lights"/></g><g class="portal-tower-rubble" fill="#25303a"><path d="M365 344L393 316L425 345ZM426 345L449 321L481 345ZM482 345L513 321L550 345Z"/></g></g>
  <rect class="portal-vignette" width="900" height="420" fill="none" stroke="#000" stroke-width="45" opacity=".3"/>
  </svg><div class="portal-player-name">${esc(name)}</div>`;
 }
-function markPortalTower(name){
- if(portalTowersMarked.has(name))return;
- const player=Object.entries(state.names).find(([,n])=>n===name);
- if(!player)return;
- portalTowersMarked.add(name);window.CityWorld?.eliminateTower?.(player[0]);
-}
 function portalPhase(phase,name){
  const overlay=$('#cutscene');overlay.classList.remove('portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('portal-'+phase);
- const labels={walk:'THE WALK',open:'SOMETHING IS BEHIND YOU',grab:'REACHING FOR YOU',drag:'CLAIMED',gone:'ELIMINATED · TOWER OFFLINE'};
+ const labels={walk:'THE WALK',open:'SOMETHING IS BEHIND YOU',grab:'REACHING FOR YOU',drag:'CLAIMED',gone:'ELIMINATED'};
  $('#cutscene-caption').innerHTML='<strong>'+labels[phase]+'</strong><br>'+esc(name);
- if(phase==='gone')markPortalTower(name);
+
 }
 function runPortalSequence(names,i=0){
- if(!cutsceneActive)return;if(i>=names.length){endCutscene();return;}
+ if(!cutsceneActive)return;if(i>=names.length){startRoundBomb();return;}
  const name=names[i];buildPortalScene(name);portalPhase(reducedMotion()?'gone':'walk',name);
  const schedule=(fn,delay)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},delay));
  if(!reducedMotion()){
@@ -760,15 +739,19 @@ function runPortalSequence(names,i=0){
  }
  schedule(()=>runPortalSequence(names,i+1),5000);
 }
+function startRoundBomb(){
+ const overlay=$('#cutscene');overlay.classList.remove('portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('cube-bomb-mode');
+ $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=bombRoundLabel+' — Cube strike';
+ runTowerStrike([bombRoundLabel]);
+}
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
 function endCutscene(){
- for(const name of portalTowerNames)markPortalTower(name);portalTowerNames=[];
  cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
  const overlay=$('#cutscene');
- if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off','portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');}
+ if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('cube-bomb-mode','open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off','portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');}
  try{globalThis.navigator?.vibrate?.(0);}catch{}
  cutsceneActive=false;
  window.CityWorld?.setSuspended(false);
@@ -786,7 +769,7 @@ function playCutscene(names,roundLabel='',stage=''){
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
   const portal=stage==='round1'||stage==='round2';
-  portalTowerNames=portal?[...names]:[];portalTowersMarked=new Set();
+  bombRoundLabel=roundLabel||'Final';bombRoundStage=stage||'final';
   overlay.classList.toggle('portal-mode',portal);
   $('#cutscene .eyebrow').textContent=portal?'THE VOID IS WAITING':'STRIKE AUTHORIZATION';
   $('#cutscene-label').textContent=(roundLabel?roundLabel+' — ':'')+(portal?'The portal claims its cut':'Nuclear elimination');
@@ -797,7 +780,7 @@ function playCutscene(names,roundLabel='',stage=''){
   // Capture Esc so skipping does not also close the scoring/results window underneath.
   cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();endCutscene();}};
   if(document.addEventListener)document.addEventListener('keydown',cutsceneKeyHandler,true);
-  if(portal)runPortalSequence(names);else runTowerStrike(names);
+  if(portal)runPortalSequence(names);else startRoundBomb();
  });
 }
 
