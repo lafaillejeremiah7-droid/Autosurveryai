@@ -35,18 +35,18 @@ let browser;
   assert(await page.locator('#cutscene-skip').evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===e;}),'scoring dialog covered the cutscene');
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?3:2);
-  await page.waitForFunction(({name,key})=>document.querySelector('#cutscene').classList.contains(key==='final'?'phase-lock':'portal-grab')&&document.querySelector('#cutscene-caption').textContent.includes(name),{name:expected[0],key});
+  await page.waitForFunction(({name,key})=>document.querySelector('#cutscene').classList.contains(key==='final'?'phase-lock':'portal-grab')&&document.querySelector('#cutscene-caption').textContent.includes(name),{name:key==='final'?label:expected[0],key});
   if(key!=='final'){assert.equal(await page.locator('.portal-walker').count(),1);assert.equal(await page.locator('.portal-hand').count(),3);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-portal.png')});}}
   assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
   if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('portal-drag'));if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'portal-pull.png')});}
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
-  else if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('portal-gone'));assert((await page.locator('#cutscene-caption').textContent()).includes('TOWER OFFLINE'));assert.equal(await page.locator('.portal-tower-aftermath').evaluate(e=>getComputedStyle(e).opacity),'1');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'tower-aftermath.png')});await page.locator('#cutscene-skip').click();}
+  else if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('cube-bomb-mode'),null,{timeout:14000});assert.equal(await page.locator('.round-bomb-cube').count(),1);assert.equal(await page.locator('.portal-tower-aftermath').count(),0);await page.locator('#cutscene-skip').click();}
   // You Wanted to Win, Right? also verifies automatic completion, with no skip.
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
   assert(await page.locator('#screen-dialog').evaluate(e=>e.open),'skip closed underlying round');
-  if(key!=='final'){const expectedIds=await page.evaluate(key=>view[key].rows.filter(r=>r.status==='CUT').map(r=>r.id),key);assert.deepEqual((await page.evaluate(()=>window.towerCalls)).sort(),expectedIds.sort(),'portal or Skip must collapse exactly the cut towers');}
+  assert.deepEqual(await page.evaluate(()=>window.towerCalls),[],'removed towers must not receive elimination events');
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
