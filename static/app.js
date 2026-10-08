@@ -130,7 +130,7 @@ function nextStepBanner(next,finished){
  let msg,label,target=next;
  if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
  else if(next==='round1'){msg=tieIn('round1')?'Resolve the Like Never Before tie (add extra games) before What Do You Want?.':(view.round1.issues[0]||'Score the five Like Never Before games, then submit.');label='Open Like Never Before';}
- else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering each game's scores.';label='Open What Do You Want?';}
+ else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering scores for a game.';label='Open What Do You Want?';}
  else{msg=view.final.issues[0]||'Play the eight You Wanted to Win, Right? games to decide the podium.';label='Open You Wanted to Win, Right?';}
  return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
 }
