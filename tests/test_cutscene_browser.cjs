@@ -26,6 +26,7 @@ let browser;
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
  for(const [key,last,label] of [['round1',4,'Like Never Before'],['round2',7,'What Do You Want?'],['final',7,'You Wanted to Win, Right?']]){
   await restore(fixtures[key]);
+  await page.evaluate(()=>{window.towerCalls=[];const world=window.CityWorld||{};const original=world.eliminateTower?.bind(world);world.eliminateTower=id=>{window.towerCalls.push(id);original?.(id);};window.CityWorld=world;});
   await page.evaluate(key=>openScreen(key),key);
   await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
   await page.locator('#cutscene[open]').waitFor();
@@ -41,10 +42,11 @@ let browser;
   if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('portal-drag'));if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'portal-pull.png')});}
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
-  else if(key==='round2')await page.locator('#cutscene-skip').click();
+  else if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('portal-gone'));assert((await page.locator('#cutscene-caption').textContent()).includes('TOWER OFFLINE'));assert.equal(await page.locator('.portal-tower-aftermath').evaluate(e=>getComputedStyle(e).opacity),'1');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'tower-aftermath.png')});await page.locator('#cutscene-skip').click();}
   // You Wanted to Win, Right? also verifies automatic completion, with no skip.
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
   assert(await page.locator('#screen-dialog').evaluate(e=>e.open),'skip closed underlying round');
+  if(key!=='final'){const expectedIds=await page.evaluate(key=>view[key].rows.filter(r=>r.status==='CUT').map(r=>r.id),key);assert.deepEqual((await page.evaluate(()=>window.towerCalls)).sort(),expectedIds.sort(),'portal or Skip must collapse exactly the cut towers');}
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
