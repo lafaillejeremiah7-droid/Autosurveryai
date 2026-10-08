@@ -581,5 +581,14 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  vm.runInContext('cutsceneActive=false;',context);
  await vm.runInContext('playCutscene([])',context);
  assert.equal(vm.runInContext('cutsceneActive',context),false,'playCutscene with no names resolves without showing the overlay');
+ // Portal completion and Skip must mark each engine-cut player's tower once.
+ context.towerCalls=[];context.window.CityWorld={eliminateTower:id=>context.towerCalls.push(id),setSuspended(){}};
+ const cutIds=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.id);
+ context.portalCuts=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name);
+ vm.runInContext("playCutscene(portalCuts,'Like Never Before','round1');",context);
+ assert.equal(context.towerCalls.length,1,'reduced-motion first player marks its tower');
+ vm.runInContext('endCutscene();',context);
+ assert.deepEqual([...context.towerCalls].sort(),cutIds.sort(),'Skip synchronizes all eliminated towers');
+ vm.runInContext('endCutscene();',context);assert.equal(context.towerCalls.length,2,'dismiss cannot collapse towers twice');
  console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, tower strike replaces furnace, skippable single-dismiss path, reduced-motion static LOCKED OFF, and empty-list skip passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
