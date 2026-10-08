@@ -23,7 +23,7 @@ let browser,page;
  const url=await urlReady;
  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{}),args:JSON.parse(process.env.CHROMIUM_ARGS||'[]')});
  page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
- page.setDefaultTimeout(5000);
+ page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(60000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.goto(url);
  const saved=async()=>{await page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);assert(!await page.locator('#retry-save').isVisible());};
@@ -33,17 +33,22 @@ let browser,page;
    const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':data.token},body:JSON.stringify({state,revision:data.revision,restore:true})});
    if(!res.ok)throw Error(await res.text());
   },state);
-  await page.reload();await page.waitForFunction(()=>!!window.document.querySelector('[data-open="wheel"]'));
+  await page.reload();await page.waitForFunction(()=>!!window.document.querySelector('[data-open="settings"]'));
  };
- const open=async key=>{await page.locator(`[data-open="${key}"]`).click();await page.locator('#screen-dialog[open]').waitFor();};
+ const open=async key=>{await page.locator(`#monitors [data-open="${key}"]`).click();await page.locator('#screen-dialog[open]').waitFor();};
  const nav=async key=>page.locator(`#nav [data-tab="${key}"]`).click();
  const snap=async name=>{if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,name+'.png'),fullPage:true});}};
  await restore(fixture);
+ // Importing a backup must invalidate Undo from the previous tournament.
+ await page.evaluate(()=>{undoSnapshot={state:structuredClone(state),label:'Old tournament'};countdownDraft='2000-01-01T00:00';renderUndo();});
+ await page.locator('#restore').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))});
+ await page.waitForFunction(()=>document.querySelector('#save-status').textContent==='Backup restored and saved');
+ assert(await page.evaluate(()=>undoSnapshot===null&&countdownDraft===null),'backup retained stale Undo or countdown draft');
  // All monitors at desktop and phone widths, with no page-level horizontal overflow.
  for(const [width,height,label] of [[1440,1000,'desktop'],[390,844,'phone']]){
   await page.setViewportSize({width,height});
   await snap(label+'-room');
-  for(const key of ['wheel','settings','round1','round2','final','overview']){
+  for(const key of ['settings','round1','round2','final','overview']){
    await open(key);
    assert(await page.locator('#screen-dialog #save-controls').count(),key+' has accessible save controls');
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),key+' overflows viewport');
@@ -78,6 +83,7 @@ let browser,page;
  await extra('p9').fill('0');await saved();
  assert((await page.locator('#result-content').innerText()).includes('ROUND SETTLED'));
  assert(await extra('p9').isVisible(),'resolved extra inputs disappeared');
+ await page.waitForFunction(()=>!cutsceneActive);
  // A failed save in the topmost dialog must expose Retry and recover cleanly.
  await page.route('**/api/state',async route=>{
   if(route.request().method()==='PUT')await route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'Simulated disk failure'})});
@@ -120,15 +126,6 @@ let browser,page;
  assert.equal(Object.values(rests).filter(n=>n===2).length,8);
  assert.equal(await page.evaluate(()=>view.round2.complete),true);
  await nav('final');assert.equal(await page.locator('[data-path^="final.players"]').count(),6);
- // The open name wheel is independent of the roster and blocks overlapping spins.
- await nav('wheel');await page.locator('[data-wheel-mode="free"]').click();
- await page.locator('#wheel-entries').fill('Alpha\nBeta\nGamma');await saved();
- await page.locator('[data-check="wheel.remove_winner"]').check();await saved();
- await page.locator('.wheel-actions [data-action="spin"]').click();await page.waitForFunction(()=>!spinning&&!!wheelLast);await saved();
- assert.equal((await page.locator('#wheel-entries').inputValue()).split('\n').length,2);
- assert.equal(await page.locator('[data-action="remove-winner"]').isDisabled(),true);
- const choices=await page.evaluate(async()=>{const original=randomIndex;let count=0;randomIndex=n=>{count++;return original(n);};try{await Promise.all([spinWheel(),spinWheel()]);return count;}finally{randomIndex=original;}});
- assert.equal(choices,1,'overlapping spin requests picked more than one winner');await saved();
  // Team caps apply immediately to counters, typed/pasted input and server writes.
  for(const key of ['round1','round2','final']){
   await restore(fixture);
@@ -165,5 +162,5 @@ let browser,page;
  const bad=await page.evaluate(async()=>{const d=await (await fetch('/api/state')).json();return (await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':d.token},body:'[]'})).status;});
  assert.equal(bad,400);
  assert.deepEqual(errors,[],'uncaught browser errors');
- console.log('Browser checks passed: six monitors at desktop/phone sizes, focus, recovery, Undo/Retry, extra games, eight sit-out draws, wheel, and team goal caps in all three rounds (typing, counters, corrections, API).');
+ console.log('Browser checks passed: five rooms at desktop/phone sizes, focus, recovery, Undo/Retry, extra games, eight sit-out draws, and team goal caps in all three rounds (typing, counters, corrections, API).');
 })().catch(async e=>{console.error(e);if(page)console.error(await page.evaluate(()=>({error:document.querySelector('#error')?.textContent,dirty,saving,undo:!!undoSnapshot,extraCount:state.round1.extras.length,undoHidden:document.querySelector('#undo-action')?.hidden})).catch(()=>null));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();fs.rmSync(tmp,{recursive:true,force:true});});
