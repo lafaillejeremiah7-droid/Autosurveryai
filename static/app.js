@@ -656,7 +656,7 @@ function buildCutscene(names){
    '<path class="tower-rubble" d="M-29 292l13-22 10 12 15-21 24 31Z" fill="#36242c" stroke="#ff986b"/>'+
    '<text x="0" y="323" text-anchor="middle" fill="#c2e5ed" font-size="11" font-family="monospace">'+esc(name)+'</text></g>';
  }).join('');
- $('#cutscene-stage').innerHTML='<svg class="tower-strike-svg" viewBox="0 0 900 400" aria-hidden="true">'+
+ $('#cutscene-stage').innerHTML='<div class="cinematic-plate" aria-hidden="true"></div><div class="cinematic-target"></div><svg class="tower-strike-svg" viewBox="0 0 900 400" aria-hidden="true">'+
   '<defs><radialGradient id="strike-fire"><stop stop-color="#fff8bc"/><stop offset=".4" stop-color="#ff9b38"/><stop offset="1" stop-color="#ff3a2700"/></radialGradient></defs>'+
   '<path d="M0 293H900" stroke="#568e9d"/>'+towers+
   '<g class="strike-reticle"><rect x="-34" y="115" width="68" height="185" rx="3" fill="none" stroke="#ff697a" stroke-width="3"/><path d="M-45 207H45M0 97V315" stroke="#ff697a" stroke-dasharray="5 10"/></g>'+
@@ -672,6 +672,8 @@ function strikePhase(phase,name,x){
  stage.style.setProperty('--strike-x',x+'px');
  const towers=stage.querySelectorAll?Array.from(stage.querySelectorAll('.strike-tower')):[];
  towers.forEach(t=>{t.classList.toggle('selected',t.dataset.name===name);if((phase==='impact'||phase==='off')&&t.dataset.name===name)t.classList.add('destroyed');});
+ const nameplate=stage.querySelector?stage.querySelector('.cinematic-target'):null;
+ if(nameplate)nameplate.textContent=name;
  const caption=$('#cutscene-caption');
  caption.innerHTML='<strong>'+({scan:'SCANNING',lock:'LOCKED',inbound:'LOCKED',impact:'IMPACT',off:'LOCKED OFF'}[phase])+'</strong> — '+esc(name);
 }
