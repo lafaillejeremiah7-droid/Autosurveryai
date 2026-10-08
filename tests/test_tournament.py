@@ -156,7 +156,7 @@ class Rules(unittest.TestCase):
         self.assertFalse(v['complete'])
     def test_backward_compat_load_save_with_extras(self):
         # A persisted save that already carries bubble extras must still validate
-        # round-trip through JSON on schema version 4 for all three stages.
+        # round-trip through JSON on schema version 6 for all three stages.
         s=fixture()
         s['round1']['players']['p4']['goals']=[0]*5
         s['round1']['extras']=[{**dict.fromkeys(IDS),'p4':2,'p5':1}]
@@ -164,7 +164,7 @@ class Rules(unittest.TestCase):
         s['final']['extras']=[{p:{'goals':None,'result':''} for p in IDS}]
         s['final']['extras'][0]['p1']={'goals':1,'result':'W'}
         wire=json.loads(json.dumps(s));validated=validate(wire)
-        self.assertEqual(validated['version'],4)
+        self.assertEqual(validated['version'],6)
         self.assertEqual(validated['round1']['extras'],s['round1']['extras'])
         self.assertEqual(validated['round2']['extras'],s['round2']['extras'])
         self.assertEqual(validated['final']['extras'],s['final']['extras'])
@@ -251,7 +251,7 @@ class Rules(unittest.TestCase):
     def test_legacy_round2_archive_and_current_save_preservation(self):
         old=legacy_fixture();old['settings']['goal_points']=2;old['wheel']['text']='A\nB'
         original=deepcopy(old);new=validate(old)
-        self.assertEqual(old,original);self.assertEqual(new['version'],5)
+        self.assertEqual(old,original);self.assertEqual(new['version'],6)
         self.assertEqual(new['legacy_round2']['round2'],old['round2'])
         self.assertEqual(new['legacy_round2']['final'],old['final'])
         for k in ['round1','names','settings','wheel']:self.assertEqual(new[k],old[k])
@@ -276,7 +276,7 @@ class Rules(unittest.TestCase):
         # A fresh state carries the inert wheel default and validates at schema v4.
         fresh=new_state()
         self.assertEqual(fresh['wheel'],{'text':'','remove_winner':False})
-        self.assertEqual(validate(deepcopy(fresh))['version'],4)
+        self.assertEqual(validate(deepcopy(fresh))['version'],6)
         # An old backup with a populated wheel object survives a JSON round-trip,
         # validate() and evaluate() without the wheel being stripped or rejected.
         s=new_state()
@@ -285,7 +285,7 @@ class Rules(unittest.TestCase):
         roundtripped=json.loads(json.dumps(s))
         validated=validate(roundtripped)
         self.assertEqual(validated['wheel'],{'text':'Aaron\nGhost\nJay','remove_winner':True})
-        self.assertEqual(validated['version'],4)
+        self.assertEqual(validated['version'],6)
         evaluate(validated)  # Must not raise with a populated legacy wheel present.
         # A backup missing the `wheel` key entirely still validates, defaulting the
         # inert wheel block (proves validate() tolerates absence, not just presence).
