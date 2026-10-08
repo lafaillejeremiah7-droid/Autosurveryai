@@ -27,7 +27,7 @@ def fixture(final=True):
         s['round1']['players'][b]['goals'][g]=1
     s['round1']['players']['p2']['goals'][4]=1
     players=evaluate(s)['round1']['survivors'];schedule=round2_schedule(players)
-    s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':5,'completed':5,'mode':'random'}
+    s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'lineups':[{'A':players[:4],'B':players[4:]} for _ in range(5)],'revealed':5,'completed':5,'mode':'random'}
     for g,match in enumerate(schedule):
         for team in ['A','B']:
             eligible=[p for p in match[team] if p not in ['p4','p9']]
@@ -204,17 +204,22 @@ class Rules(unittest.TestCase):
         self.assertEqual(new['final']['players']['p1']['goals'],[None]*8)
         self.assertEqual(validate(new),new)
 
-    def test_round2_five_fixed_four_vs_four_games(self):
-        roster=evaluate(fixture())['round1']['survivors'];schedule=round2_schedule(roster)
+    def test_round2_five_varied_four_vs_four_games(self):
+        s=Draws().fresh()
+        s=round2_draw_action(s,'start')
+        roster=s['round2']['roster'];schedule=round2_schedule(s['round2']['draw'])
         self.assertEqual(len(schedule),5)
         self.assertEqual([m['game'] for m in schedule],[1,2,3,4,5])
-        for match in schedule:
-            self.assertEqual((len(match['A']),len(match['B'])),(4,4))
-            self.assertEqual(set(match['A']+match['B']),set(roster))
-            self.assertNotIn('sit',match)
-            self.assertEqual(match['A'],schedule[0]['A'])
-            self.assertEqual(match['B'],schedule[0]['B'])
-        for p in roster:self.assertEqual(sum(p in m['A']+m['B'] for m in schedule),5)
+        pairs=set()
+        for game in schedule:
+            self.assertEqual((len(game['A']),len(game['B'])),(4,4))
+            self.assertEqual(set(game['A']+game['B']),set(roster))
+            self.assertNotIn('sit',game)
+            pairs.add(frozenset((frozenset(game['A']),frozenset(game['B']))))
+        self.assertGreaterEqual(len(pairs),4)
+        for p in roster:
+            self.assertEqual(sum(p in g['A']+g['B'] for g in schedule),5)
+        self.assertEqual(validate(s),s)
     def test_round2_overall_cut_tie_and_extras(self):
         # Approved boundary-bubble model: extra goals FOLD into the tied players'
         # total/average and only the 6th/7th bubble re-ranks. With p4 and p8 tied
@@ -355,7 +360,7 @@ class Draws(unittest.TestCase):
         old['round2']['draw']['revealed']=8;old['round2']['draw']['completed']=8
         original=deepcopy(old);upgraded=validate(old)
         self.assertEqual(old,original)
-        self.assertEqual(upgraded['version'],5)
+        self.assertEqual(upgraded['version'],6)
         self.assertEqual(upgraded['legacy_round2_rotation']['round2'],old['round2'])
         self.assertEqual(upgraded['legacy_round2_rotation']['final'],old['final'])
         self.assertEqual(upgraded['round2']['players']['p1']['goals'],[None]*5)
