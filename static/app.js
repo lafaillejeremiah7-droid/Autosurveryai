@@ -772,8 +772,8 @@ function runPortalSequence(names,i=0){
  const schedule=(fn,delay)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},delay));
  if(!reducedMotion()){
   schedule(()=>portalPhase('open',name),900);
-  schedule(()=>portalPhase('grab',name),2700); // Play recorded scream only when the hands contact the player.
-  schedule(()=>portalPhase('drag',name),3400); // Abruptly cut the scream 0.7s after contact.
+  schedule(()=>portalPhase('grab',name),2850); // After the last staggered hand makes contact.
+  schedule(()=>portalPhase('drag',name),3550); // Cut the recorded scream 0.7 seconds after contact.
   schedule(()=>portalPhase('gone',name),4100);
  }
  schedule(()=>runPortalSequence(names,i+1),5000);
