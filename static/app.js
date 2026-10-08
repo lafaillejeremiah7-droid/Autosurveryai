@@ -643,6 +643,7 @@ function eliminatedNames(key){
 }
 // Five-second tower strike. The scan is cosmetic; only engine-cut players are targeted.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
+let portalTowerNames=[],portalTowersMarked=new Set();
 function cutsceneRoster(names){
  const roster=Object.values(state?.names||{}).filter(n=>n&&n.trim());
  return [...new Set([...roster,...names])];
@@ -725,13 +726,21 @@ function buildPortalScene(name){
  <path d="M335 272L414 237M350 282L427 249M438 218L454 227M452 242L466 230M463 249L473 241" fill="none" stroke="#c3a3c4" stroke-width="2" opacity=".45"/>
  <path d="M465 193L475 196L461 211M492 198L503 203L477 220M509 214L515 222L483 235" fill="#c8b6cf" opacity=".7"/></g>
  <g class="portal-dust" fill="#b5a0d5">${Array.from({length:14},(_,i)=>`<circle cx="${300+i*17}" cy="${180+(i*37)%145}" r="${1+i%3}" style="--dust-delay:${i*-.17}s"/>`).join('')}</g>
+ <g class="portal-tower-aftermath"><rect width="900" height="420" fill="#050910"/><path d="M0 325L120 296L200 325L280 279L360 325L530 300L650 325L730 285L900 325V420H0Z" fill="#0e1721"/><ellipse cx="450" cy="344" rx="125" ry="14" fill="#131b24"/><g class="portal-falling-tower"><path d="M410 340V118H490V340Z" fill="#192530" stroke="#52606c" stroke-width="2"/><path d="M425 136H475M425 160H475M425 184H475M425 208H475M425 232H475M425 256H475M425 280H475M425 304H475" stroke="#99ffe0" stroke-width="5" class="portal-tower-lights"/><path d="M450 101L461 115L450 129L439 115Z" fill="#99ffe0" class="portal-tower-lights"/></g><g class="portal-tower-rubble" fill="#25303a"><path d="M365 344L393 316L425 345ZM426 345L449 321L481 345ZM482 345L513 321L550 345Z"/></g></g>
  <rect class="portal-vignette" width="900" height="420" fill="none" stroke="#000" stroke-width="45" opacity=".3"/>
  </svg><div class="portal-player-name">${esc(name)}</div>`;
 }
+function markPortalTower(name){
+ if(portalTowersMarked.has(name))return;
+ const player=Object.entries(state.names).find(([,n])=>n===name);
+ if(!player)return;
+ portalTowersMarked.add(name);window.CityWorld?.eliminateTower?.(player[0]);
+}
 function portalPhase(phase,name){
  const overlay=$('#cutscene');overlay.classList.remove('portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('portal-'+phase);
- const labels={walk:'THE WALK',open:'SOMETHING IS BEHIND YOU',grab:'REACHING FOR YOU',drag:'CLAIMED',gone:'ELIMINATED'};
+ const labels={walk:'THE WALK',open:'SOMETHING IS BEHIND YOU',grab:'REACHING FOR YOU',drag:'CLAIMED',gone:'ELIMINATED · TOWER OFFLINE'};
  $('#cutscene-caption').innerHTML='<strong>'+labels[phase]+'</strong><br>'+esc(name);
+ if(phase==='gone')markPortalTower(name);
 }
 function runPortalSequence(names,i=0){
  if(!cutsceneActive)return;if(i>=names.length){endCutscene();return;}
@@ -748,6 +757,7 @@ function runPortalSequence(names,i=0){
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
 function endCutscene(){
+ for(const name of portalTowerNames)markPortalTower(name);portalTowerNames=[];
  cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
@@ -770,6 +780,7 @@ function playCutscene(names,roundLabel='',stage=''){
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
   const portal=stage==='round1'||stage==='round2';
+  portalTowerNames=portal?[...names]:[];portalTowersMarked=new Set();
   overlay.classList.toggle('portal-mode',portal);
   $('#cutscene .eyebrow').textContent=portal?'THE VOID IS WAITING':'STRIKE AUTHORIZATION';
   $('#cutscene-label').textContent=(roundLabel?roundLabel+' — ':'')+(portal?'The portal claims its cut':'Nuclear elimination');
