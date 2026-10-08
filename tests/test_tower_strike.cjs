@@ -3,7 +3,7 @@ const source=fs.readFileSync('static/app.js','utf8');
 const code=source.slice(source.indexOf('function cutsceneRoster'),source.indexOf('// ONE dismiss path'));
 let now=0,id=0,ended=false;const jobs=new Map(),phases=[];
 const stage={innerHTML:''},caption={innerHTML:''};
-const ctx={state:{names:{p1:'Winner',p2:'Cut A',p3:'Cut B'}},cutsceneActive:true,cutsceneTimers:[],esc:s=>s,reducedMotion:()=>false,Math,
+const ctx={window:{},state:{names:{p1:'Winner',p2:'Cut A',p3:'Cut B'}},cutsceneActive:true,cutsceneTimers:[],esc:s=>s,reducedMotion:()=>false,Math,
  $:s=>s==='#cutscene-stage'?stage:caption,
  setTimeout:(fn,delay)=>{jobs.set(++id,{fn,time:now+delay});return id;},
  endCutscene:()=>{ended=true;ctx.cutsceneActive=false;},navigator:{vibrate(){}}};
