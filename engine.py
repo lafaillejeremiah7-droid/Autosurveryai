@@ -80,11 +80,46 @@ def final_schedule(roster):
              'B': [p for p in roster if p not in (roster[0], *pair)]}
             for i, pair in enumerate(list(combinations(roster[1:], 2))[:FINAL_GAMES])]
 
-def round2_schedule(roster):
-    """Five fixed 4v4 games. Both teams are drawn once and never switch."""
-    if len(roster)!=8: return []
-    return [{'game':i+1,'A':list(roster[:4]),'B':list(roster[4:])}
-            for i in range(ROUND2_GAMES)]
+def _round2_valid_lineups(lineups,order):
+    if not isinstance(lineups,list) or len(lineups)!=ROUND2_GAMES or len(order)!=8:return False
+    for m in lineups:
+        if not isinstance(m,dict) or set(m)!={'A','B'}:return False
+        a,b=m['A'],m['B']
+        if not isinstance(a,list) or not isinstance(b,list) or len(a)!=4 or len(b)!=4:return False
+        if len(set(a+b))!=8 or set(a+b)!=set(order):return False
+    return True
+
+def _round2_candidates(order):
+    return [{'A':list(a),'B':[p for p in order if p not in a]} for a in combinations(order,4)]
+
+def _round2_balance_cost(lineups,order):
+    """Penalize repeat teammates, unbalanced A/B placements and duplicate matchups."""
+    score=0;n=len(lineups)
+    for p in order:
+        as_a=sum(p in m['A'] for m in lineups)
+        score+=4*(2*as_a-n)**2
+    seen=set()
+    for m in lineups:
+        pair=frozenset((frozenset(m['A']),frozenset(m['B'])))
+        if pair in seen:score+=160
+        seen.add(pair)
+    for i,p in enumerate(order):
+        for q in order[i+1:]:
+            together=sum((p in m['A'])==(q in m['A']) for m in lineups)
+            score+=(7*together-3*n)**2
+            if n==ROUND2_GAMES:
+                score+=120*(max(0,together-3)**2+max(0,1-together)**2)
+    return score
+
+def round2_schedule(draw):
+    """Use saved per-game 4v4 teams; a bare roster is legacy-compatible."""
+    if isinstance(draw,dict):
+        order=draw.get('order',[])
+        lineups=draw.get('lineups',[])
+        if not _round2_valid_lineups(lineups,order):return []
+        return [{'game':i+1,'A':list(m['A']),'B':list(m['B'])} for i,m in enumerate(lineups)]
+    if len(draw)!=8:return []
+    return [{'game':i+1,'A':list(draw[:4]),'B':list(draw[4:])} for i in range(ROUND2_GAMES)]
 
 def has_inputs(stage):
     return bool(stage['extras']) or any(d.get('team') or any(v is not None for v in d['goals']) or any(d.get('results',[])) for d in stage['players'].values())
