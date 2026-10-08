@@ -101,18 +101,25 @@ let browser,page;
  await snap('extra-games-recovery');
  await page.locator('[data-action="close-result"]').click();
  assert(await page.locator('#screen-dialog #undo-action').count());
- // Fresh What Do You Want?: record all five fixed 4v4 matches via real controls, checking the saved draw.
+ // Fresh What Do You Want?: record all five rebalanced 4v4 matches via real controls, checking the saved draw.
  const fresh=copy(fixture);
  for(const key of ['round2','final']){
   fresh[key].extras=[];fresh[key].roster=[];
   for(const p of Object.keys(fresh.names)){fresh[key].players[p].goals=Array(key==='round2'?5:8).fill(null);if(key==='final')fresh[key].players[p].results=Array(8).fill('');}
  }
- fresh.round2.draw={order:[],revealed:0,completed:0,mode:'random'};
+ fresh.round2.draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};
  await restore(fresh);await open('round2');await page.locator('[data-action="r2-start"]').click();
- let firstTeams=null;
+ let firstTeams=null,anyChanged=false;
  for(let g=0;g<5;g++){
   const current=await page.evaluate(()=>view.round2.schedule[round2Game]);
-  if(firstTeams){assert.deepEqual(current.A,firstTeams.A);assert.deepEqual(current.B,firstTeams.B);}else firstTeams=current;
+  if(firstTeams){if(JSON.stringify([...current.A].sort())!==JSON.stringify([...firstTeams.A].sort())&&JSON.stringify([...current.A].sort())!==JSON.stringify([...firstTeams.B].sort()))anyChanged=true;}else firstTeams=current;
+  if(g===1){
+   assert.equal(await page.locator('[data-action="r2-reroll"]').isEnabled(),true);
+   const before=await page.evaluate(()=>view.round2.schedule[round2Game]);
+   await page.locator('[data-action="r2-reroll"]').click();await saved();
+   const after=await page.evaluate(()=>view.round2.schedule[round2Game]);
+   assert.notDeepEqual([...after.A].sort(),[...before.A].sort());
+  }
   const scorers=['A','B'].flatMap(t=>{const eligible=current[t].filter(p=>!['p4','p9'].includes(p));const limit=t==='A'?3:2;return Array.from({length:Math.min(limit,eligible.length)},(_,i)=>eligible[(g+i)%eligible.length]);});
   for(const p of [...current.A,...current.B]){
    await page.locator(`[data-path="round2.players.${p}.goals.${g}"]`).fill(scorers.includes(p)?'1':'0');await saved();
@@ -123,6 +130,7 @@ let browser,page;
   await page.locator('[data-action="close-result"]').click();
  }
  assert.equal((await page.evaluate(()=>view.round2.schedule)).length,5);
+ assert.equal(anyChanged,true,'Round 2 must vary teammates across five matches');
  assert.equal(await page.evaluate(()=>view.round2.complete),true);
  await nav('final');assert.equal(await page.locator('[data-path^="final.players"]').count(),6);
  // Team caps apply immediately to counters, typed/pasted input and server writes.
@@ -161,5 +169,5 @@ let browser,page;
  const bad=await page.evaluate(async()=>{const d=await (await fetch('/api/state')).json();return (await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':d.token},body:'[]'})).status;});
  assert.equal(bad,400);
  assert.deepEqual(errors,[],'uncaught browser errors');
- console.log('Browser checks passed: five rooms at desktop/phone sizes, focus, recovery, Undo/Retry, extra games, five fixed-team matches, and team goal caps in all three rounds (typing, counters, corrections, API).');
+ console.log('Browser checks passed: five rooms at desktop/phone sizes, focus, recovery, Undo/Retry, extra games, five variable-team matches with optional reshuffle, and team goal caps in all three rounds (typing, counters, corrections, API).');
 })().catch(async e=>{console.error(e);if(page)console.error(await page.evaluate(()=>({error:document.querySelector('#error')?.textContent,dirty,saving,undo:!!undoSnapshot,extraCount:state.round1.extras.length,undoHidden:document.querySelector('#undo-action')?.hidden})).catch(()=>null));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();fs.rmSync(tmp,{recursive:true,force:true});});
