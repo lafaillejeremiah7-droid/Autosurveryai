@@ -27,10 +27,10 @@ def fixture(final=True):
         s['round1']['players'][b]['goals'][g]=1
     s['round1']['players']['p2']['goals'][4]=1
     players=evaluate(s)['round1']['survivors'];schedule=round2_schedule(players)
-    s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':8,'completed':8,'mode':'random'}
+    s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':5,'completed':5,'mode':'random'}
     for g,match in enumerate(schedule):
         for team in ['A','B']:
-            scorers=[p for p in match[team] if p not in ['p4','p9']][:2]
+            scorers=[p for p in match[team] if p not in ['p4','p9']]
             for p in match[team]:s['round2']['players'][p]['goals'][g]=int(p in scorers)
     bind_rosters(s)
     if final:
@@ -86,11 +86,11 @@ class Rules(unittest.TestCase):
         self.assertEqual(first['game_points'],[8,8]+[4]*6)
     def test_blank_zero_and_fresh_average(self):
         s=fixture();row=lambda: next(r for r in evaluate(s)['round2']['rows'] if r['id']=='p1')
-        self.assertEqual((row()['played'],row()['average']),(6,4/6))
+        self.assertEqual((row()['played'],row()['average']),(5,1.0))
         s['round2']['players']['p1']['goals'][2]=0
-        self.assertEqual(row()['played'],6);self.assertAlmostEqual(row()['average'],3/6)
+        self.assertEqual(row()['played'],5);self.assertAlmostEqual(row()['average'],4/5)
         s['round2']['players']['p1']['goals'][2]=None
-        self.assertEqual((row()['played'],row()['average']),(5,3/5))
+        self.assertEqual((row()['played'],row()['average']),(4,1.0))
         self.assertFalse(evaluate(s)['round2']['complete'])
     def test_cut_tie_and_incomplete_extra(self):
         # Like Never Before all-10 8th/9th boundary bubble. p9 (8th, advancing) and p5
@@ -202,27 +202,21 @@ class Rules(unittest.TestCase):
         self.assertEqual(new['final']['players']['p1']['goals'],[None]*8)
         self.assertEqual(validate(new),new)
 
-    def test_round2_eight_game_rotation(self):
+    def test_round2_five_fixed_four_vs_four_games(self):
         roster=evaluate(fixture())['round1']['survivors'];schedule=round2_schedule(roster)
-        self.assertEqual(len(schedule),8)
-        self.assertEqual(len({tuple(sorted(g['sit'])) for g in schedule}),8)
-        for g in schedule:
-            self.assertEqual((len(g['A']),len(g['B']),len(g['sit'])),(3,3,2))
-            self.assertEqual(set(g['A']+g['B']+g['sit']),set(roster))
-        for p in roster:
-            self.assertEqual(sum(p in g['sit'] for g in schedule),2)
-            self.assertEqual(sum(p not in g['sit'] for g in schedule[:4]),3)
-            self.assertEqual(sum(p not in g['sit'] for g in schedule[4:]),3)
-            self.assertFalse(any(p in a['sit'] and p in b['sit'] for a,b in zip(schedule,schedule[1:])))
-            for q in roster:
-                if p==q:continue
-                teammates=sum(any(p in g[t] and q in g[t] for t in ['A','B']) for g in schedule)
-                opponents=sum(any(p in g[t] and q in g['B' if t=='A' else 'A'] for t in ['A','B']) for g in schedule)
-                self.assertIn(teammates,[1,2]);self.assertIn(opponents,[2,3])
+        self.assertEqual(len(schedule),5)
+        self.assertEqual([m['game'] for m in schedule],[1,2,3,4,5])
+        for match in schedule:
+            self.assertEqual((len(match['A']),len(match['B'])),(4,4))
+            self.assertEqual(set(match['A']+match['B']),set(roster))
+            self.assertNotIn('sit',match)
+            self.assertEqual(match['A'],schedule[0]['A'])
+            self.assertEqual(match['B'],schedule[0]['B'])
+        for p in roster:self.assertEqual(sum(p in m['A']+m['B'] for m in schedule),5)
     def test_round2_overall_cut_tie_and_extras(self):
         # Approved boundary-bubble model: extra goals FOLD into the tied players'
         # total/average and only the 6th/7th bubble re-ranks. With p4 and p8 tied
-        # at avg 1/6, giving BOTH an extra game where p8 outscores p4 overtakes
+        # at avg 1/5, giving BOTH an extra game where p8 outscores p4 overtakes
         # the previously-advancing p4. (Old lexicographic model expected a TIE
         # until every tied player had scored; the fold model resolves on average.)
         s=cut_tie_state('round2')
@@ -232,30 +226,29 @@ class Rules(unittest.TestCase):
         self.assertTrue(v['complete'])
         self.assertIn('p8',v['survivors']);self.assertNotIn('p4',v['survivors'])
         p8=next(r for r in v['rows'] if r['id']=='p8');p4=next(r for r in v['rows'] if r['id']=='p4')
-        self.assertEqual((p8['goals'],p8['played']),(4,7));self.assertAlmostEqual(p8['average'],4/7)
-        self.assertEqual((p4['goals'],p4['played']),(2,7));self.assertAlmostEqual(p4['average'],2/7)
+        self.assertEqual((p8['goals'],p8['played']),(4,6));self.assertAlmostEqual(p8['average'],4/6)
+        self.assertEqual((p4['goals'],p4['played']),(2,6));self.assertAlmostEqual(p4['average'],2/6)
         self.assertEqual(p8['status'],'ADVANCE');self.assertEqual(p4['status'],'CUT')
         # A clear top advancer is never disturbed by the bubble recompute.
         p1=next(r for r in v['rows'] if r['id']=='p1')
-        self.assertEqual((p1['status'],p1['rank'],p1['played'],p1['average']),('ADVANCE',1,6,2/6))
-    def test_round2_eighth_match_and_invalid_rest_score(self):
-        s=fixture();schedule=evaluate(s)['round2']['schedule'];p=schedule[7]['A'][0]
-        s['round2']['players'][p]['goals'][7]=None
+        self.assertEqual((p1['status'],p1['rank'],p1['played'],p1['average']),('ADVANCE',1,5,2/5))
+    def test_round2_fifth_match_required_and_team_goal_limit(self):
+        s=fixture();schedule=evaluate(s)['round2']['schedule'];p=schedule[4]['A'][0]
+        s['round2']['players'][p]['goals'][4]=None
         self.assertFalse(evaluate(s)['round2']['complete'])
-        s=fixture();p=schedule[0]['sit'][0]
-        before=next(r for r in evaluate(s)['round2']['rows'] if r['id']==p)
+        s=fixture();p=schedule[0]['A'][0]
         s['round2']['players'][p]['goals'][0]=999
-        after=next(r for r in evaluate(s)['round2']['rows'] if r['id']==p)
-        self.assertEqual((before['goals'],before['played']),(after['goals'],after['played']))
+        self.assertIn('score_error',evaluate(s)['round2']['games'][0])
         self.assertFalse(evaluate(s)['round2']['complete'])
+        with self.assertRaises(ValueError):validate(s)
     def test_legacy_round2_archive_and_current_save_preservation(self):
         old=legacy_fixture();old['settings']['goal_points']=2;old['wheel']['text']='A\nB'
         original=deepcopy(old);new=validate(old)
-        self.assertEqual(old,original);self.assertEqual(new['version'],4)
+        self.assertEqual(old,original);self.assertEqual(new['version'],5)
         self.assertEqual(new['legacy_round2']['round2'],old['round2'])
         self.assertEqual(new['legacy_round2']['final'],old['final'])
         for k in ['round1','names','settings','wheel']:self.assertEqual(new[k],old[k])
-        self.assertEqual(new['round2']['players']['p1']['goals'],[None]*8)
+        self.assertEqual(new['round2']['players']['p1']['goals'],[None]*5)
         self.assertEqual(new['final']['players']['p1']['goals'],[None]*8)
         current=fixture();original=deepcopy(current);self.assertEqual(validate(current),original)
 
@@ -316,51 +309,54 @@ class Rules(unittest.TestCase):
         s=fixture();s['names']['p1']='New name';self.assertFalse(evaluate(s)['round2']['stale'])
         s['round1']['players']['p5']['goals']=[8]*5;v=evaluate(s);self.assertTrue(v['round2']['stale']);self.assertFalse(v['round2']['complete'])
     def test_incorrect_team_counts(self):
-        s=fixture();s['round2']['players']['p1']['goals'][0]=0;self.assertFalse(evaluate(s)['round2']['complete'])
+        s=fixture();s['round2']['players']['p1']['goals'][0]=None;self.assertFalse(evaluate(s)['round2']['complete'])
 
 class Draws(unittest.TestCase):
     def fresh(self):
-        s=fixture(False);s['round2']=blank_round(8);s['final']=new_state()['final'];return bind_rosters(s)
-    def test_balanced_random_draw_all_matches_and_repeat_clicks(self):
+        s=fixture(False);s['round2']=blank_round(5,is_round2=True);s['final']=new_state()['final'];return bind_rosters(s)
+    def test_fixed_random_draw_five_matches_and_repeat_clicks(self):
         s=self.fresh();original=deepcopy(s);roster=evaluate(s)['round1']['survivors']
         with patch('engine.secrets.SystemRandom.shuffle',side_effect=lambda a:a.reverse()) as shuffle:
             s=round2_draw_action(s,'start');shuffle.assert_called_once()
         self.assertEqual(original['round2']['draw']['order'],[])
         self.assertEqual(s['round2']['draw']['order'],list(reversed(roster)))
         self.assertEqual(round2_draw_action(s,'start'),s)
-        draw_order=s['round2']['draw']['order'].copy();rests={p:0 for p in roster};previous=set()
-        for game in range(1,9):
+        draw_order=s['round2']['draw']['order'].copy()
+        first=round2_schedule(draw_order)[0]
+        for game in range(1,6):
             v=evaluate(s)['round2'];g=v['schedule'][game-1]
             self.assertEqual(v['draw']['revealed'],game)
-            self.assertFalse(previous.intersection(g['sit']))
-            for p in g['sit']:rests[p]+=1;self.assertLessEqual(rests[p],2)
+            self.assertEqual(g['A'],first['A']);self.assertEqual(g['B'],first['B'])
             with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
             for team in ['A','B']:
-                scorers=[p for p in g[team] if p not in ['p4','p9']][:2]
+                scorers=[p for p in g[team] if p not in ['p4','p9']]
                 for p in g[team]:s['round2']['players'][p]['goals'][game-1]=int(p in scorers)
             s=round2_draw_action(s,'done',game)
             self.assertEqual(s['round2']['draw']['order'],draw_order)
             with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
             self.assertEqual(validate(json.loads(json.dumps(s))),s)
-            previous=set(g['sit'])
-        self.assertTrue(all(n==2 for n in rests.values()))
         self.assertTrue(evaluate(s)['round2']['complete'])
-        self.assertTrue(all(r['played']==6 for r in evaluate(s)['round2']['rows']))
+        self.assertTrue(all(r['played']==5 for r in evaluate(s)['round2']['rows']))
         self.assertEqual(len(evaluate(s)['round2']['survivors']),6)
-    def test_draw_guards_and_preserves_existing_version3_scores(self):
+        with self.assertRaises(ValueError):round2_draw_action(s,'done',6)
+    def test_draw_guards_and_archives_old_rotations(self):
         with self.assertRaises(ValueError):round2_draw_action(new_state(),'start')
         s=self.fresh()
         with self.assertRaises(ValueError):round2_draw_action(s,'done',1)
         s=round2_draw_action(s,'start')
         with self.assertRaises(ValueError):round2_draw_action(s,'done',2)
-        old=fixture();old['version']=3;del old['round2']['draw'];original=deepcopy(old)
-        upgraded=validate(old)
+        old=fixture();old['version']=4
+        for p in old['round2']['players']:
+            old['round2']['players'][p]['goals'] += [0]*3
+        old['round2']['draw']['revealed']=8;old['round2']['draw']['completed']=8
+        original=deepcopy(old);upgraded=validate(old)
         self.assertEqual(old,original)
-        self.assertEqual(upgraded['round2']['players'],old['round2']['players'])
-        self.assertEqual(upgraded['final'],old['final'])
-        self.assertEqual(upgraded['round2']['draw']['mode'],'preserved')
-        self.assertEqual(upgraded['round2']['draw']['completed'],8)
-        self.assertEqual(evaluate(upgraded)['awarded'],30)
+        self.assertEqual(upgraded['version'],5)
+        self.assertEqual(upgraded['legacy_round2_rotation']['round2'],old['round2'])
+        self.assertEqual(upgraded['legacy_round2_rotation']['final'],old['final'])
+        self.assertEqual(upgraded['round2']['players']['p1']['goals'],[None]*5)
+        self.assertEqual(upgraded['round2']['draw']['order'],[])
+        self.assertEqual(upgraded['final']['players']['p1']['goals'],[None]*8)
     def test_store_draw_cannot_be_changed_by_regular_save(self):
         with tempfile.TemporaryDirectory() as d:
             store=Store(Path(d)/'data.json');store.save(self.fresh(),allow_draw=True)
