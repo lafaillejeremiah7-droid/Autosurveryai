@@ -327,8 +327,8 @@ function round(key){
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
  let html=title('ROUND 02','What Do You Want?','Five 4v4 games with changing teams. Reshuffle before a game starts to reduce teammate bias; the top six individuals advance.','8 → 6 PLAYERS')+notice(v.issues);
- if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to draw new fixed teams.'])+clearRoundPanel('round2');
- if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Like Never Before. The eight survivors enter fixed 4v4 teams.</div>')+clearRoundPanel('round2');
+ if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to generate new 4v4 matchups.'])+clearRoundPanel('round2');
+ if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Like Never Before. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(sitoutBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
  html+='<div class="score-help">FIVE 4v4 GAMES · CHANGING TEAMS · ALL EIGHT PLAY EVERY GAME · INDIVIDUAL GOALS DECIDE ADVANCEMENT</div>';
  html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||sitoutBusy;const why=i>=v.draw.revealed?`Finish Game ${v.draw.completed+1} first.`:'Wait for the current save.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
