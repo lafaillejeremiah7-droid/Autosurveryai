@@ -480,3 +480,17 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 .hand-upper{animation-delay:.08s}
 .hand-lower{animation-delay:.16s}
 .portal-gone .portal-hand{opacity:0!important}
+/* Round cubes replace player towers as the missile target. */
+#cutscene.cube-bomb-mode .cube-strike-svg{background:radial-gradient(ellipse at 50% 70%,#21313d,#070a12 75%)}
+#cutscene.cube-bomb-mode .strike-reticle{display:block;transform:translateX(450px)}
+#cutscene.cube-bomb-mode .strike-missile,#cutscene.cube-bomb-mode .strike-blast{display:block}
+.cube-strike-rubble{opacity:0}
+.cube-bomb-mode.phase-impact .round-bomb-cube{animation:cube-destroy 1s ease-in both}
+.cube-bomb-mode.phase-off .round-bomb-cube{opacity:0}
+.cube-bomb-mode.phase-impact .cube-strike-rubble,.cube-bomb-mode.phase-off .cube-strike-rubble{opacity:1}
+@keyframes cube-destroy{to{transform:translateY(80px) rotate(8deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){.cube-bomb-mode .round-bomb-cube{animation:none!important}.cube-bomb-mode.phase-off .round-bomb-cube{opacity:0}}
+
+.round-bomb-cube{transform-origin:450px 280px}
+.city-room.complete:is([data-open="round1"],[data-open="round2"],[data-open="final"]) .room-label{background:linear-gradient(140deg,#251b1a,#10151b);border-color:#976147;color:#d1c2bc}
+.city-room.complete:is([data-open="round1"],[data-open="round2"],[data-open="final"]) .room-entry{color:#e5a077}
