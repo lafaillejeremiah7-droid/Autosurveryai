@@ -709,8 +709,8 @@ function buildPortalScene(name){
  <path d="M0 330L450 265L900 330V420H0Z" fill="#090a12"/>
  <g stroke="#59506d" opacity=".18"><path d="M450 270L50 420M450 270L260 420M450 270L640 420M450 270L850 420M0 360H900M0 397H900"/></g>
  <ellipse class="portal-ground" cx="370" cy="339" rx="130" ry="24" fill="#9061be" opacity=".2" filter="url(#portal-glow)"/>
- <g class="dark-portal"><ellipse cx="355" cy="226" rx="79" ry="119" fill="#9658c7" opacity=".55" filter="url(#portal-glow)"/><ellipse cx="355" cy="226" rx="70" ry="111" fill="url(#portal-void)" stroke="#a97ce0" stroke-width="2"/>
- <ellipse class="portal-rim" cx="355" cy="226" rx="75" ry="116" fill="none" stroke="#dac2ff" stroke-width="2" stroke-dasharray="38 23 9 32"/>
+ <g class="dark-portal"><ellipse cx="355" cy="195" rx="115" ry="150" fill="#9658c7" opacity=".55" filter="url(#portal-glow)"/><ellipse cx="355" cy="195" rx="103" ry="142" fill="url(#portal-void)" stroke="#a97ce0" stroke-width="2"/>
+ <ellipse class="portal-rim" cx="355" cy="195" rx="110" ry="146" fill="none" stroke="#dac2ff" stroke-width="2" stroke-dasharray="38 23 9 32"/>
  <path d="M324 199L340 204M372 204L388 199" stroke="#cab2f0" stroke-width="3" opacity=".55"/></g>
  <ellipse class="walker-shadow" cx="520" cy="340" rx="40" ry="8" fill="#000" opacity=".7"/>
  <g class="portal-walker"><g class="walker-bob" fill="#030407" stroke="#665b74" stroke-width=".7">
@@ -722,9 +722,15 @@ function buildPortalScene(name){
  <g class="walker-leg front-leg"><path d="M2-6L9 31L3 58L3 65L25 65L26 60L13 57L21 31L17-6Z"/></g>
  <g class="walker-arm front-arm"><path d="M12-98Q18-99 21-88L28-68Q29-63 26-57L17-38Q12-34 9-40L16-65L5-88Q2-96 12-98Z"/></g>
  </g></g>
+ <g transform="translate(12 -58) rotate(7 350 270)"> <g class="portal-hand hand-upper"><path d="M313 257Q365 223 418 209L443 204L465 193Q472 190 475 196L461 211L492 198Q501 196 503 203L477 220L509 214Q516 214 515 222L483 235L507 237Q515 240 508 246L471 252Q455 269 433 263L399 270L321 297Z" fill="url(#hand-shade)" stroke="#9e879f" stroke-width="1.6"/>
+ <path d="M335 272L414 237M350 282L427 249M438 218L454 227M452 242L466 230M463 249L473 241" fill="none" stroke="#c3a3c4" stroke-width="2" opacity=".45"/>
+ <path d="M465 193L475 196L461 211M492 198L503 203L477 220M509 214L515 222L483 235" fill="#c8b6cf" opacity=".7"/></g></g>
  <g class="portal-hand"><path d="M313 257Q365 223 418 209L443 204L465 193Q472 190 475 196L461 211L492 198Q501 196 503 203L477 220L509 214Q516 214 515 222L483 235L507 237Q515 240 508 246L471 252Q455 269 433 263L399 270L321 297Z" fill="url(#hand-shade)" stroke="#9e879f" stroke-width="1.6"/>
  <path d="M335 272L414 237M350 282L427 249M438 218L454 227M452 242L466 230M463 249L473 241" fill="none" stroke="#c3a3c4" stroke-width="2" opacity=".45"/>
  <path d="M465 193L475 196L461 211M492 198L503 203L477 220M509 214L515 222L483 235" fill="#c8b6cf" opacity=".7"/></g>
+ <g transform="translate(-5 65) rotate(-5 350 270)"> <g class="portal-hand hand-lower"><path d="M313 257Q365 223 418 209L443 204L465 193Q472 190 475 196L461 211L492 198Q501 196 503 203L477 220L509 214Q516 214 515 222L483 235L507 237Q515 240 508 246L471 252Q455 269 433 263L399 270L321 297Z" fill="url(#hand-shade)" stroke="#9e879f" stroke-width="1.6"/>
+ <path d="M335 272L414 237M350 282L427 249M438 218L454 227M452 242L466 230M463 249L473 241" fill="none" stroke="#c3a3c4" stroke-width="2" opacity=".45"/>
+ <path d="M465 193L475 196L461 211M492 198L503 203L477 220M509 214L515 222L483 235" fill="#c8b6cf" opacity=".7"/></g></g>
  <g class="portal-dust" fill="#b5a0d5">${Array.from({length:14},(_,i)=>`<circle cx="${300+i*17}" cy="${180+(i*37)%145}" r="${1+i%3}" style="--dust-delay:${i*-.17}s"/>`).join('')}</g>
  <g class="portal-tower-aftermath"><rect width="900" height="420" fill="#050910"/><path d="M0 325L120 296L200 325L280 279L360 325L530 300L650 325L730 285L900 325V420H0Z" fill="#0e1721"/><ellipse cx="450" cy="344" rx="125" ry="14" fill="#131b24"/><g class="portal-falling-tower"><path d="M410 340V118H490V340Z" fill="#192530" stroke="#52606c" stroke-width="2"/><path d="M425 136H475M425 160H475M425 184H475M425 208H475M425 232H475M425 256H475M425 280H475M425 304H475" stroke="#99ffe0" stroke-width="5" class="portal-tower-lights"/><path d="M450 101L461 115L450 129L439 115Z" fill="#99ffe0" class="portal-tower-lights"/></g><g class="portal-tower-rubble" fill="#25303a"><path d="M365 344L393 316L425 345ZM426 345L449 321L481 345ZM482 345L513 321L550 345Z"/></g></g>
  <rect class="portal-vignette" width="900" height="420" fill="none" stroke="#000" stroke-width="45" opacity=".3"/>
