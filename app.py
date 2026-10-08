@@ -33,7 +33,7 @@ class Store:
             settings['disaster_started_at']=datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
         else:
             settings['disaster_started_at']=previous_settings['disaster_started_at']
-        round1_lineups(state)  # Keep (or generate once) the cosmetic Like Never Before splits so reloads/backups stay stable.
+        round1_lineups(state)  # Keep (or generate once) the cosmetic Be Better splits so reloads/backups stay stable.
         previous=self.state['round2']['draw'];incoming=state['round2']['draw']
         reset=not incoming['order'] and not state['round2']['roster'] and not has_inputs(state['round2']) and not has_inputs(state['final'])
         if not allow_draw and incoming!=previous and not reset:
@@ -63,7 +63,7 @@ def make_server(store,port=8765):
                 if route=='/api/backup':return self.send(200,store.state,filename='brawl-hockey-backup.json')
                 if route=='/api/standings.csv':
                     view=evaluate(store.state);r1={r['id']:r for r in view['round1']['rows']};r2={r['id']:r for r in view['round2']['rows']};fin={r['id']:r for r in view['final']['rows']}
-                    out=io.StringIO();writer=csv.writer(out);writer.writerow(['Player','Like Never Before','What Do You Want?','You Wanted to Win, Right? rank','Total points','Prize','Final status'])
+                    out=io.StringIO();writer=csv.writer(out);writer.writerow(['Player','Be Better','Enough','Forget The Past rank','Total points','Prize','Final status'])
                     for p,name in store.state['names'].items():
                         r=fin.get(p,{})
                         safe="'"+name if name.startswith(('=','+','-','@','\t','\r')) else name

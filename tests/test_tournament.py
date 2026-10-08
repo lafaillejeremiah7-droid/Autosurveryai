@@ -95,7 +95,7 @@ class Rules(unittest.TestCase):
         self.assertEqual((row()['played'],row()['average']),(4,1.0))
         self.assertFalse(evaluate(s)['round2']['complete'])
     def test_cut_tie_and_incomplete_extra(self):
-        # Like Never Before all-10 8th/9th boundary bubble. p9 (8th, advancing) and p5
+        # Be Better all-10 8th/9th boundary bubble. p9 (8th, advancing) and p5
         # (9th, cut) both total 1 goal -> tied at average 0.2 across the cut.
         # Approved fold model: an extra game where BOTH score equally keeps them
         # tied on effective average, so another extra game is requested; once
@@ -128,7 +128,7 @@ class Rules(unittest.TestCase):
         e={p:{'goals':None,'result':''} for p in IDS};e['p1']={'goals':1,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
         self.assertEqual(evaluate(s)['final']['rows'][0]['prize'],18)
     def test_final_podium_bubble_fold_and_safe_finalist(self):
-        # Approved model for You Wanted to Win, Right?: fold the extra game's points (NORMAL scoring,
+        # Approved model for Forget The Past: fold the extra game's points (NORMAL scoring,
         # no games 1-2 multiplier) into the tied podium bubble's total and re-rank
         # only the bubble. A safe non-bubble finalist keeps its rank/prize.
         s=final_tie_state()

@@ -24,7 +24,7 @@ let browser,page;
   await page.reload();await page.waitForFunction(()=>!!view);
  };
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
- for(const [key,last,label] of [['round1',4,'Like Never Before'],['round2',4,'What Do You Want?'],['final',7,'You Wanted to Win, Right?']]){
+ for(const [key,last,label] of [['round1',4,'Be Better'],['round2',4,'Enough'],['final',7,'Forget The Past']]){
   await restore(fixtures[key]);
   await page.evaluate(()=>{window.audioEvents=[];for(const name of ['portal','scream','cut','explosion','finalOmen','finalPurge','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
   await page.evaluate(()=>{window.towerCalls=[];const world=window.CityWorld||{};const original=world.eliminateTower?.bind(world);world.eliminateTower=id=>{window.towerCalls.push(id);original?.(id);};window.CityWorld=world;});
@@ -45,7 +45,7 @@ let browser,page;
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
   else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().strike?.phase==='inbound',null,{timeout:14000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);await page.waitForFunction(()=>CityWorld.getStatus().strike?.phase==='impact');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'city-cube-impact.png')});await page.keyboard.press('Escape');}
-  // You Wanted to Win, Right? also verifies automatic completion, with no skip.
+  // Forget The Past also verifies automatic completion, with no skip.
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
   assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','city strike exits the scoring room; portal-only skip keeps it');
   assert.deepEqual(await page.evaluate(()=>window.towerCalls),[],'removed towers must not receive elimination events');
@@ -62,7 +62,7 @@ let browser,page;
  assert.equal(await page.evaluate(()=>cutsceneActive),false,'partial tie must not eliminate anyone');
  await page.locator('#result-content [data-path="round1.extras.0.p9"]').fill('0');
  await page.locator('#cutscene[open]').waitFor();
- assert((await page.locator('#cutscene-label').textContent()).includes('Like Never Before'));
+ assert((await page.locator('#cutscene-label').textContent()).includes('Be Better'));
  assert((await page.locator('#cutscene-caption').innerText()).includes('ELIMINATED'));
  await page.locator('#cutscene-skip').click();await saved();
  assert(await page.locator('#result-dialog').evaluate(e=>e.open));
