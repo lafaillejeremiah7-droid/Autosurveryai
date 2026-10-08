@@ -53,6 +53,27 @@ for(const key of ['round1','round2','final']){
  assert.equal(duplicate.value,'0','duplicate Round 1 score input is updated');
  document.querySelectorAll=originalQueryAll;
 }
+// Opposing side can also win; it fills every remaining player score.
+{
+ const key='round2',teams=payload.view.round2.schedule[0],fresh=JSON.parse(JSON.stringify(payload.state));
+ for(const p of [...teams.A,...teams.B])fresh.round2.players[p].goals[0]=null;
+ fresh.round2.players[teams.A[0]].goals[0]=1;
+ fresh.round2.players[teams.B[0]].goals[0]=2;
+ vm.runInContext(`state=${JSON.stringify(fresh)};view=fixture.view;`,context);
+ assert.equal(vm.runInContext(`enterGoal('round2.players.${teams.B[1]}.goals.0',1)`,context),true);
+ const result=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(result.round2.players[teams.A[0]].goals[0],1,'other team scored goals are retained');
+ for(const p of [...teams.A.slice(1),...teams.B.slice(2)])assert.equal(result.round2.players[p].goals[0],0,'winner B also zero-fills all blank players');
+}
+// Two goals alone must not auto-fill anything; user can still score.
+{
+ const key='round2',teams=payload.view.round2.schedule[0],fresh=JSON.parse(JSON.stringify(payload.state));
+ for(const p of [...teams.A,...teams.B])fresh.round2.players[p].goals[0]=null;
+ vm.runInContext(`state=${JSON.stringify(fresh)};view=fixture.view;`,context);
+ assert.equal(vm.runInContext(`enterGoal('round2.players.${teams.A[0]}.goals.0',2)`,context),true);
+ const result=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
+ assert.equal(result.round2.players[teams.B[0]].goals[0],null,'no premature zeros at two goals');
+}
 // The null-to-zero behavior also applies when a third goal is typed directly.
 {
  const key='round2',teams=payload.view.round2.schedule[0],fresh=JSON.parse(JSON.stringify(payload.state));
