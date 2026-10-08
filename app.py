@@ -37,7 +37,7 @@ class Store:
         previous=self.state['round2']['draw'];incoming=state['round2']['draw']
         reset=not incoming['order'] and not state['round2']['roster'] and not has_inputs(state['round2']) and not has_inputs(state['final'])
         if not allow_draw and incoming!=previous and not reset:
-            raise ValueError('Saved sit-out draws cannot be edited or rerolled. Use the match buttons or restore a backup.')
+            raise ValueError('Saved Round 2 lineups are protected. Use the Reshuffle teams button before entering scores, or restore a backup.')
         state=bind_rosters(state)
         validate_goal_changes(state,None if restore else self.state)
         self.path.parent.mkdir(parents=True,exist_ok=True)
