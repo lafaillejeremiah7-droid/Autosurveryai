@@ -50,20 +50,21 @@ Each of the five Like Never Before games gets its own **fresh random 5v5 split**
 
 The five splits are generated once, saved, and included in backups, so they stay stable across reloads. If you want to vary the matchups for a specific game, use its **Reshuffle teams** button on the Like Never Before screen to draw a new random split for that game. Reshuffling is **locked once a game has any score entered**, so it can never silently invalidate recorded goals; clear the game's scores first if you need to reshuffle it.
 
-## What Do You Want? — five fixed 4v4 games
+## What Do You Want? — five reshuffleable 4v4 games
 
-1. Once Like Never Before is complete, click **Draw fixed 4v4 teams**. The server shuffles the eight survivors once into permanent four-player Team A and Team B rosters.
-2. Play **five games** with precisely the same teammates and opponents each time. There are **no sit-outs, substitutions, switches, or redraws**.
-3. Enter a goal count for all eight players each game (zero means they played but did not score). Each team's combined goals must be at most three, and matches cannot finish 3–3.
-4. Mark the current match done to unlock the next. The top six individuals ranked by average goals per match advance; the bottom two are eliminated. Ties crossing sixth/seventh require extra games.
+1. After Like Never Before, choose **Generate balanced 4v4 games**. This draws five saved 4v4 matchups for the eight survivors, varying teammates and opponents across games.
+2. Before scoring the current game, click **Reshuffle teams** if you want a different 4v4 lineup. The new draw replaces *only that game's* teams and prioritizes balanced teammate exposure across the whole five-game schedule.
+3. Once any player has a score entered for the game, the reshuffle button locks. Clear that game's scores to re-enable reshuffling. Past completed games cannot be reshuffled.
+4. Enter scores for all eight players in each of **five games**, including explicit zeroes; nobody sits out. Teams must obey the three-goal combined limit and cannot tie 3–3.
+5. Click **Match N done** to unlock the next game. Individual average goals per game determines advancement: top six survive; bottom two are eliminated; a sixth/seventh tie requires extra games.
 
-The initial team draw, the eight player scores, and match progress are saved. Refreshing the browser does not reshuffle teams.
+Lineups are saved, so reloads do not change them. The reshuffle action does not erase goals or change the teams of any other game. Randomization reduces structural teammate bias but cannot guarantee equally strong teams.
 
 ## Tournament flow
 
 1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
 2. **Like Never Before:** each of the five games gets an automatic fresh random 5v5 split. Ranking is by individual total goals rather than team wins; an optional per-game **Reshuffle teams** button draws a new split and locks once that game has any score. Enter all five games, with a score for every one of the ten players each game including explicit zeroes. Rank all ten players together by total goals (and goals per match): the top eight advance, the bottom two are cut. A tie across eighth and ninth requires extra games.
-3. **What Do You Want?:** the eight survivors are randomly divided into two permanent four-player teams. Team A faces Team B for five 4v4 games, without substitutions, player switching, or sit-outs. Enter a score for every player each game, including zeroes; missing scores prevent completion. Rank all eight individually by this round's average goals per match: the top six advance and the bottom two are cut. A tie across sixth and seventh requires extra games. The app saves the teams once before scoring.
+3. **What Do You Want?:** the eight survivors play five 4v4 matches with balanced, changing teammates and opponents. A **Reshuffle teams** button is available before recording any goals for the current game; completed games and saved scores are protected. No player sits out. Enter eight scores including zeroes per game. Rank all individuals by average goals per match: the top six advance, bottom two are cut, and ties across sixth/seventh require extra games.
 4. **You Wanted to Win, Right?:** the six survivors start at zero. Follow the displayed schedule of eight balanced 3v3 matches. Every player plays eight matches; teammate and opponent counts are kept as even as possible. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–8 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all eight games are complete.
 5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
 
@@ -84,7 +85,7 @@ Each round has a per-match **Submit Match N of X** control: Like Never Before ha
 - **Submitting a non-final match** opens a dismissible popup with the cumulative round standings through that match. It lists each player's rank, name, running total, average, and provisional status. The totals and averages are summed over the matches played so far, not just the one match you submitted. Close the popup to continue to the next match.
 - **Submitting the final match** of a round opens a fullscreen total round ranking for all players, with totals, an average column, and a status badge each. For the two cutting rounds (Like Never Before and What Do You Want?) the badge is **ADVANCE**, **CUT**, or **TIE** and the average column shows goals per match. For You Wanted to Win, Right?, which decides the podium rather than a cut, the badge is **FINAL** or **TIE** (there is no "cut" to a next round) and the average column shows average points per game (total points / games played). When no tie exists the fullscreen reports that the round is settled. When a tie sits across the cut line, the fullscreen states that extra games are needed and hosts the **Add extra game** controls directly. As you enter and save extra scores the fullscreen recomputes live and flips **TIE** to the settled badge as the bubble resolves; if players stay tied it asks for another extra game. Close the fullscreen to return to the dashboard.
 
-What Do You Want? uses a **Match N of 5 done** server flow, advancing the saved fixed-team match, and then shows the same popup or fullscreen. Like Never Before and You Wanted to Win, Right? use client-side submit controls that read the already-entered per-game scores, so no extra server round-trip is needed to show their standings.
+What Do You Want? uses a **Match N of 5 done** server flow, advancing the saved per-game team match, and then shows the same popup or fullscreen. Like Never Before and You Wanted to Win, Right? use client-side submit controls that read the already-entered per-game scores, so no extra server round-trip is needed to show their standings.
 
 Normal final points = **1.5 × goals + 1 for a win**. Games 1–2 double the entire score. Rotation balances match counts, but double games mean weighted exposure is not identical. Set the multiplier to 1 before play if all matches should have equal weight.
 
@@ -102,21 +103,13 @@ A few quality-of-life controls make the dashboard easier to operate:
   - **Clear scoring** resets the point values that apply to all rounds back to defaults: win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched.
   Each is a separate button with copy stating exactly what it clears, and both can be undone immediately afterwards.
 - **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit Like Never Before, resolve a tie, draw and play What Do You Want?, play You Wanted to Win, Right?, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
-- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the Like Never Before **Reshuffle teams**, the What Do You Want? **Draw fixed 4v4 teams** / **Match N done** / match tabs, or the You Wanted to Win, Right? **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
+- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the Like Never Before **Reshuffle teams**, the What Do You Want? **Generate balanced 4v4 games** / **Reshuffle teams** / **Match N done** / match tabs, or the You Wanted to Win, Right? **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
 - **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle Like Never Before teams, clear player names, clear scoring, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
 
 
-## What Do You Want? fixed team schedule
+## What Do You Want? matchup balancing
 
-One shuffle assigns roster slots 1–4 to **Team A** and slots 5–8 to **Team B**. These teams are unchanged throughout all five games.
-
-| Game | Team A | Team B |
-| --- | --- | --- |
-| 1 | Slots 1–4 | Slots 5–8 |
-| 2 | Slots 1–4 | Slots 5–8 |
-| 3 | Slots 1–4 | Slots 5–8 |
-| 4 | Slots 1–4 | Slots 5–8 |
-| 5 | Slots 1–4 | Slots 5–8 |
+Each game independently contains four players on Team A and four on Team B. The system saves five different team compositions, tries to avoid repeated teammate pairings, and balances appearances on the A and B sides. The **Reshuffle teams** button replaces the upcoming unscored game's matchup with another division of the same eight players. Existing matchups are untouched.
 
 ## Extra games
 
@@ -138,7 +131,8 @@ If players remain tied after an extra game, add another extra game and score onl
 
 - Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser. Save status, **Retry save**, and **Undo** stay accessible inside whichever monitor or results window is open.
 - Initial and migrated Like Never Before lineups are saved at startup, so restarting before the first score cannot reshuffle them.
-- **Existing eight-match sit-out rotation saves are not silently reinterpreted.** Their Round 2 scores, final scores, and prior settings are copied to `legacy_round2_rotation` in the downloadable backup. The five-game fixed 4v4 Round 2 and dependent final restart with blank scores and new team assignments. Player names, Like Never Before results, and settings are retained.
+- **Existing eight-match sit-out rotation saves are not silently reinterpreted.** Their Round 2 scores, final scores, and prior settings are copied to `legacy_round2_rotation` in the downloadable backup. The five-game 4v4 Round 2 and dependent final restart with blank scores and new team assignments. Player names, Like Never Before results, and settings are retained.
+- Version 5 saves with already scored fixed-team Round 2 matches upgrade without losing scored games or final results. Completed/scored matches keep their original teams, while future unscored games receive balanced lineups.
 - Original five-game-final saves also archive their old final under `legacy_final`; scoring defaults become goal 1.5 / win 1. The archived records include the old scoring settings and remain in downloadable backups.
 - **Download backup** saves the full tournament as JSON. **Restore backup** validates and restores it.
 - **Export CSV** downloads the player summary.
@@ -157,7 +151,7 @@ python -m unittest discover -s tests -v
 
 If Node.js is available, verify the dashboard controls with `node tests/test_ui.cjs`.
 
-For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five monitors at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all five fixed 4v4 games. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
+For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five monitors at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all five rotating 4v4 games. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
 
 The tests cover advancement, top-eight-of-ten Like Never Before ranking by total goals, the per-game 5v5 splits (valid 5/5 partitions, idempotent generation, advancement independent of valid A/B grouping, and the reshuffle guard that refuses a scored game), per-game readiness requiring all ten scores, blank versus zero, exact averages, multiple extra games, the 8th/9th boundary-bubble fold, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration (including old fixed-team Like Never Before saves that drop their per-player team and assignment fields), large wheel lists, wheel persistence, independent live goal/win points, five-match fixed Round 2 validation, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.
 
