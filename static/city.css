@@ -134,3 +134,44 @@ body.round-strike{overflow:hidden}
 #round-strike-hud button{display:block;margin:12px auto 0;padding:10px 22px;background:#331a21;border:1px solid #f98c6b;color:#fff;cursor:pointer}
 #sound-toggle{padding:8px 10px;border:1px solid #abc8d455;background:#101f2ac9;color:#eaf6ff;font:10px monospace;cursor:pointer}
 @media(max-width:380px){.room-header{height:auto;min-height:78px;flex-wrap:wrap;gap:8px}.header-controls{margin-left:auto}}
+
+/* IMMERSIVE AERIAL POV: the renderer is the entire browser viewport.
+   #walkway-view is a sibling of the HUD, not a panel in the shelter. */
+#walkway-view{
+ position:fixed;inset:0;width:100%;height:100vh;height:100dvh;
+ margin:0;padding:0;border:0;border-radius:0;box-shadow:none;
+ background:#06131c;overflow:hidden;pointer-events:none;
+ z-index:0;isolation:isolate;
+}
+#walkway-view .city-world{
+ position:absolute;inset:0;width:100%;height:100%;min-height:0;
+ border:0;border-radius:0;box-shadow:none;overflow:hidden;
+}
+#walkway-view #city-canvas{display:block;width:100%;height:100%}
+#walkway-view .city-vignette{
+ background:linear-gradient(180deg,#01101b72 0%,#03111b19 24%,transparent 52%,#03131d98 100%),
+ linear-gradient(90deg,#0415213b,transparent 25%,transparent 75%,#0415213b);
+}
+#walkway-view #door-labels{position:absolute;inset:0;z-index:4;pointer-events:none}
+#walkway-view .walkway-caption{
+ position:absolute;inset:auto 0 0;padding:18px clamp(16px,3vw,48px) 14px;
+ z-index:5;display:flex;justify-content:space-between;gap:12px;
+ background:linear-gradient(0deg,#06151cc4,transparent);
+ text-shadow:0 2px 6px #000;
+}
+/* Screen-space sight reticle: subtle, not a visible viewing box. */
+#walkway-view::after{
+ content:'';position:absolute;left:50%;top:50%;width:10px;height:10px;
+ border:1px solid #d9eff780;border-radius:50%;transform:translate(-50%,-50%);
+ box-shadow:0 0 15px #b5eaff40;z-index:3;pointer-events:none;
+}
+.room-header,.room,.room-footer{position:relative;z-index:1}
+.shelter{background:transparent;box-shadow:none;border:0}
+.round-strike #walkway-view{z-index:90}
+.round-strike #walkway-view .city-world{position:absolute;inset:0;width:100%;height:100%}
+.round-strike #walkway-view::after{display:none}
+@media(max-width:599px){
+ #walkway-view{height:100vh;height:100dvh}
+ #walkway-view .walkway-caption{padding:9px 14px;font-size:7px}
+ #walkway-view::after{width:7px;height:7px}
+}
