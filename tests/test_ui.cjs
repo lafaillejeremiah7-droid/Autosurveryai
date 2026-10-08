@@ -41,7 +41,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  await click({action:'clear-r2-game'});
  await click({step:'1',target});assert.equal(vm.runInContext(`value('${target}')`,context),1);
  await click({action:'clear-r2-game'});assert.equal(vm.runInContext(`value('${target}')`,context),null);
- await click({action:'reset-all'});assert.equal(vm.runInContext('state.version',context),5);
+ await click({action:'reset-all'});assert.equal(vm.runInContext('state.version',context),6);
  assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),5);
  const ready=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import Draws;from engine import evaluate,round2_draw_action;s=round2_draw_action(Draws().fresh(),'start');g=evaluate(s)['round2']['schedule'][0];[(s['round2']['players'][p]['goals'].__setitem__(0,0)) for p in g['A']+g['B']];s=round2_draw_action(s,'done',1);print(json.dumps({'state':s,'view':evaluate(s),'revision':2}))"],{cwd:root,encoding:'utf8'}));
@@ -50,10 +50,11 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  await click({action:'r2-done',match:'1'});
  assert.equal(vm.runInContext('round2Game',context),1);assert.equal(vm.runInContext('tab',context),'round2');
  const fixedHTML=vm.runInContext('round2Page()',context);
- assert(fixedHTML.includes('FIXED 4v4'),'new round uses fixed teams');
+ assert(fixedHTML.includes('BALANCED 4v4'),'new round uses balanced per-game teams');
  assert(fixedHTML.includes('data-r2-game="2" disabled'),'third match stays locked until second is completed');
  assert(fixedHTML.includes('Match 2 of 5'),'new round uses five games');
  assert(!fixedHTML.includes('SITTING OUT')&&!fixedHTML.includes('sit-out wheel'),'there is no sit-out wheel');
+ assert(fixedHTML.includes('data-action="r2-reroll"'),'Round 2 has its own reshuffle button');
  // // Name wheel removal: the standalone 'Name your fate' draw is gone. There is no
  // more wheelMode and no navigable Name wheel room. The tabs array must not expose
  // a 'wheel'/'Name wheel' entry, renderRoom() must not emit a data-open="wheel"
