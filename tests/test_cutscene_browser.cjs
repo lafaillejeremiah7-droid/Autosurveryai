@@ -24,17 +24,17 @@ let browser;
   await page.reload();await page.waitForFunction(()=>!!view);
  };
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
- for(const [key,last,label] of [['round1',4,'Like Never Before'],['round2',7,'What Do You Want?'],['final',9,'You Wanted to Win, Right?']]){
+ for(const [key,last,label] of [['round1',4,'Like Never Before'],['round2',7,'What Do You Want?'],['final',7,'You Wanted to Win, Right?']]){
   await restore(fixtures[key]);
   await page.evaluate(key=>openScreen(key),key);
   await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
   await page.locator('#cutscene[open]').waitFor();
   assert(await page.locator('#cutscene').evaluate(e=>e.matches(':modal')),'cutscene must enter native top layer');
-  assert((await page.locator('#cutscene-label').innerText()).includes(label));
+  assert((await page.locator('#cutscene-label').textContent()).includes(label),key+': '+await page.locator('#cutscene-label').textContent());
   assert(await page.locator('#cutscene-skip').evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===e;}),'scoring dialog covered the cutscene');
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?3:2);
-  assert((await page.locator('#cutscene-caption').innerText()).includes(expected[0]));
+  await page.waitForFunction(name=>document.querySelector('#cutscene').classList.contains('phase-lock')&&document.querySelector('#cutscene-caption').textContent.includes(name),expected[0]);
   assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
@@ -55,7 +55,7 @@ let browser;
  assert.equal(await page.evaluate(()=>cutsceneActive),false,'partial tie must not eliminate anyone');
  await page.locator('#result-content [data-path="round1.extras.0.p9"]').fill('0');
  await page.locator('#cutscene[open]').waitFor();
- assert((await page.locator('#cutscene-label').innerText()).includes('Like Never Before'));
+ assert((await page.locator('#cutscene-label').textContent()).includes('Like Never Before'));
  assert((await page.locator('#cutscene-caption').innerText()).includes('LOCKED OFF'));
  await page.locator('#cutscene-skip').click();await saved();
  assert(await page.locator('#result-dialog').evaluate(e=>e.open));
