@@ -72,5 +72,31 @@ class Regressions(unittest.TestCase):
             self.assertEqual(loaded.state['names']['p1'],'Jay 🏒')
             self.assertEqual(validate(json.loads(path.read_text(encoding='utf-8'))),loaded.state)
 
+    def test_old_match_counts_preserve_overflow_scores(self):
+        s=fixture()
+        for p in IDS:
+            s['final']['players'][p]['goals'] += [2,1]
+            s['final']['players'][p]['results'] += ['W','L']
+            s['round2']['players'][p]['goals']=s['round2']['players'][p]['goals'][:5]
+        migrated=validate(s)
+        self.assertEqual(len(migrated['final']['players']['p1']['goals']),8)
+        archived=migrated['legacy_game_lengths']['final']['p1']
+        self.assertEqual(archived['goals'][-2:],[2,1])
+        self.assertEqual(archived['results'][-2:],['W','L'])
+        self.assertEqual(migrated['round2']['players']['p1']['goals'][-3:],[None]*3)
+        self.assertEqual(validate(migrated),migrated)
+
+    def test_malformed_goals_are_not_silently_cleared(self):
+        for value in [None,{},'not scores']:
+            s=fixture();s['round1']['players']['p1']['goals']=value
+            with self.assertRaises(ValueError):validate(s)
+
+    def test_v3_short_match_count_migrates_without_index_error(self):
+        s=fixture();s['version']=3;s['round2'].pop('draw')
+        for p in IDS:s['round2']['players'][p]['goals']=s['round2']['players'][p]['goals'][:5]
+        migrated=validate(s)
+        self.assertEqual(migrated['version'],4)
+        self.assertEqual(len(migrated['round2']['players']['p1']['goals']),8)
+
 
 if __name__=='__main__':unittest.main()
