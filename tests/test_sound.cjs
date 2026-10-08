@@ -30,5 +30,9 @@ assert.deepEqual(voice.startArgs,[3]);assert.deepEqual(voice.stopCalls,[[3.7]],'
 const bufferCount=buffers.length;a.scream();assert.equal(buffers.length,bufferCount,'repeat scenes reuse the decoded recording');assert.deepEqual(voice.stopCalls.at(-1),[],'a replay cancels the previous voice');
 const live=nodes.filter(n=>n.onended);a.cut();assert(live.every(n=>n.stopCalls.at(-1)?.length===0),'cut stops all live sounds immediately');
 a.scream();const activeScream=nodes.filter(n=>n.onended&&n.stopCalls.at(-1)?.length);a.toggle();assert(activeScream.every(n=>n.stopCalls.at(-1)?.length===0),'mute stops an active recorded scream');const count=nodes.length;a.portal();a.scream();a.explosion();assert.equal(nodes.length,count,'mute blocks recorded and synthesized effects');assert.equal(button.textContent,'Sound off');a.toggle();
-a.doom(.4,false);assert.equal(nodes.length,count,'quiet early city');a.doom(.8,false);assert(nodes.length>count,'near-doomsday explosions');const before=nodes.length;a.doom(1,true);assert(nodes.length>before,'arrival explosion');const arrival=nodes.length;a.doom(1,true);assert.equal(nodes.length,arrival,'arrival cannot repeat every countdown tick');a.stop();
-console.log('Sound passed: audible recorded voice, cached offline sample, exact 700 ms cutoff, immediate replay/skip/mute cleanup, and doomsday effects.');
+a.doom(.4,false);assert.equal(nodes.length,count,'quiet early city');a.doom(.8,false);assert(nodes.length>count,'near-doomsday explosions');const before=nodes.length;a.doom(1,true);assert(nodes.length>before,'arrival explosion');const arrival=nodes.length;a.doom(1,true);assert.equal(nodes.length,arrival,'arrival cannot repeat every countdown tick');
+const beforeBirds=nodes.length;a.ambientBirds(true);assert(nodes.length>beforeBirds,'morning birds chirp when calm, unmuted and running');
+const beforeOff=nodes.length;a.ambientBirds(false);assert.equal(nodes.length,beforeOff,'chaos (birds off) produces no chirp');
+a.ambientBirds(false);a.toggle();const mutedCount=nodes.length;a.ambientBirds(true);assert.equal(nodes.length,mutedCount,'mute silences morning birds');a.toggle();
+a.stop();
+console.log('Sound passed: audible recorded voice, cached offline sample, exact 700 ms cutoff, immediate replay/skip/mute cleanup, morning bird chirps gated by mute and calm, and doomsday effects.');

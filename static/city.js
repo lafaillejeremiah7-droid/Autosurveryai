@@ -62,6 +62,10 @@
  const roomKeys=['settings','round1','round2','final','overview'];
  const roomColors=[[.6,.91,1],[.47,.94,.71],[1,.66,.29],[1,.34,.3],[.93,.77,.45]];
  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
+ // Calm-morning ambience: birds are fully present near progress 0 and gone by this
+ // threshold. The audio chirps in BrawlAudio use the same cutoff so the sky birds and
+ // their song appear and disappear together.
+ const BIRD_THRESHOLD=.2;
  let settings={},state={progress:0,phase:'CITY AT PEACE'},width=1,height=1,rooms=[],dirty=true,geometryDirty=true;
  let staticMesh=new Mesh(),staticArray=new Float32Array(),fireSites=[],damageCount=0,activeBuildings=buildings;
  let elapsed=0,lastFrame=0,lastSample=0,paused=false,suspended=false,inside=false,transition=null,lastBuild=-1,needsLayout=true;
@@ -198,8 +202,34 @@
   const vertices=[[4,0,0],[-3,0,.6],[-3,0,-.6],[-1,.35,0],[-1,0,4],[-1,0,-4],[-3,1.4,0]];
   for(const f of [[0,1,3],[0,3,2],[0,4,1],[0,2,5],[1,6,2],[1,2,3]])mesh.tri(...f.map(i=>tr(vertices[i])),col);
  }
+ // A single low-poly bird: a shallow V of two wing triangles that gently flaps.
+ function bird(mesh,x,y,z,scale,flap,col){
+  const span=scale,drop=scale*(.3+flap*.5);
+  const body=[x,y,z];
+  mesh.tri(body,[x-span,y+drop,z-span*.2],[x-span*.5,y+scale*.08,z-span*.1],col);
+  mesh.tri(body,[x+span*.5,y+scale*.08,z+span*.1],[x+span,y+drop,z+span*.2],col);
+ }
+ // Draw a handful of ambient birds across the morning sky. They only appear while the
+ // city is calm (progress<BIRD_THRESHOLD) and fade out as doom rises. Under reduced
+ // motion or the static fallback they are drawn in fixed poses with no animation, and
+ // when the world is paused the shared frozen `t` keeps them still like the rest.
+ function morningBirds(mesh,t){
+  const p=state.progress;
+  if(p>=BIRD_THRESHOLD)return;
+  const fade=clamp(1-p/BIRD_THRESHOLD);
+  const still=media.matches||mode==='static';
+  const count=Math.max(0,Math.round(fade*5));
+  const col=color([.1,.11,.14],[.16,.18,.2],p);
+  for(let i=0;i<count;i++){
+   const lane=rand(i+41),u=still?(.15+lane*.6):((t*(.012+lane*.01)+lane)%1);
+   const x=mix(-120,130,u),y=40+lane*26+(still?0:Math.sin(t*.5+i)*2.5),z=-30-i*22;
+   const flap=still?.5:(Math.sin(t*7+i*2)*.5+.5);
+   bird(mesh,x,y,z,2.4+lane*1.6,flap,col);
+  }
+ }
  function effects(t){
   const m=new Mesh(),p=state.progress;
+  morningBirds(m,t);
   const stops=tournament.map(stage=>({...stage,room:rooms.find(r=>r.key===stage.key)})).filter(s=>s.room);
   for(let i=0;i<stops.length;i++){
    const stop=stops[i],room=stop.room,[x,,z]=room.pos,size=room.size;
@@ -332,7 +362,12 @@
   const next=window.CityTimeline.sample(settings,now);
   if(next.progress!==state.progress){geometryDirty=true;dirty=true;}
   state=next;
-  if(!suspended&&!paused)window.BrawlAudio?.doom(next.progress,next.phase==='DOOMSDAY');
+  if(!suspended&&!paused){
+   window.BrawlAudio?.doom(next.progress,next.phase==='DOOMSDAY');
+   // Morning birdsong rides the same progress/phase signal as the doom cue: on while
+   // the city is calm, off the instant chaos ramps up. Pausing the world freezes it.
+   window.BrawlAudio?.ambientBirds(next.progress<BIRD_THRESHOLD&&next.phase!=='DOOMSDAY');
+  }else window.BrawlAudio?.ambientBirds(false);
   document.body.style.setProperty('--city-doom',String(state.progress));
   const label=document.getElementById('city-status'),pct=document.getElementById('city-damage'),bar=document.getElementById('city-progress');
   if(label)label.textContent=state.phase;
