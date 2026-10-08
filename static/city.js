@@ -404,6 +404,11 @@
    }
    monuments=value;needsLayout=true;dirty=true;
   },
+  eliminateTower(id){
+   // Presentation replay only: tournament results remain the source of truth.
+   if(!monuments?.towers.some(player=>player.id===id&&player.cut))return;
+   falls[id]=towerTime;geometryDirty=true;dirty=true;
+  },
   setTournament(stages){
    const signature=JSON.stringify(stages.map(s=>[s.key,s.status]));
    if(signature===JSON.stringify(tournament.map(s=>[s.key,s.status])))return;
