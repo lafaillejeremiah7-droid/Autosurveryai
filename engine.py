@@ -108,6 +108,31 @@ def _normalize_round1(s):
             if isinstance(d,dict): d.pop('team',None)
     return s
 
+def _normalize_game_lengths(s):
+    """Repair saves made by versions with different match counts.
+
+    Older builds used a five-game Round 2 and a ten-game Final. Those saves
+    should still open so the host can correct or clear them instead of the
+    server refusing to start. Existing entries are kept where they fit; new
+    slots are blank and therefore cannot count as completed games.
+    """
+    targets={'round1':5, 'round2':8, 'final':FINAL_GAMES}
+    for key,target in targets.items():
+        stage=s.get(key)
+        if not isinstance(stage,dict) or not isinstance(stage.get('players'),dict):
+            continue
+        for d in stage['players'].values():
+            if not isinstance(d,dict):
+                continue
+            goals=d.get('goals',[])
+            if not isinstance(goals,list): goals=[]
+            d['goals']=(goals[:target] + [None]*target)[:target]
+            if key=='final':
+                results=d.get('results',[])
+                if not isinstance(results,list): results=[]
+                d['results']=(results[:target] + ['']*target)[:target]
+    return s
+
 def migrate(s):
     if s.get('version')==3:
         s=deepcopy(s);stage=s['round2'];draw=blank_draw()
@@ -123,7 +148,8 @@ def migrate(s):
             draw={'order':list(roster),'revealed':max(last,min(completed+1,8)),'completed':completed,'mode':'preserved'}
         stage['draw']=draw;s['version']=4
         return _normalize_round1(s)
-    if s.get('version') not in (1,2): return _normalize_round1(deepcopy(s))
+    if s.get('version') not in (1,2):
+        return _normalize_game_lengths(_normalize_round1(deepcopy(s)))
     s=deepcopy(s)
     if s['version']==1:
         old=s['final']
