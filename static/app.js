@@ -708,24 +708,21 @@ function cutsceneFurnace(){
   '</g>';
 }
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
-// Build the overlay SVG. The furnace reuses url(#fire) from the world layer's <defs>;
-// a local <defs> copy keeps it self-contained if the world scene is ever removed.
+// Build the nuclear-strike overlay. Every target remains in the DOM so the cut list is
+// auditable, but only one target is activated at a time by playCutscene().
 function buildCutscene(names){
  const reduced=reducedMotion();
- // When animating, start each escort just off-screen left and stagger it in; the static
- // (reduced-motion) summary lines the escorts up across the stage so every name reads.
  const escorts=names.map((n,i)=>cutsceneEscort(n,i)).join('');
- const svg='<svg viewBox="0 0 900 400" role="img" aria-hidden="true">'+
-  '<defs><radialGradient id="furnace-fire"><stop stop-color="#fff4c4"/><stop offset=".18" stop-color="#ffcb76"/><stop offset=".48" stop-color="#ef753c" stop-opacity=".85"/><stop offset="1" stop-color="#d1492b" stop-opacity="0"/></radialGradient></defs>'+
-  cutsceneFurnace()+
-  `<g class="cut-escorts">${escorts}</g>`+
-  '<g class="cutscene-poof" transform="translate(770,188)"><circle r="46" fill="#f4e4c7"/><circle r="30" fill="#fff" opacity=".8"/><text y="7" text-anchor="middle" fill="#c0392b" font-size="26" font-weight="900">POOF!</text></g>'+
-  '</svg>';
- const stage=$('#cutscene-stage');if(stage)stage.innerHTML=svg.replace('url(#fire)','url(#furnace-fire)');
+ const svg='<svg class="nuke-svg" viewBox="0 0 900 400" role="img" aria-hidden="true">'+
+  '<defs><radialGradient id="nuke-fire"><stop stop-color="#fffde2"/><stop offset=".16" stop-color="#fff16d"/><stop offset=".42" stop-color="#ff7d32"/><stop offset=".75" stop-color="#d7352e" stop-opacity=".78"/><stop offset="1" stop-color="#461321" stop-opacity="0"/></radialGradient><linearGradient id="nuke-sky" x2="0" y2="1"><stop stop-color="#180d2a"/><stop offset="1" stop-color="#06070d"/></linearGradient></defs>'+
+  '<rect width="900" height="400" fill="url(#nuke-sky)"/>'+ '<path d="M0 307H900" stroke="#ff5575" stroke-opacity=".22"/><path d="M450 42V350M140 190H760" stroke="#ff9b74" stroke-opacity=".16" stroke-dasharray="4 10"/>'+
+  '<g class="nuke-warning"><text x="450" y="65" text-anchor="middle" fill="#ffb2a2" font-size="13" font-family="monospace" letter-spacing="4">TARGET ACQUIRED</text><text x="450" y="88" text-anchor="middle" fill="#ff5d68" font-size="10" font-family="monospace" letter-spacing="3">STRIKE INBOUND</text></g>'+
+  '<g class="nuke-missile"><path d="M110 305L440 174" stroke="#fff4bc" stroke-width="3"/><path d="M440 174l-18-1 10 12z" fill="#fff4bc"/><circle cx="440" cy="174" r="8" fill="#fff"/></g>'+ '<g class="cut-escorts">'+escorts+'</g>'+ '<g class="nuke-impact"><circle class="nuke-flash" cx="450" cy="215" r="35" fill="url(#nuke-fire)"/><circle class="nuke-ring" cx="450" cy="215" r="60" fill="none" stroke="#ffad55" stroke-width="7"/><path class="nuke-cloud" d="M450 210c-42 0-45-27-22-41-8-32 42-45 57-14 32-18 62 13 45 39 23 17 4 42-23 42H395c-29 0-43-31-18-47-6-31 45-44 60-15z" fill="url(#nuke-fire)"/><path d="M430 243h40l15 86h-70z" fill="#ed5b35" opacity=".9"/><text class="nuke-boom" x="450" y="365" text-anchor="middle" fill="#fff0a5" font-size="21" font-family="monospace" font-weight="900" letter-spacing="3">NUKED</text></g>'+ '</svg>';
+ const stage=$('#cutscene-stage');if(stage)stage.innerHTML=svg;
  const caption=$('#cutscene-caption');
  if(caption)caption.innerHTML=reduced
-  ?`<strong>ELIMINATED:</strong> ${names.map(esc).join(', ')}`
-  :`The crowd carries ${names.length===1?'one survivor':names.length+' survivors'} to the furnace…`;
+  ?'<strong>ELIMINATED:</strong> '+names.map(esc).join(', ')
+  :'<strong>STANDBY:</strong> nuclear strike queue loaded — '+names.length+' target'+(names.length===1?'':'s');
 }
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
@@ -751,7 +748,7 @@ function playCutscene(names,roundLabel=''){
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
   buildCutscene(names);
-  $('#cutscene-label').textContent=roundLabel?roundLabel+' — Into the furnace':'Into the furnace';
+  $('#cutscene-label').textContent=roundLabel?roundLabel+' — Nuclear elimination':'Nuclear elimination';
   overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
   // Native top layer keeps the cutscene above both scoring and tie-result dialogs.
   overlay.showModal();
@@ -765,47 +762,21 @@ function playCutscene(names,roundLabel=''){
    cutsceneTimers.push(setTimeout(endCutscene,1800));
    return;
   }
-  // Animated carry: the thrower escorts WALK each victim in from the left to a spot in
-  // front of the furnace, then HEAVE the carried figure into the mouth, then a POOF. The
-  // victims are handled one at a time (staggered) so the crowd clearly walks each over.
+  // Each cut player gets a full five-second strike beat. The queue advances only after
+  // the previous target's impact has finished, so no elimination is visually skipped.
   const stage=$('#cutscene-stage');
   const escorts=stage&&stage.querySelectorAll?[...stage.querySelectorAll('.cut-escort')]:[];
-  const poof=stage&&stage.querySelector?stage.querySelector('.cutscene-poof'):null;
-  const CARRY=1200,HEAVE=520,STEP=CARRY+HEAVE+260; // per-victim beat
-  // Escort start/stage positions in the 900x400 viewBox (ground line y=230).
-  const START_X=-120,STAGE_X=640,STAGE_Y=230;
-  escorts.forEach((grp,i)=>{
-   const delay=240+i*STEP;
-   const carry=grp.querySelector?grp.querySelector('.cut-carry'):null;
-   if(grp.animate){
-    // Walk the whole bundle (throwers + carried figure) from off-screen to the furnace.
-    grp.animate([
-     {transform:`translate(${START_X}px,${STAGE_Y}px)`,offset:0},
-     {transform:`translate(${STAGE_X}px,${STAGE_Y}px)`,offset:1}
-    ],{duration:CARRY,delay,easing:'ease-in-out',fill:'forwards'});
-   }
-   // Then the throwers HEAVE the carried figure the short remaining distance into the
-   // glowing mouth (a quick shove up-and-in) and it fades as it enters.
-   if(carry&&carry.animate){
-    carry.animate([
-     {transform:'translate(2px,-54px) rotate(0deg)',opacity:1,offset:0},
-     {transform:'translate(70px,-96px) rotate(60deg)',opacity:1,offset:.5},
-     {transform:'translate(130px,-42px) rotate(140deg)',opacity:0,offset:1}
-    ],{duration:HEAVE,delay:delay+CARRY,easing:'cubic-bezier(.4,-.3,.8,1)',fill:'forwards'});
-   }
-   // POOF at the mouth right as this victim disappears in.
-   if(poof&&poof.classList){
-    cutsceneTimers.push(setTimeout(()=>{
-     poof.classList.remove('go');
-     // reflow so the animation can retrigger for each victim
-     if(poof.getBoundingClientRect)void poof.getBoundingClientRect();
-     poof.classList.add('go');
-    },delay+CARRY+HEAVE-80));
-   }
-  });
-  const total=240+escorts.length*STEP+400;
-  // Natural completion -> single dismiss path.
-  cutsceneTimers.push(setTimeout(endCutscene,total));
+  const TARGET_MS=5000;
+  const activate=(i)=>{
+   if(i>=escorts.length){endCutscene();return;}
+   escorts.forEach((g,j)=>{g.classList.toggle('active',j===i);g.setAttribute('aria-hidden',j===i?'false':'true');});
+   const target=names[i]||'UNKNOWN';
+   const caption=$('#cutscene-caption');if(caption)caption.innerHTML='<strong>NUCLEAR LOCK:</strong> '+esc(target)+' — impact sequence active';
+   overlay.classList.remove('nuke-impact');void overlay.offsetWidth;overlay.classList.add('nuke-impact');
+   cutsceneTimers.push(setTimeout(()=>overlay.classList.remove('nuke-impact'),4400));
+   cutsceneTimers.push(setTimeout(()=>activate(i+1),TARGET_MS));
+  };
+  activate(0);
  });
 }
 
