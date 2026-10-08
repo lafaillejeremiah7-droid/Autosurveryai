@@ -358,6 +358,30 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 @media(max-width:350px){.room-grid{grid-template-columns:1fr;max-width:240px}.monitor{height:282px}.monitor-face{top:25px;left:calc(50% - 72px);width:144px;height:144px}.monitor:before{top:153px}.monitor .screen-bottom{top:196px}.monitor .preview h2{font-size:20px}}
 
 /* Nuclear elimination sequence: one target, one impact, five seconds. */
+/* Tower strike phases are timed in JS; impact shake begins only on collision. */
+.tower-strike-svg{background:radial-gradient(ellipse at 50% 80%,#26333d,#080b15 70%);width:100%;height:100%}
+.strike-tower.selected .tower-body{stroke:#ff697a;stroke-width:4;filter:drop-shadow(0 0 10px #ff3657)}
+.strike-tower.destroyed .tower-body,.strike-tower.destroyed .tower-windows{transform:translateY(150px) rotate(12deg);opacity:0;transition:transform .65s,opacity .4s}
+.tower-rubble{opacity:0}.strike-tower.destroyed .tower-rubble{opacity:1}
+.strike-tower.destroyed text{fill:#67727b}
+.strike-reticle,.strike-missile,.strike-blast{transform:translateX(var(--strike-x,450px));transform-box:view-box}
+.strike-missile,.strike-blast{opacity:0}
+.phase-inbound .strike-missile{opacity:1;animation:tower-missile .7s linear both}
+.phase-impact .strike-blast,.phase-off .strike-blast{opacity:1}
+.phase-impact .strike-fireball{transform-origin:0 220px;animation:tower-fireball 1.7s ease-out both}
+.phase-impact .strike-shockwave{transform-origin:0 290px;animation:tower-shockwave 1.7s ease-out both}
+.phase-impact .strike-mushroom{transform-origin:0 280px;animation:tower-mushroom 1.7s ease-out both}
+.phase-impact .cutscene-stage{animation:nuke-camera-shake .105s steps(2,end) infinite}
+.phase-off .strike-fireball,.phase-off .strike-shockwave{opacity:0}.phase-off .strike-mushroom{opacity:.35}
+.phase-off .strike-reticle{opacity:0}.phase-off .cutscene-caption strong{font-size:clamp(28px,5vw,54px);letter-spacing:5px;color:#ff7786}
+.phase-lock .strike-reticle,.phase-inbound .strike-reticle{filter:drop-shadow(0 0 9px #ff4b64)}
+.phase-impact .cutscene-stage:after{content:'';position:absolute;inset:0;pointer-events:none;background:#fff3aa;animation:tower-impact-flash .7s ease-out both}
+@keyframes tower-missile{from{transform:translate(var(--strike-x),-80px)}to{transform:translate(var(--strike-x),185px)}}
+@keyframes tower-fireball{0%{transform:scale(.05);opacity:1}25%{transform:scale(1.5);opacity:1}100%{transform:scale(2);opacity:0}}
+@keyframes tower-shockwave{0%{transform:scale(.1);opacity:1}100%{transform:scale(3);opacity:0}}
+@keyframes tower-mushroom{0%{transform:scale(.1);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:.8}}
+@keyframes tower-impact-flash{from{opacity:.85}to{opacity:0}}
+@media(prefers-reduced-motion:reduce){.phase-impact .cutscene-stage,.phase-impact .cutscene-stage:after{animation:none!important}.strike-tower.destroyed .tower-body,.strike-tower.destroyed .tower-windows{transition:none}.phase-off .strike-blast{opacity:.4}}
 .cutscene{background:radial-gradient(circle at 50% 45%,#3b1324 0%,#100713 58%,#05050a 100%);color:#fff0dc}
 .cutscene-head .eyebrow{color:#ff8c8c;letter-spacing:4px;text-shadow:0 0 16px #ff3d5c}
 .cutscene-head h2{color:#fff1dd;text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 22px #ff365766}
