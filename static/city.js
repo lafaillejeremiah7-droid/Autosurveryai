@@ -65,7 +65,9 @@
  let settings={},state={progress:0,phase:'CITY AT PEACE'},width=1,height=1,rooms=[],dirty=true,geometryDirty=true;
  let staticMesh=new Mesh(),staticArray=new Float32Array(),fireSites=[],damageCount=0,activeBuildings=buildings;
  let elapsed=0,lastFrame=0,lastSample=0,paused=false,suspended=false,inside=false,transition=null,lastBuild=-1,needsLayout=true;
- const baseCamera={eye:[0,1.75,23],target:[0,1.75,-55]};
+ // The viewer floats over the city, looking forward and downward (not top-down).
+ const aerialEyeHeight=23,aerialTargetHeight=5;
+ const baseCamera={eye:[0,aerialEyeHeight,33],target:[0,aerialTargetHeight,-50]};
  let sceneView='street',returnRoute=[];
  let camera={eye:baseCamera.eye.slice(),target:baseCamera.target.slice()},vp;
  let gl=null,ctx=null,program,skyProgram,staticBuffer,dynamicBuffer,skyBuffer,uniforms,skyUniforms;
@@ -350,7 +352,8 @@
   }
   if(inside||sceneView!=='street')return;
   camera={eye:baseCamera.eye.slice(),target:baseCamera.target.slice()};
-  // Standing eye height, with small horizontal tremors only; never an aerial camera.
+  // Hovering first-person camera. The tiny motion suggests flight above the streets.
+  if(moving){const hover=Math.sin(elapsed*.62)*.14;camera.eye[1]+=hover;camera.target[1]+=hover;}
   if(moving&&state.progress>.22){
    const pulse=Math.pow(Math.max(0,Math.sin(elapsed*(1+state.progress*1.5))),18)*state.progress*.035;
    camera.eye[0]+=Math.sin(elapsed*43)*pulse;
@@ -391,7 +394,7 @@
   }
   return new Promise(done=>{transition={at:performance.now(),duration:Math.min(4200,route.length*680),nodes:route,done};});
  }
- function pose(x,z,tx,tz){return {eye:[x,1.75,z],target:[tx,1.75,tz]};}
+ function pose(x,z,tx,tz){return {eye:[x,aerialEyeHeight,z],target:[tx,aerialTargetHeight,tz]};}
  function home(){sceneView='street';return travel([pose(0,camera.eye[2]+8,0,23),baseCamera],false);}
  function cancelStrike(){
   strikeGeneration++;const done=strike?.done;strike=null;
