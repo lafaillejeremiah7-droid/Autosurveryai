@@ -190,6 +190,18 @@ def _normalize_game_lengths(s):
 
 def migrate(s):
     version=s.get('version')
+    if version==5:
+        # Previously completed or scored games retain their old fixed lineups.
+        # Unplayed games receive new balanced 4v4 teams without losing scores.
+        s=deepcopy(s);draw=s['round2']['draw'];order=draw.get('order',[])
+        if order:
+            old={'A':list(order[:4]),'B':list(order[4:])}
+            locked={i:old for i in range(ROUND2_GAMES)
+                    if i<draw['completed'] or any(s['round2']['players'][p]['goals'][i] is not None for p in IDS)}
+            draw['lineups']=_round2_balanced_lineups(order,locked)
+        else:draw['lineups']=[]
+        s['version']=6
+        return _normalize_game_lengths(_normalize_round1(s))
     if version in (3,4):
         # The old 3v3 sit-out rotation cannot be reinterpreted as fixed 4v4.
         # Archive the full previous rounds, then require fresh Round 2 scoring.
@@ -270,6 +282,8 @@ def validate(s):
                     raise ValueError('Invalid Round 2 draw progress.')
                 if not order and (draw['revealed'] or draw['completed']): raise ValueError('Draw the first match before recording progress.')
                 if order and draw['revealed']<1: raise ValueError('A saved draw must reveal its first match.')
+                if (order and not _round2_valid_lineups(draw.get('lineups'),order)) or (not order and draw.get('lineups')!=[]):
+                    raise ValueError('Round 2 saved teams must be five complete 4v4 splits.')
             for d in a['players'].values():
                 if len(d['goals'])!={'round1':5,'round2':5,'final':FINAL_GAMES}[stage]: raise ValueError('Like Never Before needs 5 games, What Do You Want? 5 games, and You Wanted to Win, Right? 8 games.')
                 for v in d['goals']: numeric(v,True,True)
