@@ -36,7 +36,7 @@ let browser;
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?3:2);
   await page.waitForFunction(({name,key})=>document.querySelector('#cutscene').classList.contains(key==='final'?'phase-lock':'portal-grab')&&document.querySelector('#cutscene-caption').textContent.includes(name),{name:expected[0],key});
-  if(key!=='final'){assert.equal(await page.locator('.portal-walker').count(),1);assert.equal(await page.locator('.portal-hand').count(),1);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-portal.png')});}}
+  if(key!=='final'){assert.equal(await page.locator('.portal-walker').count(),1);assert.equal(await page.locator('.portal-hand').count(),3);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-portal.png')});}}
   assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
   if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('portal-drag'));if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'portal-pull.png')});}
