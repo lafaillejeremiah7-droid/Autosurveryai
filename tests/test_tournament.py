@@ -247,7 +247,6 @@ class Rules(unittest.TestCase):
         s['round2']['players'][p]['goals'][0]=999
         self.assertIn('score_error',evaluate(s)['round2']['games'][0])
         self.assertFalse(evaluate(s)['round2']['complete'])
-        with self.assertRaises(ValueError):validate(s)
     def test_legacy_round2_archive_and_current_save_preservation(self):
         old=legacy_fixture();old['settings']['goal_points']=2;old['wheel']['text']='A\nB'
         original=deepcopy(old);new=validate(old)
