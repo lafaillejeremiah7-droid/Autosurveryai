@@ -430,3 +430,36 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 @keyframes nuke-screen-flash{0%,8%{opacity:0}12%{opacity:.88}20%{opacity:.05}100%{opacity:0}}
 @keyframes nuke-camera-shake{0%,100%{transform:translate(0,0) rotate(0)}10%{transform:translate(-12px,8px) rotate(-1.2deg)}20%{transform:translate(14px,-9px) rotate(1.1deg)}30%{transform:translate(-16px,-5px) rotate(-1.4deg)}40%{transform:translate(13px,11px) rotate(1.5deg)}50%{transform:translate(-12px,7px) rotate(-.9deg)}60%{transform:translate(16px,-10px) rotate(1.3deg)}70%{transform:translate(-10px,-7px) rotate(-1deg)}80%{transform:translate(8px,8px) rotate(.8deg)}90%{transform:translate(-5px,-4px) rotate(-.5deg)}}
 @media(prefers-reduced-motion:reduce){.cutscene.nuke-impact .cutscene-stage,.cutscene.nuke-impact .cutscene-head,.cutscene.nuke-impact .cutscene-caption,.cutscene.nuke-impact:before{animation:none!important}.nuke-warning,.nuke-missile,.nuke-impact,.nuke-flash,.nuke-ring,.nuke-cloud,.nuke-boom{animation:none!important}.nuke-impact{opacity:1}.nuke-flash{opacity:.8}.nuke-ring{opacity:.4;transform:scale(2)}.nuke-cloud{opacity:1}.cut-escort{display:none}.cut-escort.active{display:block;opacity:1}}
+
+/* Portal elimination: articulated silhouette, reach, contact, recoil and pull. */
+#cutscene.portal-mode{background:radial-gradient(ellipse at 50% 40%,#21162d,#030409 75%)}
+#cutscene.portal-mode .cutscene-stage{aspect-ratio:900/420;border-color:#9b76bd55;box-shadow:0 0 80px #8e5ab122}
+.portal-scene{display:block;width:100%;height:100%}
+.portal-player-name{position:absolute;bottom:4%;left:10%;right:10%;text-align:center;font:700 clamp(16px,2.8vw,28px) monospace;letter-spacing:3px;overflow-wrap:anywhere;color:#ded3ee;text-shadow:0 2px 9px #000}
+.portal-mode .cutscene-caption strong{color:#d0a6f6}
+.portal-mode .cutscene-head .eyebrow{color:#b18ccc}
+.dark-portal{transform-origin:355px 226px;animation:portal-appear 5s cubic-bezier(.2,.7,.2,1) both}
+.portal-rim{transform-origin:355px 226px;animation:portal-swirl 2.7s linear infinite;filter:drop-shadow(0 0 5px #b888e1)}
+.portal-walker{animation:portal-abduct 5s linear both}
+.walker-bob{animation:walker-bounce .56s ease-in-out infinite}
+.walker-leg{transform-origin:0 -8px;animation:walker-stride .56s ease-in-out infinite alternate}
+.rear-leg{animation-delay:-.56s;fill:#090910;stroke:#4b4659}
+.walker-arm{transform-origin:0 -100px;animation:walker-swing .56s ease-in-out infinite alternate}
+.rear-arm{animation-delay:-.56s;fill:#090910;stroke:#4b4659}
+.portal-hand{transform-origin:320px 270px;animation:portal-reach 5s cubic-bezier(.35,0,.2,1) both}
+.walker-shadow{animation:portal-shadow 5s linear both}
+.portal-dust circle{animation:portal-motes 1.8s ease-in infinite;animation-delay:var(--dust-delay)}
+.portal-grab .walker-bob,.portal-drag .walker-bob,.portal-gone .walker-bob,.portal-grab .walker-leg,.portal-drag .walker-leg,.portal-gone .walker-leg,.portal-grab .walker-arm,.portal-drag .walker-arm,.portal-gone .walker-arm{animation-play-state:paused}
+.portal-grab .portal-scene{filter:brightness(1.2)}
+.portal-gone .portal-player-name{color:#8e769e}
+@keyframes walker-stride{from{transform:rotate(-23deg)}to{transform:rotate(23deg)}}
+@keyframes walker-swing{from{transform:rotate(18deg)}to{transform:rotate(-18deg)}}
+@keyframes walker-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes portal-abduct{0%{transform:translate(490px,274px)}18%{transform:translate(514px,274px)}40%{transform:translate(548px,274px)}54%{transform:translate(560px,274px) rotate(-7deg)}60%{transform:translate(545px,265px) rotate(-17deg)}73%{transform:translate(400px,251px) rotate(-32deg) scale(.65);opacity:1}82%,100%{transform:translate(355px,241px) rotate(-42deg) scale(.08);opacity:0}}
+@keyframes portal-appear{0%,17%{transform:scale(.01);opacity:0}20%{opacity:1;transform:scale(.08,1)}36%,78%{transform:scale(1);opacity:1}90%,100%{transform:scale(.03,1);opacity:0}}
+@keyframes portal-reach{0%,39%{transform:translate(-20px,0) scaleX(.02);opacity:0}41%{opacity:1}53%,57%{transform:translate(54px,-18px) scaleX(1.15);opacity:1}76%{transform:translate(-35px,-10px) scaleX(.4);opacity:1}82%,100%{transform:translate(-65px,0) scaleX(.02);opacity:0}}
+@keyframes portal-shadow{0%{transform:translateX(-30px)}40%{transform:translateX(28px)}54%{transform:translateX(40px);opacity:.7}82%,100%{transform:translateX(-165px) scaleX(.1);opacity:0}}
+@keyframes portal-swirl{to{transform:rotate(360deg)}}
+@keyframes portal-motes{0%{transform:translate(0,0);opacity:0}20%{opacity:.5}100%{transform:translate(-45px,-18px);opacity:0}}
+@media(max-width:600px){#cutscene.portal-mode .cutscene-stage{aspect-ratio:1.8}.portal-scene{object-fit:contain}.portal-player-name{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.portal-mode .portal-scene *{animation:none!important}.portal-mode .dark-portal{transform:scale(1);opacity:1}.portal-mode .portal-walker,.portal-mode .portal-hand,.portal-mode .walker-shadow,.portal-mode .portal-dust{display:none}}
