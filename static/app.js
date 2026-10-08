@@ -11,10 +11,9 @@ const playedLabel=(n,regulation)=>n>regulation?`${regulation} + ${n-regulation} 
 const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const tabs=[['settings','Players & rules'],['round1','Like Never Before'],['round2','What Do You Want?'],['final','You Wanted to Win, Right?'],['overview','Leaderboard']];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-// Bundled human scream + local effects; "Help me!" uses the device's voice.
+// Bundled human scream + local effects. No text-to-speech.
 window.BrawlAudio=(()=>{
  let ctx=null,muted=false,active=new Set(),lastBoom=0,lastDoom=false,screamBuffer=null,screamSource=null;
- const speech=window.speechSynthesis;
  function unlock(){try{const C=window.AudioContext||window.webkitAudioContext;if(!ctx&&C)ctx=new C();ctx?.resume();}catch{}}
  document.addEventListener('pointerdown',unlock);document.addEventListener('keydown',unlock);
  function tone(freq,duration,volume,type='sine',end=freq){if(muted||!ctx||ctx.state!=='running')return null;const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(1,end),ctx.currentTime+duration);g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+duration);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+duration);active.add(o);o.onended=()=>active.delete(o);return o;}
@@ -34,7 +33,6 @@ window.BrawlAudio=(()=>{
  }
  function scream(){
   if(muted||!ctx||ctx.state!=='running')return;
-  speech?.cancel();
   if(screamSource)try{screamSource.stop();}catch{}
   const source=ctx.createBufferSource(),gain=ctx.createGain(),now=ctx.currentTime;
   source.buffer=recordedScream();source.connect(gain);gain.connect(ctx.destination);
@@ -44,9 +42,9 @@ window.BrawlAudio=(()=>{
   source.start(now);source.stop(now+.7);active.add(source);screamSource=source;
   source.onended=()=>{active.delete(source);if(screamSource===source)screamSource=null;source.disconnect();gain.disconnect();};
  }
- function stop(){for(const n of active)try{n.stop();}catch{}active.clear();screamSource=null;speech?.cancel();}
+ function stop(){for(const n of active)try{n.stop();}catch{}active.clear();screamSource=null;}
  function explosion(big=false){noise(big?2.3:1.2,big?.32:.16,big?1400:650);tone(big?70:48,big?2:1,.18,'sine',20);}
- return {unlock,stop,portal(){noise(1.5,.12,1800);tone(55,1.7,.13,'sawtooth',130);},help(){if(muted||!speech||!window.SpeechSynthesisUtterance)return;speech.cancel();const u=new window.SpeechSynthesisUtterance('Help me!');u.rate=1.25;u.pitch=1.5;u.volume=.85;speech.speak(u);},scream,cut(){stop();},explosion,
+ return {unlock,stop,portal(){noise(1.5,.12,1800);tone(55,1.7,.13,'sawtooth',130);},scream,cut(){stop();},explosion,
  doom(progress,arrived){if(!arrived)lastDoom=false;if(muted||document.hidden)return;const now=Date.now();if(arrived&&!lastDoom){lastDoom=true;explosion(true);lastBoom=now;}else if(progress>=.65&&now-lastBoom>(arrived?4500:10000-6000*progress)){explosion(progress>.9);lastBoom=now;}},
  toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
 })();
@@ -763,8 +761,8 @@ function buildPortalScene(name){
 }
 function portalPhase(phase,name){
  const overlay=$('#cutscene');overlay.classList.remove('portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('portal-'+phase);
- if(phase==='open'){window.BrawlAudio?.portal();window.BrawlAudio?.help();}if(phase==='grab')window.BrawlAudio?.scream();if(phase==='drag')window.BrawlAudio?.cut();
- const labels={walk:'THE WALK',open:'HELP ME!',grab:'AAAA—',drag:'CLAIMED',gone:'ELIMINATED'};
+ if(phase==='open')window.BrawlAudio?.portal();if(phase==='grab')window.BrawlAudio?.scream();if(phase==='drag')window.BrawlAudio?.cut();
+ const labels={walk:'THE WALK',open:'THE PORTAL OPENS',grab:'GRABBED',drag:'PULLED INTO THE VOID',gone:'ELIMINATED'};
  $('#cutscene-caption').innerHTML='<strong>'+labels[phase]+'</strong><br>'+esc(name);
 
 }
@@ -774,8 +772,8 @@ function runPortalSequence(names,i=0){
  const schedule=(fn,delay)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},delay));
  if(!reducedMotion()){
   schedule(()=>portalPhase('open',name),900);
-  schedule(()=>portalPhase('grab',name),2000);
-  schedule(()=>portalPhase('drag',name),2700);
+  schedule(()=>portalPhase('grab',name),2700); // Play recorded scream only when the hands contact the player.
+  schedule(()=>portalPhase('drag',name),3400); // Abruptly cut the scream 0.7s after contact.
   schedule(()=>portalPhase('gone',name),4100);
  }
  schedule(()=>runPortalSequence(names,i+1),5000);
