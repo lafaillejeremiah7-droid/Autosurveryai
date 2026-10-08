@@ -348,7 +348,7 @@
  }
  function positionLabels(){
   const host=document.getElementById('door-labels');if(!host||!vp)return;
-  const names=['Players & rules','Like Never Before','What Do You Want?','You Wanted to Win, Right?','Leaderboard'];
+  const names=['Players & rules','Be Better','Enough','Forget The Past','Leaderboard'];
   const items=sceneView==='podium'&&monuments?podiumSites.map(site=>({id:'place'+site.place,pos:add(site.pos,[0,6,0]),label:site.place+'. '+(monuments.slots.find(s=>s.place===site.place)?.names.join(' · ')||'Awaiting finalist')})):
    rooms.map((room,i)=>({id:room.key,pos:add(room.pos,[0,room.size*.82+.55,room.size*.5]),label:String(i+1).padStart(2,'0')+' / '+names[i],locked:tournament.some(t=>t.key===room.key&&t.status==='sealed')}));
   const signature=items.map(i=>i.id+':'+i.label+':'+i.locked).join('|');

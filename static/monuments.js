@@ -6,7 +6,7 @@
   const towers=Object.entries(state.names).map(([id,name],i)=>{
    const cut1=first&&r1.rows.some(r=>r.id===id&&r.status==='CUT');
    const cut2=second&&r2.rows.some(r=>r.id===id&&r.status==='CUT');
-   return {id,name:name||'Player '+(i+1),cut:cut1||cut2,stage:cut1?'Like Never Before':cut2?'What Do You Want?':null,status:cut1?'CUT · TO LIVE':cut2?'CUT · TO DIE':second?'FINALIST':first?'SURVIVOR':'IN PLAY'};
+   return {id,name:name||'Player '+(i+1),cut:cut1||cut2,stage:cut1?'Be Better':cut2?'Enough':null,status:cut1?'CUT · TO LIVE':cut2?'CUT · TO DIE':second?'FINALIST':first?'SURVIVOR':'IN PLAY'};
   });
   const eligible=second&&!final.stale,rows=eligible?final.rows:[],complete=eligible&&!!final.complete;
   const slots=[2,1,3].map(place=>{
