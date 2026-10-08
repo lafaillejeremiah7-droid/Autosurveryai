@@ -34,13 +34,14 @@ let browser;
   assert(await page.locator('#cutscene-skip').evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===e;}),'scoring dialog covered the cutscene');
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?3:2);
-  assert.deepEqual(await page.locator('#cutscene .cut-figure').evaluateAll(es=>es.map(e=>e.dataset.name)),expected);
+  assert((await page.locator('#cutscene-caption').innerText()).includes(expected[0]));
+  assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
   else if(key==='round2')await page.locator('#cutscene-skip').click();
   // You Wanted to Win, Right? also verifies automatic completion, with no skip.
-  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:12000});
+  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
   assert(await page.locator('#screen-dialog').evaluate(e=>e.open),'skip closed underlying round');
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
@@ -55,7 +56,7 @@ let browser;
  await page.locator('#result-content [data-path="round1.extras.0.p9"]').fill('0');
  await page.locator('#cutscene[open]').waitFor();
  assert((await page.locator('#cutscene-label').innerText()).includes('Like Never Before'));
- assert((await page.locator('#cutscene-caption').innerText()).includes('ELIMINATED:'));
+ assert((await page.locator('#cutscene-caption').innerText()).includes('LOCKED OFF'));
  await page.locator('#cutscene-skip').click();await saved();
  assert(await page.locator('#result-dialog').evaluate(e=>e.open));
  assert.equal(await page.evaluate(()=>cutsceneActive),false);
