@@ -78,12 +78,14 @@ class Regressions(unittest.TestCase):
             s['final']['players'][p]['goals'] += [2,1]
             s['final']['players'][p]['results'] += ['W','L']
             s['round2']['players'][p]['goals']=s['round2']['players'][p]['goals'][:5]
+        round2_goals=s['round2']['players']['p1']['goals'][:]
         migrated=validate(s)
         self.assertEqual(len(migrated['final']['players']['p1']['goals']),8)
         archived=migrated['legacy_game_lengths']['final']['p1']
         self.assertEqual(archived['goals'][-2:],[2,1])
         self.assertEqual(archived['results'][-2:],['W','L'])
-        self.assertEqual(migrated['round2']['players']['p1']['goals'][-3:],[None]*3)
+        self.assertEqual(len(migrated['round2']['players']['p1']['goals']),5)
+        self.assertEqual(migrated['round2']['players']['p1']['goals'],round2_goals)
         self.assertEqual(validate(migrated),migrated)
 
     def test_malformed_goals_are_not_silently_cleared(self):
@@ -95,8 +97,8 @@ class Regressions(unittest.TestCase):
         s=fixture();s['version']=3;s['round2'].pop('draw')
         for p in IDS:s['round2']['players'][p]['goals']=s['round2']['players'][p]['goals'][:5]
         migrated=validate(s)
-        self.assertEqual(migrated['version'],4)
-        self.assertEqual(len(migrated['round2']['players']['p1']['goals']),8)
+        self.assertEqual(migrated['version'],6)
+        self.assertEqual(len(migrated['round2']['players']['p1']['goals']),5)
 
 
 if __name__=='__main__':unittest.main()
