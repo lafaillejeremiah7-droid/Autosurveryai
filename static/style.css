@@ -358,6 +358,30 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 @media(max-width:350px){.room-grid{grid-template-columns:1fr;max-width:240px}.monitor{height:282px}.monitor-face{top:25px;left:calc(50% - 72px);width:144px;height:144px}.monitor:before{top:153px}.monitor .screen-bottom{top:196px}.monitor .preview h2{font-size:20px}}
 
 /* Nuclear elimination sequence: one target, one impact, five seconds. */
+/* Cinematic artwork plates; all names and status labels stay live. */
+#cutscene .cutscene-stage{width:min(1400px,96vw);height:auto;aspect-ratio:2.84;position:relative;background:#060b13;isolation:isolate}
+.cinematic-plate{position:absolute;inset:0;z-index:-1;background-image:url('/tower-strike.svg');background-size:200% 200%;background-position:0 0}
+#cutscene .tower-strike-svg{background:transparent}
+#cutscene .tower-body,#cutscene .tower-windows,#cutscene .tower-rubble{display:none}
+#cutscene .strike-tower text{font-size:12px;paint-order:stroke;stroke:#031019;stroke-width:4px;fill:#e5f7ff}
+#cutscene .strike-tower.selected text{fill:#ff928f;stroke:#21080a}
+#cutscene.phase-scan .cinematic-plate{animation:cinematic-scan 1s ease-out both}
+#cutscene.phase-lock .cinematic-plate,#cutscene.phase-inbound .cinematic-plate{background-position:100% 0;animation:cinematic-push .7s ease-out both}
+#cutscene.phase-impact .cinematic-plate{background-position:0 100%;animation:cinematic-impact 1.7s ease-out both}
+#cutscene.phase-off .cinematic-plate{background-position:100% 100%}
+#cutscene:not(.phase-scan) .strike-tower,#cutscene:not(.phase-scan) .strike-reticle,#cutscene .strike-missile,#cutscene .strike-blast{display:none}
+#cutscene.phase-scan .strike-reticle{transform:translateX(var(--strike-x));filter:drop-shadow(0 0 10px #ff3657)}
+.cinematic-target{position:absolute;left:15%;right:15%;bottom:7%;text-align:center;font:700 clamp(16px,3vw,30px) monospace;letter-spacing:2px;color:#eefbff;text-shadow:0 2px 6px #000,0 0 18px #000;overflow-wrap:anywhere}
+#cutscene.phase-scan .cinematic-target{display:none}
+#cutscene.phase-lock .cinematic-target,#cutscene.phase-inbound .cinematic-target{color:#ff8a8d}
+#cutscene.phase-off .cinematic-target{color:#89919c}
+#cutscene .cutscene-caption{font-size:clamp(14px,2.3vw,24px)}
+#cutscene .cutscene-caption strong{letter-spacing:3px}
+@keyframes cinematic-scan{from{transform:scale(1.04)}to{transform:scale(1)}}
+@keyframes cinematic-push{from{transform:scale(1)}to{transform:scale(1.08)}}
+@keyframes cinematic-impact{0%{transform:scale(1.17);filter:brightness(1.65)}30%{filter:brightness(1.1)}100%{transform:scale(1.02);filter:brightness(1)}}
+@media(max-width:600px){#cutscene .cutscene-stage{aspect-ratio:1.8}.cinematic-target{bottom:12%;font-size:17px}}
+@media(prefers-reduced-motion:reduce){.cinematic-plate{animation:none!important}}
 /* Tower strike phases are timed in JS; impact shake begins only on collision. */
 .tower-strike-svg{background:radial-gradient(ellipse at 50% 80%,#26333d,#080b15 70%);width:100%;height:100%}
 .strike-tower.selected .tower-body{stroke:#ff697a;stroke-width:4;filter:drop-shadow(0 0 10px #ff3657)}
