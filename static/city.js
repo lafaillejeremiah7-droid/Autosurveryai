@@ -54,7 +54,7 @@
   buildings.push({id,x,z,w:6+rand(id+33)*5,d:6+rand(id+8)*4,h:8+Math.pow(rand(id+70),2)*57,threshold:.18+rand(id+411)*.58,tint:rand(id+126)});
  }
  let tournament=[],unlocks={},routeTime=0;
- let monuments=null,towerSites=[],podiumSites=[],falls={},towerTime=0,podiumTime=0,riseAt=null;
+ let monuments=null,podiumSites=[],podiumTime=0,riseAt=null;
  const roomKeys=['settings','round1','round2','final','overview'];
  const roomColors=[[.6,.91,1],[.47,.94,.71],[1,.66,.29],[1,.34,.3],[.93,.77,.45]];
  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -96,7 +96,6 @@
  function layout(){
   const positions=[[-9,0,0],[9,0,-21],[-9,0,-42],[9,0,-63],[0,0,-88]];
   rooms=roomKeys.map((key,i)=>({key,pos:positions[i],size:i===4?9:8,color:roomColors[i]}));
-  towerSites=Array.from({length:10},(_,i)=>({id:'p'+(i+1),pos:[(i-4.5)*3.4,0,-111],size:1.15}));
   podiumSites=[2,1,3].map((place,i)=>({place,pos:[(i-1)*5.5,0,-135],size:2.1}));
   geometryDirty=true;needsLayout=false;positionLabels();
  }
@@ -108,8 +107,10 @@
   needsLayout=true;geometryDirty=true;dirty=true;
  }
  function roomMesh(mesh,room){
+  const bombed=['round1','round2','final'].includes(room.key)&&tournament.some(t=>t.key===room.key&&t.status==='complete');
   const locked=tournament.some(t=>t.key===room.key&&t.status==='sealed');
-  const [x,,z]=room.pos,s=room.size,h=s*.82,wall=locked?[.025,.035,.045]:[.92,.96,.97],dark=[.06,.16,.21],light=locked?[.045,.055,.065]:room.color;
+  const [x,,z]=room.pos,s=room.size,h=s*.82,wall=bombed?[.14,.12,.12]:locked?[.025,.035,.045]:[.92,.96,.97],dark=[.06,.16,.21],light=bombed?[.18,.12,.08]:locked?[.045,.055,.065]:room.color;
+  if(bombed){for(let j=0;j<5;j++)mesh.box(x+(j-2)*s*.2,.28,z+s*.53,s*.18,.48,s*.22,[.17,.14,.12],0,j*.6);}
   mesh.box(x,-.32,z,s*1.45,.65,s*1.42,[.3,.44,.5]);
   mesh.box(x,.12,z,s,.24,s,[.64,.78,.8]);
   mesh.box(x,h/2,z-s/2,s,h,.23,wall);
@@ -218,24 +219,6 @@
 
   // Player monuments are driven solely by settled tournament results, never disaster time.
   if(monuments){
-   for(const site of towerSites){
-    const player=monuments.towers.find(p=>p.id===site.id);if(!player)continue;
-    const [x,,z]=site.pos,w=site.size,h=w*4.6;
-    const falling=player.cut?(media.matches||mode==='static'||falls[player.id]===undefined?1:clamp((towerTime-falls[player.id])/2.4)):0;
-    const bend=smooth(falling)*1.48,remaining=1-falling*.78;
-    m.box(x,-.1,z,w*1.7,.2,w*1.5,[.08,.13,.16]);
-    if(falling<1){
-     m.box(x+Math.sin(bend)*h*.28,h*remaining/2,z,w,h*remaining,w*.8,player.cut?[.15,.12,.12]:[.22,.36,.4],1,-bend);
-     if(!player.cut){
-      for(let j=0;j<6;j++)m.box(x,h*(j+.6)/6,z+w*.41,w*.8,.07,w*.03,[.43,.95,.79],3);
-      m.gem(x,h+.25,z,w*.22,[.65,1,.85],3);
-     }
-    }
-    if(falling>0){
-     for(let j=0;j<5;j++)m.box(x+(j-2)*w*.3,.2+w*.1,z+Math.sin(j*2)*w*.5,w*.65,.2+w*.3,w*.6,[.18,.15,.14],0,j*.7);
-     if(falling<1)m.ring(x,.2,z,w*(1+falling*2),.1,[.75*(1-falling),.45*(1-falling),.25*(1-falling)]);
-    }
-   }
    for(const site of podiumSites){
     const slot=monuments.slots.find(s=>s.place===site.place);if(!slot)continue;
     const [x,,z]=site.pos,w=site.size;
@@ -325,8 +308,7 @@
  function positionLabels(){
   const host=document.getElementById('door-labels');if(!host||!vp)return;
   const names=['Players & rules','Like Never Before','What Do You Want?','You Wanted to Win, Right?','Leaderboard'];
-  const items=sceneView==='towers'&&monuments?towerSites.map(site=>({id:site.id,pos:add(site.pos,[0,5.8,0]),label:monuments.towers.find(t=>t.id===site.id)?.name||site.id,locked:monuments.towers.find(t=>t.id===site.id)?.cut})):
-   sceneView==='podium'&&monuments?podiumSites.map(site=>({id:'place'+site.place,pos:add(site.pos,[0,6,0]),label:site.place+'. '+(monuments.slots.find(s=>s.place===site.place)?.names.join(' · ')||'Awaiting finalist')})):
+  const items=sceneView==='podium'&&monuments?podiumSites.map(site=>({id:'place'+site.place,pos:add(site.pos,[0,6,0]),label:site.place+'. '+(monuments.slots.find(s=>s.place===site.place)?.names.join(' · ')||'Awaiting finalist')})):
    rooms.map((room,i)=>({id:room.key,pos:add(room.pos,[0,room.size*.82+.55,room.size*.5]),label:String(i+1).padStart(2,'0')+' / '+names[i],locked:tournament.some(t=>t.key===room.key&&t.status==='sealed')}));
   const signature=items.map(i=>i.id+':'+i.label+':'+i.locked).join('|');
   if(host.dataset.signature!==signature){host.replaceChildren(...items.map(i=>{const e=document.createElement('span');e.textContent=i.label;e.className='door-marker'+(i.locked?' locked':'');return e;}));host.dataset.signature=signature;}
@@ -370,7 +352,6 @@
   if(moving){
    elapsed+=dt;routeTime+=routeDelta;
    const visible=id=>{const e=document.getElementById(id);if(!e)return false;const r=e.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight;};
-   if(sceneView==='towers')towerTime+=routeDelta;
    if(sceneView==='podium')podiumTime+=routeDelta;
   }
   if(needsLayout)layout();
@@ -395,19 +376,10 @@
  window.CityWorld={
   setMonuments(value){
    if(monuments){
-    for(const player of value.towers){
-     if(!player.cut)delete falls[player.id];
-     else if(!monuments.towers.find(p=>p.id===player.id)?.cut)falls[player.id]=towerTime;
-    }
     if(value.complete&&!monuments.complete)riseAt=podiumTime;
     if(!value.complete)riseAt=null;
    }
    monuments=value;needsLayout=true;dirty=true;
-  },
-  eliminateTower(id){
-   // Presentation replay only: tournament results remain the source of truth.
-   if(!monuments?.towers.some(player=>player.id===id&&player.cut))return;
-   falls[id]=towerTime;geometryDirty=true;dirty=true;
   },
   setTournament(stages){
    const signature=JSON.stringify(stages.map(s=>[s.key,s.status]));
@@ -432,7 +404,7 @@
   leaveRoom(){sceneView='street';return travel([...returnRoute,baseCamera],false);},
   visit(place){
    sceneView=place;
-   const z=place==='towers'?-97:-123;
+   const z=-123;
    return travel([pose(20,camera.eye[2],20,z),pose(20,z,0,z-12),pose(0,z,0,z-12)],false);
   },
   home,
