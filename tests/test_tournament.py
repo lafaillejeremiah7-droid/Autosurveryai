@@ -324,16 +324,17 @@ class Draws(unittest.TestCase):
     def test_fixed_random_draw_five_matches_and_repeat_clicks(self):
         s=self.fresh();original=deepcopy(s);roster=evaluate(s)['round1']['survivors']
         with patch('engine.secrets.SystemRandom.shuffle',side_effect=lambda a:a.reverse()) as shuffle:
-            s=round2_draw_action(s,'start');shuffle.assert_called_once()
+            s=round2_draw_action(s,'start');shuffle.assert_called()
         self.assertEqual(original['round2']['draw']['order'],[])
         self.assertEqual(s['round2']['draw']['order'],list(reversed(roster)))
         self.assertEqual(round2_draw_action(s,'start'),s)
         draw_order=s['round2']['draw']['order'].copy()
-        first=round2_schedule(draw_order)[0]
+        initial_lineups=deepcopy(evaluate(s)['round2']['schedule'])
+        self.assertGreater(len({frozenset(map(frozenset,(m['A'],m['B']))) for m in initial_lineups}),1)
         for game in range(1,6):
             v=evaluate(s)['round2'];g=v['schedule'][game-1]
             self.assertEqual(v['draw']['revealed'],game)
-            self.assertEqual(g['A'],first['A']);self.assertEqual(g['B'],first['B'])
+            self.assertEqual(g['A'],initial_lineups[game-1]['A']);self.assertEqual(g['B'],initial_lineups[game-1]['B'])
             with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
             for team in ['A','B']:
                 eligible=[p for p in g[team] if p not in ['p4','p9']]
@@ -348,6 +349,32 @@ class Draws(unittest.TestCase):
         self.assertTrue(all(r['played']==5 for r in evaluate(s)['round2']['rows']))
         self.assertEqual(len(evaluate(s)['round2']['survivors']),6)
         with self.assertRaises(ValueError):round2_draw_action(s,'done',6)
+    def test_round2_reshuffle_only_current_unscored_match(self):
+        s=round2_draw_action(self.fresh(),'start')
+        before=deepcopy(s['round2']['draw']['lineups'])
+        with self.assertRaises(ValueError):round2_draw_action(s,'reroll',2)
+        with self.assertRaises(ValueError):round2_draw_action(s,'reroll',0)
+        rerolled=round2_draw_action(s,'reroll',1)
+        self.assertNotEqual({frozenset(rerolled['round2']['draw']['lineups'][0]['A']),
+                             frozenset(rerolled['round2']['draw']['lineups'][0]['B'])},
+                            {frozenset(before[0]['A']),frozenset(before[0]['B'])})
+        self.assertEqual(rerolled['round2']['draw']['lineups'][1:],before[1:])
+        self.assertEqual(s['round2']['draw']['lineups'],before)
+        p=rerolled['round2']['draw']['lineups'][0]['A'][0]
+        rerolled['round2']['players'][p]['goals'][0]=0
+        with self.assertRaises(ValueError):round2_draw_action(rerolled,'reroll',1)
+        self.assertEqual(validate(rerolled),rerolled)
+    def test_version5_saved_scores_survive_upgrade(self):
+        s=fixture();s['version']=5
+        s['round2']['draw'].pop('lineups')
+        old=deepcopy(s);new=validate(s)
+        self.assertEqual(s,old)
+        self.assertEqual(new['version'],6)
+        self.assertEqual(new['round2']['players'],old['round2']['players'])
+        self.assertEqual(new['final'],old['final'])
+        self.assertEqual(new['round2']['draw']['lineups'][0]['A'],old['round2']['draw']['order'][:4])
+        self.assertEqual(new['round2']['draw']['lineups'][0]['B'],old['round2']['draw']['order'][4:])
+        self.assertEqual(validate(new),new)
     def test_draw_guards_and_archives_old_rotations(self):
         with self.assertRaises(ValueError):round2_draw_action(new_state(),'start')
         s=self.fresh()
