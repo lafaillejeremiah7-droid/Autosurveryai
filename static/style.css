@@ -435,11 +435,11 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 #cutscene.portal-mode{background:radial-gradient(ellipse at 50% 40%,#21162d,#030409 75%)}
 #cutscene.portal-mode .cutscene-stage{aspect-ratio:900/420;border-color:#9b76bd55;box-shadow:0 0 80px #8e5ab122}
 .portal-scene{display:block;width:100%;height:100%}
-.portal-player-name{position:absolute;bottom:4%;left:10%;right:10%;text-align:center;font:700 clamp(16px,2.8vw,28px) monospace;letter-spacing:3px;overflow-wrap:anywhere;color:#ded3ee;text-shadow:0 2px 9px #000}
+.portal-player-name{position:absolute;top:4%;bottom:auto;left:10%;right:10%;text-align:center;font:700 clamp(16px,2.8vw,28px) monospace;letter-spacing:3px;overflow-wrap:anywhere;color:#ded3ee;text-shadow:0 2px 9px #000}
 .portal-mode .cutscene-caption strong{color:#d0a6f6}
 .portal-mode .cutscene-head .eyebrow{color:#b18ccc}
-.dark-portal{transform-origin:355px 226px;animation:portal-appear 5s cubic-bezier(.2,.7,.2,1) both}
-.portal-rim{transform-origin:355px 226px;animation:portal-swirl 2.7s linear infinite;filter:drop-shadow(0 0 5px #b888e1)}
+.dark-portal{transform-origin:355px 195px;animation:portal-appear 5s cubic-bezier(.2,.7,.2,1) both}
+.portal-rim{transform-origin:355px 195px;animation:portal-swirl 2.7s linear infinite;filter:drop-shadow(0 0 5px #b888e1)}
 .portal-walker{animation:portal-abduct 5s linear both}
 .walker-bob{animation:walker-bounce .56s ease-in-out infinite}
 .walker-leg{transform-origin:0 -8px;animation:walker-stride .56s ease-in-out infinite alternate}
@@ -475,3 +475,8 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 @keyframes portal-power-off{to{stroke:#202633;fill:#202633}}
 @keyframes portal-rubble{0%,65%{opacity:0}100%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.portal-gone .portal-falling-tower{display:none}.portal-gone .portal-tower-rubble{opacity:1}}
+
+/* Staggered reaches converge on the same player before the shared pull. */
+.hand-upper{animation-delay:.08s}
+.hand-lower{animation-delay:.16s}
+.portal-gone .portal-hand{opacity:0!important}
