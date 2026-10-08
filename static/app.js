@@ -13,7 +13,7 @@ const tabs=[['settings','Players & rules'],['round1','Like Never Before'],['roun
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Bundled human scream + local effects. No text-to-speech.
 window.BrawlAudio=(()=>{
- let ctx=null,muted=false,active=new Set(),lastBoom=0,lastDoom=false,screamBuffer=null,screamSource=null;
+ let ctx=null,muted=false,active=new Set(),lastBoom=0,lastDoom=false,screamBuffer=null,screamSource=null,birdsOn=false,lastChirp=0,nextChirpGap=0;
  function unlock(){try{const C=window.AudioContext||window.webkitAudioContext;if(!ctx&&C)ctx=new C();ctx?.resume();}catch{}}
  document.addEventListener('pointerdown',unlock);document.addEventListener('keydown',unlock);
  function tone(freq,duration,volume,type='sine',end=freq){if(muted||!ctx||ctx.state!=='running')return null;const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(1,end),ctx.currentTime+duration);g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+duration);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+duration);active.add(o);o.onended=()=>active.delete(o);return o;}
@@ -42,10 +42,16 @@ window.BrawlAudio=(()=>{
   source.start(now);source.stop(now+.7);active.add(source);screamSource=source;
   source.onended=()=>{active.delete(source);if(screamSource===source)screamSource=null;source.disconnect();gain.disconnect();};
  }
- function stop(){for(const n of active)try{n.stop();}catch{}active.clear();screamSource=null;}
+ function stop(){for(const n of active)try{n.stop();}catch{}active.clear();screamSource=null;birdsOn=false;}
  function explosion(big=false){noise(big?2.3:1.2,big?.32:.16,big?1400:650);tone(big?70:48,big?2:1,.18,'sine',20);}
+ // A single morning birdsong phrase: a few quick, high, frequency-swept blips.
+ function chirp(){if(muted||!ctx||ctx.state!=='running'||document.hidden)return;const base=1850+Math.random()*1500,blips=2+Math.floor(Math.random()*3);for(let i=0;i<blips;i++){const f=base*(.78+Math.random()*.5);tone(f,.06+Math.random()*.05,.03,'sine',f*(1.25+Math.random()*.5));}}
  return {unlock,stop,portal(){noise(1.5,.12,1800);tone(55,1.7,.13,'sawtooth',130);},finalOmen(){tone(46,2.2,.13,'sawtooth',41);noise(1.9,.06,550);},finalPurge(){tone(98,.55,.13,'triangle',32);noise(.55,.12,950);},victory(){[392,494,587.33,783.99].forEach(f=>tone(f,2.1,.045,'sine',f));},scream,cut(){stop();},explosion,
  doom(progress,arrived){if(!arrived)lastDoom=false;if(muted||document.hidden)return;const now=Date.now();if(arrived&&!lastDoom){lastDoom=true;explosion(true);lastBoom=now;}else if(progress>=.65&&now-lastBoom>(arrived?4500:10000-6000*progress)){explosion(progress>.9);lastBoom=now;}},
+ // Gentle morning birdsong while the city is still calm. The engine tick passes
+ // on=true only during the low-progress morning; chirps obey mute and document.hidden
+ // and stop the moment chaos (or a mute) turns them off.
+ ambientBirds(on){if(!on){birdsOn=false;return;}if(muted||document.hidden||!ctx||ctx.state!=='running')return;const now=Date.now();if(!birdsOn){birdsOn=true;lastChirp=now;nextChirpGap=0;}if(now-lastChirp>=nextChirpGap){chirp();lastChirp=now;nextChirpGap=1400+Math.random()*2600;}},
  toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
 })();
 const value=path=>path.split('.').reduce((a,k)=>a[k],state);

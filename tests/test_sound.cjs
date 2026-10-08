@@ -18,7 +18,7 @@ function harness(withSpeech=true){
 }
 const {a,nodes,buffers,speechCalls,events,button}=harness();
 assert.equal(a.getStatus().unlocked,false);a.scream();assert.equal(nodes.length,0,'no scream before a user gesture');events.pointerdown();assert.equal(a.getStatus().unlocked,true);
-a.portal();a.help();assert(speechCalls.includes('Help me!'));
+a.portal();
 const beforeScream=nodes.length;a.scream();
 const voice=nodes.slice(beforeScream).find(n=>n.kind==='buffer');assert(voice,'scream plays a recorded buffer');
 assert(!nodes.slice(beforeScream).some(n=>n.kind==='oscillator'),'recorded voice replaces the old oscillator beep');
@@ -29,8 +29,12 @@ assert(rms(pcm.subarray(9600,11200))>.12,'voice is still vocal at the intended h
 assert(Math.max(...pcm.map(Math.abs))<1,'bundled recording does not clip');
 assert.deepEqual(voice.startArgs,[3]);assert.deepEqual(voice.stopCalls,[[3.7]],'scream stops after 700 ms on the audio clock, without waiting for an animation timer');
 const bufferCount=buffers.length;a.scream();assert.equal(buffers.length,bufferCount,'repeat scenes reuse the decoded recording');assert.deepEqual(voice.stopCalls.at(-1),[],'a replay cancels the previous voice');
-const live=nodes.filter(n=>n.onended);a.cut();assert(live.every(n=>n.stopCalls.at(-1)?.length===0),'cut stops all live sounds immediately');assert.equal(speechCalls.at(-1),'CANCEL');
-a.toggle();const count=nodes.length,spoken=speechCalls.length;a.portal();a.help();a.scream();a.explosion();assert.equal(nodes.length,count,'mute blocks recorded and synthesized effects');assert.equal(speechCalls.length,spoken,'mute blocks speech');assert.equal(button.textContent,'Sound off');a.toggle();
-a.doom(.4,false);assert.equal(nodes.length,count,'quiet early city');a.doom(.8,false);assert(nodes.length>count,'near-doomsday explosions');const before=nodes.length;a.doom(1,true);assert(nodes.length>before,'arrival explosion');const arrival=nodes.length;a.doom(1,true);assert.equal(nodes.length,arrival,'arrival cannot repeat every countdown tick');a.stop();
-const offline=harness(false);offline.events.keydown();offline.a.help();offline.a.scream();assert(offline.nodes.some(n=>n.kind==='buffer'&&n.buffer),'recorded scream works without a device speech voice');offline.a.toggle();assert(offline.nodes.filter(n=>n.onended).every(n=>n.stopCalls.at(-1)?.length===0),'mute stops an active recorded scream');
-console.log('Sound passed: audible recorded voice, cached offline sample, exact 700 ms cutoff, immediate replay/skip/mute cleanup, optional device speech, and doomsday effects.');
+const live=nodes.filter(n=>n.onended);a.cut();assert(live.every(n=>n.stopCalls.at(-1)?.length===0),'cut stops all live sounds immediately');
+a.toggle();const count=nodes.length;a.portal();a.scream();a.explosion();assert.equal(nodes.length,count,'mute blocks recorded and synthesized effects');assert.equal(button.textContent,'Sound off');a.toggle();
+a.doom(.4,false);assert.equal(nodes.length,count,'quiet early city');a.doom(.8,false);assert(nodes.length>count,'near-doomsday explosions');const before=nodes.length;a.doom(1,true);assert(nodes.length>before,'arrival explosion');const arrival=nodes.length;a.doom(1,true);assert.equal(nodes.length,arrival,'arrival cannot repeat every countdown tick');
+const beforeBirds=nodes.length;a.ambientBirds(true);assert(nodes.length>beforeBirds,'morning birds chirp when calm, unmuted and running');
+const beforeOff=nodes.length;a.ambientBirds(false);assert.equal(nodes.length,beforeOff,'chaos (birds off) produces no chirp');
+a.ambientBirds(false);a.toggle();const mutedCount=nodes.length;a.ambientBirds(true);assert.equal(nodes.length,mutedCount,'mute silences morning birds');a.toggle();
+a.stop();
+const offline=harness(false);offline.events.keydown();offline.a.scream();assert(offline.nodes.some(n=>n.kind==='buffer'&&n.buffer),'recorded scream works without a device speech voice');offline.a.toggle();assert(offline.nodes.filter(n=>n.onended).every(n=>n.stopCalls.at(-1)?.length===0),'mute stops an active recorded scream');
+console.log('Sound passed: audible recorded voice, cached offline sample, exact 700 ms cutoff, immediate replay/skip/mute cleanup, morning bird chirps gated by mute and calm, and doomsday effects.');
