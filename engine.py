@@ -11,6 +11,7 @@ TIE = 'TIE - EXTRA GAMES NEEDED'
 IDS = [f'p{i+1}' for i in range(10)]
 TEAM_GOAL_LIMIT = 3
 FINAL_GAMES = 8
+ROUND2_GAMES = 5
 
 def match_goals(stage, teams, game):
     return {t:sum(stage['players'][p]['goals'][game] or 0 for p in teams[t]) for t in ['A','B']}
@@ -39,7 +40,7 @@ def validate_goal_changes(s, previous=None):
     labels={'round1':'Like Never Before','round2':'What Do You Want?','final':'You Wanted to Win, Right?'}
     for key in labels:
         stage=s[key];old=previous[key] if previous else None
-        for g in range({'round1':5,'round2':8,'final':FINAL_GAMES}[key]):
+        for g in range({'round1':5,'round2':5,'final':FINAL_GAMES}[key]):
             values={p:stage['players'][p]['goals'][g] for p in IDS}
             teams=schedules[key][g] if g<len(schedules[key]) else {'A':[],'B':[]}
             issue=match_goal_error(stage,teams,g)
@@ -63,13 +64,13 @@ def extra_goal_issues(stage, final=False):
 def blank_draw():
     return {'order':[], 'revealed':0, 'completed':0, 'mode':'random'}
 
-def blank_round(games=5):
-    return {'players': {p: {'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'lineups':[]} if games==5 else {}), **({'draw':blank_draw()} if games==8 else {})}
+def blank_round(games=5, is_round2=False):
+    return {'players': {p: {'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'draw':blank_draw()} if is_round2 else {'lineups':[]})}
 
 def new_state():
-    return {'version': 4, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
+    return {'version': 5, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
             'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4], 'start_at': '', 'disaster_started_at': ''},
-            'round1': blank_round(), 'round2': blank_round(8),
+            'round1': blank_round(), 'round2': blank_round(5, is_round2=True),
             'final': {'players': {p: {'goals': [None]*FINAL_GAMES, 'results': ['']*FINAL_GAMES} for p in IDS}, 'extras': [], 'roster': []}}
 
 def final_schedule(roster):
@@ -80,15 +81,10 @@ def final_schedule(roster):
             for i, pair in enumerate(list(combinations(roster[1:], 2))[:FINAL_GAMES])]
 
 def round2_schedule(roster):
-    """Eight 3v3 matches: six plays/two rests, all pairs meet on both sides.
-
-    Cyclic shifts cover all eight slots. Alternating even and odd shifts
-    separates both rest days and gives three plays in each half of the round.
-    """
+    """Five fixed 4v4 games. Both teams are drawn once and never switch."""
     if len(roster)!=8: return []
-    base={'A':(2,3,6), 'B':(4,5,7), 'sit':(0,1)}
-    return [{'game':i+1, **{t:[roster[(p+shift)%8] for p in slots] for t,slots in base.items()}}
-            for i,shift in enumerate((0,2,4,6,1,3,5,7))]
+    return [{'game':i+1,'A':list(roster[:4]),'B':list(roster[4:])}
+            for i in range(ROUND2_GAMES)]
 
 def has_inputs(stage):
     return bool(stage['extras']) or any(d.get('team') or any(v is not None for v in d['goals']) or any(d.get('results',[])) for d in stage['players'].values())
@@ -116,7 +112,7 @@ def _normalize_game_lengths(s):
     server refusing to start. Existing entries are kept where they fit; new
     slots are blank and therefore cannot count as completed games.
     """
-    targets={'round1':5, 'round2':8, 'final':FINAL_GAMES}
+    targets={'round1':5, 'round2':5, 'final':FINAL_GAMES}
     for key,target in targets.items():
         stage=s.get(key)
         if not isinstance(stage,dict) or not isinstance(stage.get('players'),dict):
@@ -137,38 +133,36 @@ def _normalize_game_lengths(s):
     return s
 
 def migrate(s):
-    if s.get('version')==3:
-        s=_normalize_game_lengths(deepcopy(s));stage=s['round2'];draw=blank_draw()
-        if has_inputs(stage):
-            roster=stage['roster'] or round1_view(s,True)['survivors']
-            if len(roster)!=8: raise ValueError('Old Round 2 scores need their original eight-player roster.')
-            stage['roster']=roster
-            schedule=round2_schedule(roster);completed=0;last=0
-            for i,g in enumerate(schedule):
-                ready=all(stage['players'][p]['goals'][i] is not None for p in g['A']+g['B']) and all(stage['players'][p]['goals'][i] is None for p in g['sit'])
-                if i==completed and ready: completed+=1
-                if any(d['goals'][i] is not None for d in stage['players'].values()): last=i+1
-            draw={'order':list(roster),'revealed':max(last,min(completed+1,8)),'completed':completed,'mode':'preserved'}
-        stage['draw']=draw;s['version']=4
-        return _normalize_round1(s)
-    if s.get('version') not in (1,2):
+    version=s.get('version')
+    if version in (3,4):
+        # The old 3v3 sit-out rotation cannot be reinterpreted as fixed 4v4.
+        # Archive the full previous rounds, then require fresh Round 2 scoring.
+        s=deepcopy(s)
+        old=s['round2']
+        if has_inputs(old) or has_inputs(s['final']) or old.get('draw',{}).get('order'):
+            s['legacy_round2_rotation']={'round2':deepcopy(old),'final':deepcopy(s['final']),
+                                          'settings':deepcopy(s['settings'])}
+        s['round2']=blank_round(ROUND2_GAMES,is_round2=True)
+        s['final']=new_state()['final']
+        s['version']=5
+        return _normalize_game_lengths(_normalize_round1(s))
+    if version not in (1,2):
         return _normalize_game_lengths(_normalize_round1(deepcopy(s)))
     s=deepcopy(s)
-    if s['version']==1:
+    if version==1:
         old=s['final']
         if has_inputs(old):
             s['legacy_final']={'settings':deepcopy(s['settings']), 'final':deepcopy(old)}
         s['final']=new_state()['final']
         s['settings']['win_points']=1
         s['settings']['goal_points']=1.5
-    # Previous Round 2 inputs describe fixed teams, not the new rotation.
-    # Retain all old Round 2/final records in downloadable backups.
     if has_inputs(s['round2']) or has_inputs(s['final']):
-        s['legacy_round2']={'round2':deepcopy(s['round2']), 'final':deepcopy(s['final']), 'settings':deepcopy(s['settings'])}
-    s['round2']=blank_round(8)
+        s['legacy_round2']={'round2':deepcopy(s['round2']), 'final':deepcopy(s['final']),
+                            'settings':deepcopy(s['settings'])}
+    s['round2']=blank_round(ROUND2_GAMES,is_round2=True)
     s['final']=new_state()['final']
-    s['version']=3
-    return migrate(s)
+    s['version']=5
+    return _normalize_game_lengths(_normalize_round1(s))
 
 def numeric(v, nullable=False, integer=False):
     if v is None and nullable: return
@@ -184,7 +178,7 @@ def validate(s):
         s['settings'].setdefault('disaster_started_at', '')
         if not isinstance(s['wheel'],dict) or not isinstance(s['wheel'].get('text'),str) or not isinstance(s['wheel'].get('remove_winner'),bool):
             raise ValueError('Invalid wheel list or removal setting.')
-        if s['version'] != 4 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
+        if s['version'] != 5 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
         for name in s['names'].values():
             if not isinstance(name,str) or len(name)>40: raise ValueError('Names must be 40 characters or fewer.')
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
@@ -214,14 +208,14 @@ def validate(s):
                 draw=a['draw'];order=draw['order']
                 if not isinstance(order,list) or (order and (len(order)!=8 or len(set(order))!=8 or set(order)!=set(a['roster']))):
                     raise ValueError('Invalid saved Round 2 draw order.')
-                if any(type(draw[k]) is not int or not 0<=draw[k]<=8 for k in ['revealed','completed']):
+                if any(type(draw[k]) is not int or not 0<=draw[k]<=ROUND2_GAMES for k in ['revealed','completed']):
                     raise ValueError('Invalid Round 2 match progress.')
                 if draw['mode'] not in ['random','preserved'] or draw['completed']>draw['revealed']:
                     raise ValueError('Invalid Round 2 draw progress.')
                 if not order and (draw['revealed'] or draw['completed']): raise ValueError('Draw the first match before recording progress.')
                 if order and draw['revealed']<1: raise ValueError('A saved draw must reveal its first match.')
             for d in a['players'].values():
-                if len(d['goals'])!={'round1':5,'round2':8,'final':FINAL_GAMES}[stage]: raise ValueError('Like Never Before needs 5 games, What Do You Want? 8 games, and You Wanted to Win, Right? 8 games.')
+                if len(d['goals'])!={'round1':5,'round2':5,'final':FINAL_GAMES}[stage]: raise ValueError('Like Never Before needs 5 games, What Do You Want? 5 games, and You Wanted to Win, Right? 8 games.')
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
                     if len(d['results'])!=FINAL_GAMES or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
@@ -375,49 +369,50 @@ def round1_view(s, names_ok):
     return {'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
 def round2_view(s, roster, names_ok, upstream=True):
-    stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw['order']);rows=[];scores={};issues=extra_goal_issues(stage)
+    stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw['order'])
+    rows=[];scores={};issues=extra_goal_issues(stage)
     stale=bool(stage['roster'] and stage['roster']!=roster)
     if not upstream: issues.append('Complete Like Never Before and resolve its cut ties.')
     if stale: issues.append('The survivor list changed. Reset What Do You Want? before entering new scores.')
     if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
-    if not draw['order']: issues.append('Draw Match 1 sit-outs to start What Do You Want?.')
+    if not draw['order']: issues.append('Draw the two fixed 4v4 teams to start What Do You Want?.')
     games=[]
     for match in schedule:
         g=match['game']-1
         counts={t:sum(stage['players'][p]['goals'][g] is not None for p in match[t]) for t in ['A','B']}
-        rest_blank=all(stage['players'][p]['goals'][g] is None for p in match['sit'])
         score_error=match_goal_error(stage,match,g)
-        games.append({'game':g+1,'counts':counts,'goals':match_goals(stage,match,g),'score_error':score_error,'ready':all(n==3 for n in counts.values()) and rest_blank and not score_error})
-        if score_error:issues.append(f'Game {g+1}: {score_error}')
-        if not rest_blank: issues.append(f'Game {g+1}: both scheduled sit-outs must stay blank.')
-    if upstream and (len(games)!=8 or not all(g['ready'] for g in games)):
-        issues.append('Complete all eight games: score the six scheduled players, including 0 for no goals. Leave the two sit-outs blank.')
+        games.append({'game':g+1,'counts':counts,'goals':match_goals(stage,match,g),
+                      'score_error':score_error,'ready':all(n==4 for n in counts.values()) and not score_error})
+        if score_error: issues.append(f'Game {g+1}: {score_error}')
+    if upstream and (len(games)!=ROUND2_GAMES or not all(g['ready'] for g in games)):
+        issues.append('Complete all five 4v4 games: enter goals for all eight players, including 0 for no goals.')
     for p in roster:
-        eligible=[i for i,g in enumerate(schedule) if p in g['A']+g['B']]
-        values=[stage['players'][p]['goals'][i] for i in eligible]
+        values=[stage['players'][p]['goals'][i] for i in range(ROUND2_GAMES)]
         played=sum(v is not None for v in values);total=sum(v or 0 for v in values)
         scores[p]=Fraction(total,played) if played else Fraction(0)
-        rows.append({'id':p,'name':s['names'][p], 'goals':total,'played':played,'average':float(scores[p]),
-                     'rank':None,'status':'PENDING','sit_outs':sum(p in g['sit'] for g in schedule[:draw['revealed']])})
-    if draw['completed']<8: issues.append('Mark each match done after entering its six scores.')
+        rows.append({'id':p,'name':s['names'][p],'goals':total,'played':played,
+                     'average':float(scores[p]),'rank':None,'status':'PENDING'})
+    if draw['completed']<ROUND2_GAMES: issues.append('Mark all five matches done after entering eight scores per match.')
     ready=not issues;rowmap={r['id']:r for r in rows}
-    reg_total={r['id']:r['goals'] for r in rows}; reg_played={r['id']:r['played'] for r in rows}
+    reg_total={r['id']:r['goals'] for r in rows}
+    reg_played={r['id']:r['played'] for r in rows}
     extras=stage['extras']
     if ready:
-        def resolve_avg(group, start):
-            return resolve_average_bubble(group, extras, reg_total, reg_played, rowmap, start, 6)
+        def resolve_avg(group,start):
+            return resolve_average_bubble(group,extras,reg_total,reg_played,rowmap,start,6)
         for p,info in rank_bubble(roster,scores,extras,6,True,resolve_avg).items():
-            rowmap[p]['rank']=info['rank']; rowmap[p]['status']=info['status']
+            rowmap[p]['rank']=info['rank'];rowmap[p]['status']=info['status']
     else:
         rank=1
         for group in order_groups(roster,scores,extras):
-            for p in group: rowmap[p]['rank']=rank; rowmap[p]['status']='PENDING'
+            for p in group: rowmap[p]['rank']=rank;rowmap[p]['status']='PENDING'
             rank+=len(group)
     tied=any(r['status']==TIE for r in rows)
     if tied: issues.append('Tie across 6th and 7th: play extra games for the highlighted players.')
     survivors=[p for p in roster if rowmap[p]['status']=='ADVANCE'] if ready and not tied else []
     rows.sort(key=lambda r:r['rank'])
-    return {'rows':rows,'games':games,'schedule':schedule,'draw':deepcopy(draw),'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
+    return {'rows':rows,'games':games,'schedule':schedule,'draw':deepcopy(draw),'issues':issues,
+            'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
 def evaluate(s):
     n=[s['names'][p].strip().casefold() for p in IDS]; names_ok=all(n) and len(set(n))==10
@@ -511,12 +506,12 @@ def round2_draw_action(s, action, game=None):
         stage['roster']=list(view['round1']['survivors'])
         stage['draw']={'order':order,'revealed':1,'completed':0,'mode':'random'}
     elif action=='done':
-        if not draw['order']: raise ValueError('Draw Match 1 sit-outs first.')
-        if type(game) is not int or game!=draw['completed']+1 or not 1<=game<=8 or game>draw['revealed']:
+        if not draw['order']: raise ValueError('Draw the fixed 4v4 teams first.')
+        if type(game) is not int or game!=draw['completed']+1 or not 1<=game<=ROUND2_GAMES or game>draw['revealed']:
             raise ValueError('Complete the current match in order. This match may already be marked done.')
         if not all(g['ready'] for g in view['round2']['games'][:game]):
-            raise ValueError('Enter all six goal scores, including zeros, and leave both sit-outs blank before marking the match done.')
-        draw['completed']=game;draw['revealed']=max(draw['revealed'],min(game+1,8))
+            raise ValueError('Enter all eight goal scores, including zeros, before marking the match done.')
+        draw['completed']=game;draw['revealed']=max(draw['revealed'],min(game+1,ROUND2_GAMES))
     else: raise ValueError('Unknown Round 2 draw action.')
     return bind_rosters(s)
 
