@@ -125,9 +125,13 @@ def _round2_balanced_lineups(order,locked=None):
             for i in range(ROUND2_GAMES):
                 if i in locked:continue
                 rng.shuffle(candidates)
+                occupied={frozenset((frozenset(m['A']),frozenset(m['B'])))
+                          for j,m in enumerate(choices) if j!=i}
+                options=[m for m in candidates
+                         if frozenset((frozenset(m['A']),frozenset(m['B']))) not in occupied]
                 costs=[_round2_balance_cost(choices[:i]+[candidate]+choices[i+1:],order)
-                       for candidate in candidates]
-                choices[i]=deepcopy(candidates[costs.index(min(costs))])
+                       for candidate in options]
+                choices[i]=deepcopy(options[costs.index(min(costs))])
         cost=_round2_balance_cost(choices,order)
         if best_cost is None or cost<best_cost:best=choices;best_cost=cost
     return best
@@ -585,8 +589,11 @@ def round2_draw_action(s, action, game=None):
         if any(stage['players'][p]['goals'][g] is not None for p in IDS):
             raise ValueError('This game has scores. Clear this game before reshuffling.')
         old=draw['lineups'][g]
+        occupied={frozenset((frozenset(m['A']),frozenset(m['B'])))
+                  for j,m in enumerate(draw['lineups']) if j!=g}
         alternatives=[m for m in _round2_candidates(draw['order'])
-                      if set(m['A'])!=set(old['A']) and set(m['A'])!=set(old['B'])]
+                      if set(m['A'])!=set(old['A']) and set(m['A'])!=set(old['B'])
+                      and frozenset((frozenset(m['A']),frozenset(m['B']))) not in occupied]
         rng=secrets.SystemRandom();rng.shuffle(alternatives)
         costs=[_round2_balance_cost(draw['lineups'][:g]+[m]+draw['lineups'][g+1:],draw['order'])
                for m in alternatives]
