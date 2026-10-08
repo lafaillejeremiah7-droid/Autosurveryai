@@ -251,7 +251,7 @@ async function openMatchResult(key,match){
  if(v.stale||!v.games[match]||!v.games[match].ready){error(v.stale?'Clear this round first — its player roster changed.':`Finish entering match ${match+1} scores and results first.`);return;}
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
  // FEAT-003: at the end-of-round moment, if the round is SETTLED (no unresolved tie) and
- // there are players to eliminate, play the cartoon furnace cutscene BEFORE the standings.
+ // there are players to eliminate, play the tower-strike cutscene BEFORE the standings.
  // An unresolved tie (v.complete false) falls through to the normal extra-game fullscreen.
  if(resultFinal&&v.complete){
   const names=eliminatedNames(key);
@@ -641,88 +641,62 @@ function eliminatedNames(key){
   :[...v.rows].filter(r=>r.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99));
  return rows.map(r=>r.name);
 }
-// A single eliminated stickman, labelled with the player's name. Decorative, so the
-// figure itself is aria-hidden; the name is carried both as text and in the markup so
-// tests and reduced-motion summaries can read it. Drawn at the group origin; the escort
-// group (see cutsceneEscort) positions and carries it toward the furnace. The figure is
-// held HORIZONTALLY (lying across the throwers' arms) so it reads as being carried.
-function cutsceneFigure(name){
- return `<g class="cut-figure" data-name="${esc(name)}">`+
-  '<g class="cut-figure-body" transform="rotate(-78)">'+
-   '<circle cx="0" cy="-34" r="12" fill="none" stroke="#ffe7cf" stroke-width="3"/>'+
-   '<line x1="0" y1="-22" x2="0" y2="14" stroke="#ffe7cf" stroke-width="3"/>'+
-   '<line x1="0" y1="-12" x2="-16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
-   '<line x1="0" y1="-12" x2="16" y2="-26" stroke="#ffe7cf" stroke-width="3"/>'+
-   '<line x1="0" y1="14" x2="-14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
-   '<line x1="0" y1="14" x2="14" y2="40" stroke="#ffe7cf" stroke-width="3"/>'+
-  '</g>'+
-  `<text class="cut-name" x="0" y="56" text-anchor="middle" fill="#ffcf8d" font-size="15" font-weight="700">${esc(name)}</text>`+
-  '</g>';
-}
-// One 'thrower' stickman (arms raised to hold/carry the victim). `walk` toggles the leg
-// stance so the shuffle animation can swap between two groups mid-carry.
-function cutsceneThrower(x,opacity,walk){
- const legs=walk
-  ?'<line x1="0" y1="12" x2="-13" y2="36" stroke="#c99b7f" stroke-width="3"/>'+
-    '<line x1="0" y1="12" x2="9" y2="34" stroke="#c99b7f" stroke-width="3"/>'
-  :'<line x1="0" y1="12" x2="-9" y2="34" stroke="#c99b7f" stroke-width="3"/>'+
-    '<line x1="0" y1="12" x2="13" y2="36" stroke="#c99b7f" stroke-width="3"/>';
- return `<g transform="translate(${x},0)" opacity="${opacity}">`+
-  '<circle cx="0" cy="-30" r="10" fill="none" stroke="#c99b7f" stroke-width="3"/>'+
-  '<line x1="0" y1="-20" x2="0" y2="12" stroke="#c99b7f" stroke-width="3"/>'+
-  // arms reach UP to carry the figure overhead
-  '<line x1="0" y1="-14" x2="-15" y2="-34" stroke="#c99b7f" stroke-width="3"/>'+
-  '<line x1="0" y1="-14" x2="15" y2="-34" stroke="#c99b7f" stroke-width="3"/>'+
-  legs+
-  '</g>';
-}
-// An escort: a pair of thrower stickmen carrying ONE eliminated figure overhead, drawn
-// at the stage's left edge. The whole group is translated right (carrying the victim)
-// toward the furnace by playCutscene; the inner figure then gets heaved into the mouth.
-// Two leg-stance variants (.walk-a / .walk-b) alternate via CSS to fake a walking shuffle.
-function cutsceneEscort(name,i){
- const legStart=230; // ground line for the throwers
- // Resting x spreads the escorts across the left/middle so the reduced-motion static
- // summary reads clearly; the animated carry overrides this with its own transform.
- const restX=90+i*150;
- const throwers=
-  cutsceneThrower(-14,0.85,false)+cutsceneThrower(16,0.95,true);
- return `<g class="cut-escort" data-name="${esc(name)}" transform="translate(${restX},${legStart})">`+
-  // the carried figure sits just above the throwers' raised arms
-  `<g class="cut-carry" transform="translate(2,-54)">${cutsceneFigure(name)}</g>`+
-  `<g class="cut-walk cut-walk-a">${throwers}</g>`+
-  `<g class="cut-walk cut-walk-b" aria-hidden="true">`+
-   cutsceneThrower(-14,0.85,true)+cutsceneThrower(16,0.95,false)+
-  '</g>'+
-  '</g>';
-}
-// The giant furnace on the right, its glowing mouth reusing the fire gradient look.
-function cutsceneFurnace(){
- return '<g class="cut-furnace" aria-hidden="true" transform="translate(700,70)">'+
-  '<rect x="-30" y="0" width="200" height="320" rx="14" fill="#241a1b" stroke="#5a3a2e" stroke-width="4"/>'+
-  '<rect x="-10" y="40" width="160" height="150" rx="12" fill="#120a0b"/>'+
-  '<ellipse class="furnace-glow" cx="70" cy="118" rx="78" ry="74" fill="url(#fire)"/>'+
-  '<rect x="-10" y="40" width="160" height="150" rx="12" fill="none" stroke="#8a4a30" stroke-width="4"/>'+
-  '<rect x="-44" y="214" width="228" height="30" rx="8" fill="#2d2021" stroke="#5a3a2e" stroke-width="3"/>'+
-  '<text x="70" y="300" text-anchor="middle" fill="#ffb27a" font-size="15" font-weight="700" letter-spacing="2">FURNACE</text>'+
-  '</g>';
-}
+// Five-second tower strike. The scan is cosmetic; only engine-cut players are targeted.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
-// Build the nuclear-strike overlay. Every target remains in the DOM so the cut list is
-// auditable, but only one target is activated at a time by playCutscene().
+function cutsceneRoster(names){
+ const roster=Object.values(state?.names||{}).filter(n=>n&&n.trim());
+ return [...new Set([...roster,...names])];
+}
 function buildCutscene(names){
- const reduced=reducedMotion();
- const escorts=names.map((n,i)=>cutsceneEscort(n,i)).join('');
- const svg='<svg class="nuke-svg" viewBox="0 0 900 400" role="img" aria-hidden="true">'+
-  '<defs><radialGradient id="nuke-fire"><stop stop-color="#fffde2"/><stop offset=".16" stop-color="#fff16d"/><stop offset=".42" stop-color="#ff7d32"/><stop offset=".75" stop-color="#d7352e" stop-opacity=".78"/><stop offset="1" stop-color="#461321" stop-opacity="0"/></radialGradient><linearGradient id="nuke-sky" x2="0" y2="1"><stop stop-color="#180d2a"/><stop offset="1" stop-color="#06070d"/></linearGradient></defs>'+
-  '<rect width="900" height="400" fill="url(#nuke-sky)"/>'+ '<path d="M0 307H900" stroke="#ff5575" stroke-opacity=".22"/><path d="M450 42V350M140 190H760" stroke="#ff9b74" stroke-opacity=".16" stroke-dasharray="4 10"/>'+
-  '<g class="nuke-warning"><text x="450" y="65" text-anchor="middle" fill="#ffb2a2" font-size="13" font-family="monospace" letter-spacing="4">TARGET ACQUIRED</text><text x="450" y="88" text-anchor="middle" fill="#ff5d68" font-size="10" font-family="monospace" letter-spacing="3">STRIKE INBOUND</text></g>'+
-  '<g class="nuke-missile"><path d="M110 305L440 174" stroke="#fff4bc" stroke-width="3"/><path d="M440 174l-18-1 10 12z" fill="#fff4bc"/><circle cx="440" cy="174" r="8" fill="#fff"/></g>'+ '<g class="cut-escorts">'+escorts+'</g>'+ '<g class="nuke-impact"><circle class="nuke-flash" cx="450" cy="215" r="35" fill="url(#nuke-fire)"/><circle class="nuke-ring" cx="450" cy="215" r="60" fill="none" stroke="#ffad55" stroke-width="7"/><path class="nuke-cloud" d="M450 210c-42 0-45-27-22-41-8-32 42-45 57-14 32-18 62 13 45 39 23 17 4 42-23 42H395c-29 0-43-31-18-47-6-31 45-44 60-15z" fill="url(#nuke-fire)"/><path d="M430 243h40l15 86h-70z" fill="#ed5b35" opacity=".9"/><text class="nuke-boom" x="450" y="365" text-anchor="middle" fill="#fff0a5" font-size="21" font-family="monospace" font-weight="900" letter-spacing="3">NUKED</text></g>'+ '</svg>';
- const stage=$('#cutscene-stage');if(stage)stage.innerHTML=svg;
+ const towers=cutsceneRoster(names).map((name,i)=>{
+  const x=45+i*(810/Math.max(1,cutsceneRoster(names).length-1));
+  return '<g class="strike-tower" data-name="'+esc(name)+'" transform="translate('+x+',0)">'+
+   '<path class="tower-body" d="M-22 290V145L0 125L22 145V290Z" fill="#183440" stroke="#67b4c9" stroke-width="2"/>'+
+   '<path class="tower-windows" d="M-12 160H12M-12 182H12M-12 204H12M-12 226H12M-12 248H12" stroke="#8be4ef" stroke-width="4"/>'+
+   '<path class="tower-rubble" d="M-29 292l13-22 10 12 15-21 24 31Z" fill="#36242c" stroke="#ff986b"/>'+
+   '<text x="0" y="323" text-anchor="middle" fill="#c2e5ed" font-size="11" font-family="monospace">'+esc(name)+'</text></g>';
+ }).join('');
+ $('#cutscene-stage').innerHTML='<svg class="tower-strike-svg" viewBox="0 0 900 400" aria-hidden="true">'+
+  '<defs><radialGradient id="strike-fire"><stop stop-color="#fff8bc"/><stop offset=".4" stop-color="#ff9b38"/><stop offset="1" stop-color="#ff3a2700"/></radialGradient></defs>'+
+  '<path d="M0 293H900" stroke="#568e9d"/>'+towers+
+  '<g class="strike-reticle"><rect x="-34" y="115" width="68" height="185" rx="3" fill="none" stroke="#ff697a" stroke-width="3"/><path d="M-45 207H45M0 97V315" stroke="#ff697a" stroke-dasharray="5 10"/></g>'+
+  '<g class="strike-missile"><path d="M-8-20H8V15L0 30L-8 15Z" fill="#d5e9ed" stroke="#fa785d"/><path d="M-6-20L0-65L6-20" fill="#ffb95d"/></g>'+
+  '<g class="strike-blast"><circle class="strike-fireball" cy="220" r="105" fill="url(#strike-fire)"/><ellipse class="strike-shockwave" cy="290" rx="180" ry="25" fill="none" stroke="#ffb862" stroke-width="5"/><path class="strike-mushroom" d="M-18 285L-12 190C-110 220-120 110-55 115C-40 50 45 50 60 115C130 105 105 220 12 190L18 285Z" fill="url(#strike-fire)"/></g></svg>';
+ $('#cutscene-caption').innerHTML='<strong>SCANNING TOWERS</strong>';
+}
+function strikePhase(phase,name,x){
+ const overlay=$('#cutscene');
+ overlay.classList.remove('phase-scan','phase-lock','phase-inbound','phase-impact','phase-off');
+ overlay.classList.add('phase-'+phase);
+ const stage=$('#cutscene-stage');
+ stage.style.setProperty('--strike-x',x+'px');
+ const towers=stage.querySelectorAll?Array.from(stage.querySelectorAll('.strike-tower')):[];
+ towers.forEach(t=>{t.classList.toggle('selected',t.dataset.name===name);if((phase==='impact'||phase==='off')&&t.dataset.name===name)t.classList.add('destroyed');});
  const caption=$('#cutscene-caption');
- if(caption)caption.innerHTML=reduced
-  ?'<strong>ELIMINATED:</strong> '+names.map(esc).join(', ')
-  :'<strong>STANDBY:</strong> nuclear strike queue loaded — '+names.length+' target'+(names.length===1?'':'s');
+ caption.innerHTML='<strong>'+({scan:'SCANNING',lock:'LOCKED',inbound:'LOCKED',impact:'IMPACT',off:'LOCKED OFF'}[phase])+'</strong> — '+esc(name);
+}
+function runTowerStrike(names,i=0){
+ if(!cutsceneActive)return;
+ if(i>=names.length){endCutscene();return;}
+ // Rebuild each beat to restart missile, blast and shake animations for every target.
+ const roster=cutsceneRoster(names),target=names[i],targetIndex=roster.indexOf(target);
+ buildCutscene(names);
+ const xFor=n=>45+n*(810/Math.max(1,roster.length-1));
+ const schedule=(fn,delay)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},delay));
+ if(reducedMotion()){
+  strikePhase('off',target,xFor(targetIndex));
+ }else{
+  for(let step=0;step<8;step++){
+   const scanIndex=Math.floor(Math.random()*roster.length);
+   if(step===0)strikePhase('scan',roster[scanIndex],xFor(scanIndex));
+   else schedule(()=>strikePhase('scan',roster[scanIndex],xFor(scanIndex)),step*125);
+  }
+  schedule(()=>strikePhase('lock',target,xFor(targetIndex)),1000);
+  schedule(()=>strikePhase('inbound',target,xFor(targetIndex)),1600);
+  schedule(()=>{strikePhase('impact',target,xFor(targetIndex));try{globalThis.navigator?.vibrate?.([160,50,240,60,320]);}catch{}},2300);
+  schedule(()=>strikePhase('off',target,xFor(targetIndex)),4000);
+ }
+ schedule(()=>runTowerStrike(names,i+1),5000);
 }
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
@@ -731,7 +705,8 @@ function endCutscene(){
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
  const overlay=$('#cutscene');
- if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open');}
+ if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off');}
+ try{globalThis.navigator?.vibrate?.(0);}catch{}
  cutsceneActive=false;
  window.CityWorld?.setSuspended(false);
  startWorldBlasts();
@@ -756,27 +731,7 @@ function playCutscene(names,roundLabel=''){
   // Capture Esc so skipping does not also close the scoring/results window underneath.
   cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();endCutscene();}};
   if(document.addEventListener)document.addEventListener('keydown',cutsceneKeyHandler,true);
-  if(reducedMotion()){
-   // Static summary: no toss, no vibration. Stays up until skipped/clicked/Esc, but also
-   // auto-advances after a short beat so the flow is not stuck if input is unavailable.
-   cutsceneTimers.push(setTimeout(endCutscene,1800));
-   return;
-  }
-  // Each cut player gets a full five-second strike beat. The queue advances only after
-  // the previous target's impact has finished, so no elimination is visually skipped.
-  const stage=$('#cutscene-stage');
-  const escorts=stage&&stage.querySelectorAll?[...stage.querySelectorAll('.cut-escort')]:[];
-  const TARGET_MS=5000;
-  const activate=(i)=>{
-   if(i>=escorts.length){endCutscene();return;}
-   escorts.forEach((g,j)=>{g.classList.toggle('active',j===i);g.setAttribute('aria-hidden',j===i?'false':'true');g.style.transform=j===i?'translate(450px,230px)':'';});
-   const target=names[i]||'UNKNOWN';
-   const caption=$('#cutscene-caption');if(caption)caption.innerHTML='<strong>NUCLEAR LOCK:</strong> '+esc(target)+' — impact sequence active';
-   overlay.classList.remove('nuke-impact');void overlay.offsetWidth;overlay.classList.add('nuke-impact');
-   cutsceneTimers.push(setTimeout(()=>overlay.classList.remove('nuke-impact'),4400));
-   cutsceneTimers.push(setTimeout(()=>activate(i+1),TARGET_MS));
-  };
-  activate(0);
+  runTowerStrike(names);
  });
 }
 
