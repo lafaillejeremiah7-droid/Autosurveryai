@@ -30,7 +30,9 @@ def fixture(final=True):
     s['round2']['roster']=players.copy();s['round2']['draw']={'order':players.copy(),'revealed':5,'completed':5,'mode':'random'}
     for g,match in enumerate(schedule):
         for team in ['A','B']:
-            scorers=[p for p in match[team] if p not in ['p4','p9']]
+            eligible=[p for p in match[team] if p not in ['p4','p9']]
+            limit=3 if team=='A' else 2
+            scorers=[eligible[(g+j)%len(eligible)] for j in range(min(limit,len(eligible)))]
             for p in match[team]:s['round2']['players'][p]['goals'][g]=int(p in scorers)
     bind_rosters(s)
     if final:
@@ -329,7 +331,9 @@ class Draws(unittest.TestCase):
             self.assertEqual(g['A'],first['A']);self.assertEqual(g['B'],first['B'])
             with self.assertRaises(ValueError):round2_draw_action(s,'done',game)
             for team in ['A','B']:
-                scorers=[p for p in g[team] if p not in ['p4','p9']]
+                eligible=[p for p in g[team] if p not in ['p4','p9']]
+                limit=3 if team=='A' else 2
+                scorers=[eligible[(game-1+j)%len(eligible)] for j in range(min(limit,len(eligible)))]
                 for p in g[team]:s['round2']['players'][p]['goals'][game-1]=int(p in scorers)
             s=round2_draw_action(s,'done',game)
             self.assertEqual(s['round2']['draw']['order'],draw_order)
