@@ -362,6 +362,8 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #cff6ff0b}td.calc{backgroun
 #cutscene .cutscene-stage{width:min(1400px,96vw);height:auto;aspect-ratio:2.84;position:relative;background:#060b13;isolation:isolate}
 .cinematic-plate{position:absolute;inset:0;z-index:-1;background-image:url('/tower-strike.svg');background-size:200% 200%;background-position:0 0}
 #cutscene .tower-strike-svg{background:transparent}
+#cutscene .tower-strike-svg>path{display:none}
+#cutscene.phase-lock .cinematic-plate:after,#cutscene.phase-inbound .cinematic-plate:after{content:'';position:absolute;left:43%;top:25%;width:14%;height:44%;border:3px solid #ff697a;border-radius:50%;box-shadow:0 0 18px #ff365799;pointer-events:none}
 #cutscene .tower-body,#cutscene .tower-windows,#cutscene .tower-rubble{display:none}
 #cutscene .strike-tower text{font-size:12px;paint-order:stroke;stroke:#031019;stroke-width:4px;fill:#e5f7ff}
 #cutscene .strike-tower.selected text{fill:#ff928f;stroke:#21080a}
