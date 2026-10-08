@@ -574,9 +574,25 @@ def round2_draw_action(s, action, game=None):
         if has_inputs(stage): raise ValueError('Existing scores cannot be assigned to a new draw.')
         order=list(view['round1']['survivors']);secrets.SystemRandom().shuffle(order)
         stage['roster']=list(view['round1']['survivors'])
-        stage['draw']={'order':order,'revealed':1,'completed':0,'mode':'random'}
+        stage['draw']={'order':order,'lineups':_round2_balanced_lineups(order),'revealed':1,'completed':0,'mode':'random'}
+    elif action=='reroll':
+        if not draw['order']: raise ValueError('Start Round 2 first.')
+        if type(game) is not int or not 1<=game<=ROUND2_GAMES:
+            raise ValueError('Choose a match from 1 to 5.')
+        g=game-1
+        if g!=draw['completed'] or g>=draw['revealed']:
+            raise ValueError('Only the current uncompleted match can be reshuffled.')
+        if any(stage['players'][p]['goals'][g] is not None for p in IDS):
+            raise ValueError('This game has scores. Clear this game before reshuffling.')
+        old=draw['lineups'][g]
+        alternatives=[m for m in _round2_candidates(draw['order'])
+                      if set(m['A'])!=set(old['A']) and set(m['A'])!=set(old['B'])]
+        rng=secrets.SystemRandom();rng.shuffle(alternatives)
+        costs=[_round2_balance_cost(draw['lineups'][:g]+[m]+draw['lineups'][g+1:],draw['order'])
+               for m in alternatives]
+        draw['lineups'][g]=deepcopy(alternatives[costs.index(min(costs))])
     elif action=='done':
-        if not draw['order']: raise ValueError('Draw the fixed 4v4 teams first.')
+        if not draw['order']: raise ValueError('Draw the 4v4 teams first.')
         if type(game) is not int or game!=draw['completed']+1 or not 1<=game<=ROUND2_GAMES or game>draw['revealed']:
             raise ValueError('Complete the current match in order. This match may already be marked done.')
         if not all(g['ready'] for g in view['round2']['games'][:game]):
