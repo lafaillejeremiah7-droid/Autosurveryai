@@ -111,6 +111,27 @@ def _round2_balance_cost(lineups,order):
                 score+=120*(max(0,together-3)**2+max(0,1-together)**2)
     return score
 
+def _round2_balanced_lineups(order,locked=None):
+    """Randomly optimize 5 different 4v4 matchups without touching locked games."""
+    if len(order)!=8:return []
+    locked=locked or {}
+    rng=secrets.SystemRandom()
+    candidates=_round2_candidates(order)
+    best=None;best_cost=None
+    for _attempt in range(3):
+        choices=[deepcopy(locked[i]) if i in locked else deepcopy(rng.choice(candidates))
+                 for i in range(ROUND2_GAMES)]
+        for _pass in range(3):
+            for i in range(ROUND2_GAMES):
+                if i in locked:continue
+                rng.shuffle(candidates)
+                costs=[_round2_balance_cost(choices[:i]+[candidate]+choices[i+1:],order)
+                       for candidate in candidates]
+                choices[i]=deepcopy(candidates[costs.index(min(costs))])
+        cost=_round2_balance_cost(choices,order)
+        if best_cost is None or cost<best_cost:best=choices;best_cost=cost
+    return best
+
 def round2_schedule(draw):
     """Use saved per-game 4v4 teams; a bare roster is legacy-compatible."""
     if isinstance(draw,dict):
