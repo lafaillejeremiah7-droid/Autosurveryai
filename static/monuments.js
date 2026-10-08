@@ -38,12 +38,7 @@
  }
  root.BrawlMonuments={model,
   render(view,state){
-   const m=model(view,state),towerHost=$('#player-towers');
-   if(towerHost){
-    if(!towerHost.children.length)towerHost.innerHTML=m.towers.map(t=>'<article class="player-tower" data-player="'+esc(t.id)+'"><div class="tower-label"><strong></strong><span></span></div></article>').join('');
-    for(const t of m.towers){const e=towerHost.querySelector('[data-player="'+t.id+'"]');e.dataset.cut=String(t.cut);e.querySelector('strong').textContent=t.name;e.querySelector('span').textContent=t.status;}
-   }
-   const summary=$('#tower-summary');if(summary)summary.textContent=m.towers.filter(t=>!t.cut).length+' towers standing · '+m.towers.filter(t=>t.cut).length+' eliminated';
+   const m=model(view,state);
    // Avoid resetting movement on unrelated saves or the one-second countdown tick.
    if(JSON.stringify(m)!==JSON.stringify(lastModel)){podium($('#city-podium'),m);root.CityWorld?.setMonuments(m);lastModel=m;}
   },
