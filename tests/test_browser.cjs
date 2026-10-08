@@ -101,20 +101,19 @@ let browser,page;
  await snap('extra-games-recovery');
  await page.locator('[data-action="close-result"]').click();
  assert(await page.locator('#screen-dialog #undo-action').count());
- // Fresh What Do You Want?: record all eight matches via real controls, checking the saved draw.
+ // Fresh What Do You Want?: record all five fixed 4v4 matches via real controls, checking the saved draw.
  const fresh=copy(fixture);
  for(const key of ['round2','final']){
   fresh[key].extras=[];fresh[key].roster=[];
-  for(const p of Object.keys(fresh.names)){fresh[key].players[p].goals=Array(key==='round2'?8:8).fill(null);if(key==='final')fresh[key].players[p].results=Array(8).fill('');}
+  for(const p of Object.keys(fresh.names)){fresh[key].players[p].goals=Array(key==='round2'?5:8).fill(null);if(key==='final')fresh[key].players[p].results=Array(8).fill('');}
  }
  fresh.round2.draw={order:[],revealed:0,completed:0,mode:'random'};
  await restore(fresh);await open('round2');await page.locator('[data-action="r2-start"]').click();
- const rests=Object.fromEntries(Object.keys(fixture.names).map(p=>[p,0]));
- for(let g=0;g<8;g++){
-  await page.locator('[data-action="r2-scores"]').click();
+ let firstTeams=null;
+ for(let g=0;g<5;g++){
   const current=await page.evaluate(()=>view.round2.schedule[round2Game]);
-  for(const p of current.sit)rests[p]++;
-  const scorers=['A','B'].flatMap(t=>current[t].filter(p=>!['p4','p9'].includes(p)).slice(0,2));
+  if(firstTeams){assert.deepEqual(current.A,firstTeams.A);assert.deepEqual(current.B,firstTeams.B);}else firstTeams=current;
+  const scorers=['A','B'].flatMap(t=>current[t].filter(p=>!['p4','p9'].includes(p)));
   for(const p of [...current.A,...current.B]){
    await page.locator(`[data-path="round2.players.${p}.goals.${g}"]`).fill(scorers.includes(p)?'1':'0');await saved();
   }
@@ -123,7 +122,7 @@ let browser,page;
   assert.equal(await page.evaluate(()=>view.round2.draw.completed),g+1);
   await page.locator('[data-action="close-result"]').click();
  }
- assert.equal(Object.values(rests).filter(n=>n===2).length,8);
+ assert.equal((await page.evaluate(()=>view.round2.schedule)).length,5);
  assert.equal(await page.evaluate(()=>view.round2.complete),true);
  await nav('final');assert.equal(await page.locator('[data-path^="final.players"]').count(),6);
  // Team caps apply immediately to counters, typed/pasted input and server writes.
@@ -162,5 +161,5 @@ let browser,page;
  const bad=await page.evaluate(async()=>{const d=await (await fetch('/api/state')).json();return (await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':d.token},body:'[]'})).status;});
  assert.equal(bad,400);
  assert.deepEqual(errors,[],'uncaught browser errors');
- console.log('Browser checks passed: five rooms at desktop/phone sizes, focus, recovery, Undo/Retry, extra games, eight sit-out draws, and team goal caps in all three rounds (typing, counters, corrections, API).');
+ console.log('Browser checks passed: five rooms at desktop/phone sizes, focus, recovery, Undo/Retry, extra games, five fixed-team matches, and team goal caps in all three rounds (typing, counters, corrections, API).');
 })().catch(async e=>{console.error(e);if(page)console.error(await page.evaluate(()=>({error:document.querySelector('#error')?.textContent,dirty,saving,undo:!!undoSnapshot,extraCount:state.round1.extras.length,undoHidden:document.querySelector('#undo-action')?.hidden})).catch(()=>null));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();fs.rmSync(tmp,{recursive:true,force:true});});
