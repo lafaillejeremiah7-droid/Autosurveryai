@@ -26,7 +26,7 @@ def match_goal_error(stage, teams, game):
 
 def stage_schedules(s):
     return {'round1':s['round1'].get('lineups',[]),
-            'round2':round2_schedule(s['round2']['draw']['order']),
+            'round2':round2_schedule(s['round2']['draw']),
             'final':final_schedule(s['final']['roster'])}
 
 def validate_goal_changes(s, previous=None):
@@ -62,13 +62,13 @@ def extra_goal_issues(stage, final=False):
             if any((v.get('goals') if final else v) is not None and (v.get('goals') if final else v)>3 for v in e.values())]
 
 def blank_draw():
-    return {'order':[], 'revealed':0, 'completed':0, 'mode':'random'}
+    return {'order':[], 'lineups':[], 'revealed':0, 'completed':0, 'mode':'random'}
 
 def blank_round(games=5, is_round2=False):
     return {'players': {p: {'goals': [None]*games} for p in IDS}, 'extras': [], 'roster': [], **({'draw':blank_draw()} if is_round2 else {'lineups':[]})}
 
 def new_state():
-    return {'version': 5, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
+    return {'version': 6, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
             'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4], 'start_at': '', 'disaster_started_at': ''},
             'round1': blank_round(), 'round2': blank_round(5, is_round2=True),
             'final': {'players': {p: {'goals': [None]*FINAL_GAMES, 'results': ['']*FINAL_GAMES} for p in IDS}, 'extras': [], 'roster': []}}
@@ -144,7 +144,7 @@ def migrate(s):
                                           'settings':deepcopy(s['settings'])}
         s['round2']=blank_round(ROUND2_GAMES,is_round2=True)
         s['final']=new_state()['final']
-        s['version']=5
+        s['version']=6
         return _normalize_game_lengths(_normalize_round1(s))
     if version not in (1,2):
         return _normalize_game_lengths(_normalize_round1(deepcopy(s)))
@@ -161,7 +161,7 @@ def migrate(s):
                             'settings':deepcopy(s['settings'])}
     s['round2']=blank_round(ROUND2_GAMES,is_round2=True)
     s['final']=new_state()['final']
-    s['version']=5
+    s['version']=6
     return _normalize_game_lengths(_normalize_round1(s))
 
 def numeric(v, nullable=False, integer=False):
@@ -178,7 +178,7 @@ def validate(s):
         s['settings'].setdefault('disaster_started_at', '')
         if not isinstance(s['wheel'],dict) or not isinstance(s['wheel'].get('text'),str) or not isinstance(s['wheel'].get('remove_winner'),bool):
             raise ValueError('Invalid wheel list or removal setting.')
-        if s['version'] != 5 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
+        if s['version'] != 6 or set(s['names']) != set(IDS): raise ValueError('Invalid tournament backup.')
         for name in s['names'].values():
             if not isinstance(name,str) or len(name)>40: raise ValueError('Names must be 40 characters or fewer.')
         for k in ['win_points','goal_points','multiplier']: numeric(s['settings'][k])
@@ -369,13 +369,13 @@ def round1_view(s, names_ok):
     return {'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not tied,'survivors':survivors,'stale':stale}
 
 def round2_view(s, roster, names_ok, upstream=True):
-    stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw['order'])
+    stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw)
     rows=[];scores={};issues=extra_goal_issues(stage)
     stale=bool(stage['roster'] and stage['roster']!=roster)
     if not upstream: issues.append('Complete Like Never Before and resolve its cut ties.')
     if stale: issues.append('The survivor list changed. Reset What Do You Want? before entering new scores.')
     if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
-    if not draw['order']: issues.append('Draw the two fixed 4v4 teams to start What Do You Want?.')
+    if not draw['order']: issues.append('Draw the 4v4 team rotations to start What Do You Want?.')
     games=[]
     for match in schedule:
         g=match['game']-1
