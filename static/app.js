@@ -255,7 +255,7 @@ async function openMatchResult(key,match){
  // An unresolved tie (v.complete false) falls through to the normal extra-game fullscreen.
  if(resultFinal&&v.complete){
   const names=eliminatedNames(key);
-  if(names.length)await playCutscene(names,meta.label);
+  if(names.length)await playCutscene(names,meta.label,key);
  }
  const dialog=$('#result-dialog');
  dialog.classList.toggle('fullscreen',resultFinal);
@@ -471,7 +471,7 @@ async function save(){
    const settledStage=seq===editVersion&&$('#result-dialog').open&&resultFinal&&resultStage&&!view[resultStage].complete&&data.view[resultStage].complete?resultStage:null;
    saveFailed=false;revision=data.revision;view=data.view;
    if(seq===editVersion){state=data.state;render();renderResult();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
-   if(settledStage&&!cutsceneActive)playCutscene(eliminatedNames(settledStage),stageMeta[settledStage].label);
+   if(settledStage&&!cutsceneActive)playCutscene(eliminatedNames(settledStage),stageMeta[settledStage].label,settledStage);
   }catch(e){saveFailed=true;dirty=true;error(e.message);$('#save-status').textContent='Not saved';$('#retry-save').hidden=false;}
   finally{saving=false;}
  })();await saveTask;if(dirty&&!saveFailed)return save();
@@ -700,6 +700,51 @@ function runTowerStrike(names,i=0){
  }
  schedule(()=>runTowerStrike(names,i+1),5000);
 }
+// Five-second portal abduction, rebuilt independently for each eliminated player.
+function buildPortalScene(name){
+ $('#cutscene-stage').innerHTML=`<svg class="portal-scene" viewBox="0 0 900 420" aria-hidden="true">
+ <defs><radialGradient id="portal-haze"><stop stop-color="#47316b"/><stop offset="1" stop-color="#05070d"/></radialGradient><radialGradient id="portal-void"><stop stop-color="#000"/><stop offset=".78" stop-color="#030208"/><stop offset="1" stop-color="#9c65cd"/></radialGradient><linearGradient id="hand-shade" x2="0" y2="1"><stop stop-color="#15131f"/><stop offset=".55" stop-color="#514253"/><stop offset="1" stop-color="#0c0a11"/></linearGradient><filter id="portal-glow"><feGaussianBlur stdDeviation="9"/></filter></defs>
+ <rect width="900" height="420" fill="url(#portal-haze)"/>
+ <path d="M0 330L450 265L900 330V420H0Z" fill="#090a12"/>
+ <g stroke="#59506d" opacity=".18"><path d="M450 270L50 420M450 270L260 420M450 270L640 420M450 270L850 420M0 360H900M0 397H900"/></g>
+ <ellipse class="portal-ground" cx="370" cy="339" rx="130" ry="24" fill="#9061be" opacity=".2" filter="url(#portal-glow)"/>
+ <g class="dark-portal"><ellipse cx="355" cy="226" rx="79" ry="119" fill="#9658c7" opacity=".55" filter="url(#portal-glow)"/><ellipse cx="355" cy="226" rx="70" ry="111" fill="url(#portal-void)" stroke="#a97ce0" stroke-width="2"/>
+ <ellipse class="portal-rim" cx="355" cy="226" rx="75" ry="116" fill="none" stroke="#dac2ff" stroke-width="2" stroke-dasharray="38 23 9 32"/>
+ <path d="M324 199L340 204M372 204L388 199" stroke="#cab2f0" stroke-width="3" opacity=".55"/></g>
+ <ellipse class="walker-shadow" cx="520" cy="340" rx="40" ry="8" fill="#000" opacity=".7"/>
+ <g class="portal-walker"><g class="walker-bob" fill="#030407" stroke="#665b74" stroke-width=".7">
+ <g class="walker-leg rear-leg"><path d="M-10-7L-16 34L-7 64L10 65L10 59L2 56L-2 31L5-4Z"/></g>
+ <g class="walker-arm rear-arm"><path d="M-9-95Q-15-98-19-87L-27-68Q-29-63-25-56L-14-38Q-9-34-6-41L-14-65L0-86Q5-92-9-95Z"/></g>
+ <path d="M-13-108Q0-119 14-105Q19-87 17-64Q11-35 11-6Q0 0-13-6Q-14-31-18-58Q-24-88-13-108Z"/>
+ <path d="M-6-119L-6-105L9-105L10-121Z"/>
+ <path d="M-13-137Q-15-158 3-158Q20-156 17-138L22-132L17-128Q18-119 7-118L-7-121Z"/>
+ <g class="walker-leg front-leg"><path d="M2-6L9 31L3 58L3 65L25 65L26 60L13 57L21 31L17-6Z"/></g>
+ <g class="walker-arm front-arm"><path d="M12-98Q18-99 21-88L28-68Q29-63 26-57L17-38Q12-34 9-40L16-65L5-88Q2-96 12-98Z"/></g>
+ </g></g>
+ <g class="portal-hand"><path d="M313 257Q365 223 418 209L443 204L465 193Q472 190 475 196L461 211L492 198Q501 196 503 203L477 220L509 214Q516 214 515 222L483 235L507 237Q515 240 508 246L471 252Q455 269 433 263L399 270L321 297Z" fill="url(#hand-shade)" stroke="#9e879f" stroke-width="1.6"/>
+ <path d="M335 272L414 237M350 282L427 249M438 218L454 227M452 242L466 230M463 249L473 241" fill="none" stroke="#c3a3c4" stroke-width="2" opacity=".45"/>
+ <path d="M465 193L475 196L461 211M492 198L503 203L477 220M509 214L515 222L483 235" fill="#c8b6cf" opacity=".7"/></g>
+ <g class="portal-dust" fill="#b5a0d5">${Array.from({length:14},(_,i)=>`<circle cx="${300+i*17}" cy="${180+(i*37)%145}" r="${1+i%3}" style="--dust-delay:${i*-.17}s"/>`).join('')}</g>
+ <rect class="portal-vignette" width="900" height="420" fill="none" stroke="#000" stroke-width="45" opacity=".3"/>
+ </svg><div class="portal-player-name">${esc(name)}</div>`;
+}
+function portalPhase(phase,name){
+ const overlay=$('#cutscene');overlay.classList.remove('portal-walk','portal-open','portal-grab','portal-drag','portal-gone');overlay.classList.add('portal-'+phase);
+ const labels={walk:'THE WALK',open:'SOMETHING IS BEHIND YOU',grab:'REACHING FOR YOU',drag:'CLAIMED',gone:'ELIMINATED'};
+ $('#cutscene-caption').innerHTML='<strong>'+labels[phase]+'</strong><br>'+esc(name);
+}
+function runPortalSequence(names,i=0){
+ if(!cutsceneActive)return;if(i>=names.length){endCutscene();return;}
+ const name=names[i];buildPortalScene(name);portalPhase(reducedMotion()?'gone':'walk',name);
+ const schedule=(fn,delay)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},delay));
+ if(!reducedMotion()){
+  schedule(()=>portalPhase('open',name),900);
+  schedule(()=>portalPhase('grab',name),2000);
+  schedule(()=>portalPhase('drag',name),2700);
+  schedule(()=>portalPhase('gone',name),4100);
+ }
+ schedule(()=>runPortalSequence(names,i+1),5000);
+}
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
 function endCutscene(){
@@ -707,7 +752,7 @@ function endCutscene(){
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
  const overlay=$('#cutscene');
- if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off');}
+ if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove('open','phase-scan','phase-lock','phase-inbound','phase-impact','phase-off','portal-mode','portal-walk','portal-open','portal-grab','portal-drag','portal-gone');}
  try{globalThis.navigator?.vibrate?.(0);}catch{}
  cutsceneActive=false;
  window.CityWorld?.setSuspended(false);
@@ -716,7 +761,7 @@ function endCutscene(){
 }
 // Play the cutscene for `names`; resolves when it ends (naturally or via skip). If there
 // is nothing to show, resolves immediately so standings appear directly.
-function playCutscene(names,roundLabel=''){
+function playCutscene(names,roundLabel='',stage=''){
  return new Promise(resolve=>{
   if(cutsceneActive||!names||!names.length){resolve();return;}
   const overlay=$('#cutscene');if(!overlay){resolve();return;}
@@ -724,8 +769,10 @@ function playCutscene(names,roundLabel=''){
   // Suppress the ambient world shake/blasts while the cutscene runs (FEAT-002 guard
   // + hard stop so nothing vibrates behind the overlay).
   stopWorldBlasts();
-  buildCutscene(names);
-  $('#cutscene-label').textContent=roundLabel?roundLabel+' — Nuclear elimination':'Nuclear elimination';
+  const portal=stage==='round1'||stage==='round2';
+  overlay.classList.toggle('portal-mode',portal);
+  $('#cutscene .eyebrow').textContent=portal?'THE VOID IS WAITING':'STRIKE AUTHORIZATION';
+  $('#cutscene-label').textContent=(roundLabel?roundLabel+' — ':'')+(portal?'The portal claims its cut':'Nuclear elimination');
   overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
   // Native top layer keeps the cutscene above both scoring and tie-result dialogs.
   overlay.showModal();
@@ -733,7 +780,7 @@ function playCutscene(names,roundLabel=''){
   // Capture Esc so skipping does not also close the scoring/results window underneath.
   cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();endCutscene();}};
   if(document.addEventListener)document.addEventListener('keydown',cutsceneKeyHandler,true);
-  runTowerStrike(names);
+  if(portal)runPortalSequence(names);else runTowerStrike(names);
  });
 }
 
