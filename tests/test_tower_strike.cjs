@@ -25,3 +25,18 @@ ctx.cutsceneActive=true;ended=false;now=0;jobs.clear();phases.length=0;
 ctx.runTowerStrike(['Cut A','Cut B']);ctx.cutsceneActive=false;advance(10000);
 assert.equal(phases.length,1);assert(!ended);
 console.log('Tower strike timing passed: cosmetic scan, correct targets, lock → inbound → impact → off, 5 seconds per target, animation rebuild, cancellation.');
+
+ctx.cutsceneActive=true;ended=false;now=0;jobs.clear();phases.length=0;
+ctx.portalPhase=(phase,name)=>phases.push({phase,name,time:now});
+ctx.runPortalSequence(['Cut A','Cut B']);
+assert(stage.innerHTML.includes('portal-walker')&&stage.innerHTML.includes('portal-hand'));
+assert(!stage.innerHTML.includes('Winner'));
+advance(900);assert.equal(phases.at(-1).phase,'open');
+advance(2000);assert.equal(phases.at(-1).phase,'grab');
+advance(2700);assert.equal(phases.at(-1).phase,'drag');
+advance(4100);assert.equal(phases.at(-1).phase,'gone');
+advance(5000);assert.equal(phases.at(-1).name,'Cut B');assert(!ended);
+advance(10000);assert(ended);
+ctx.cutsceneActive=true;ended=false;now=0;jobs.clear();phases.length=0;ctx.reducedMotion=()=>true;
+ctx.runPortalSequence(['Cut A']);assert.equal(phases.at(-1).phase,'gone');advance(5000);assert(ended);
+console.log('Portal timing passed: correct cut players, walk → open → grab → drag → gone, independent five-second scenes, reduced motion.');
