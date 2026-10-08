@@ -121,21 +121,24 @@ def _normalize_game_lengths(s):
         stage=s.get(key)
         if not isinstance(stage,dict) or not isinstance(stage.get('players'),dict):
             continue
-        for d in stage['players'].values():
+        for player_id,d in stage['players'].items():
             if not isinstance(d,dict):
                 continue
             goals=d.get('goals',[])
-            if not isinstance(goals,list): goals=[]
+            if not isinstance(goals,list): raise ValueError('Invalid saved goals: expected a list.')
+            if len(goals)>target or (key=='final' and isinstance(d.get('results'),list) and len(d['results'])>target):
+                archive=s.setdefault('legacy_game_lengths',{}).setdefault(key,{})
+                archive.setdefault(player_id,deepcopy(d))
             d['goals']=(goals[:target] + [None]*target)[:target]
             if key=='final':
                 results=d.get('results',[])
-                if not isinstance(results,list): results=[]
+                if not isinstance(results,list): raise ValueError('Invalid saved results: expected a list.')
                 d['results']=(results[:target] + ['']*target)[:target]
     return s
 
 def migrate(s):
     if s.get('version')==3:
-        s=deepcopy(s);stage=s['round2'];draw=blank_draw()
+        s=_normalize_game_lengths(deepcopy(s));stage=s['round2'];draw=blank_draw()
         if has_inputs(stage):
             roster=stage['roster'] or round1_view(s,True)['survivors']
             if len(roster)!=8: raise ValueError('Old Round 2 scores need their original eight-player roster.')
