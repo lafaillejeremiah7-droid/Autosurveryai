@@ -130,7 +130,7 @@ function nextStepBanner(next,finished){
  let msg,label,target=next;
  if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
  else if(next==='round1'){msg=tieIn('round1')?'Resolve the Like Never Before tie (add extra games) before What Do You Want?.':(view.round1.issues[0]||'Score the five Like Never Before games, then submit.');label='Open Like Never Before';}
- else if(next==='round2'){msg=view.round2.issues[0]||'Draw two fixed 4v4 teams and play all five What Do You Want? matches.';label='Open What Do You Want?';}
+ else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering each game's scores.';label='Open What Do You Want?';}
  else{msg=view.final.issues[0]||'Play the eight You Wanted to Win, Right? games to decide the podium.';label='Open You Wanted to Win, Right?';}
  return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
 }
@@ -386,13 +386,16 @@ async function rerollRound1Game(game){
  }catch(err){error(err.message);}finally{sitoutBusy=false;render();}
 }
 async function progressRound2(action,game){
- if(sitoutBusy||spinning)return false;sitoutBusy=true;
+ if(sitoutBusy||spinning)return false;
+ const snap=action==='reroll'?{state:clone(state),label:'Undo: Reshuffle What Do You Want? Game '+game}:null;
+ sitoutBusy=true;
  try{
   await flush();
   const res=await fetch('/api/round2-draw',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action,game,revision})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
-  ({state,view,revision}=data);round2Game=Math.min(view.round2.draw.completed,4);
-  tab='round2';$('#save-status').textContent=action==='start'?'Fixed teams saved':'Match completed';error('');
+  ({state,view,revision}=data);round2Game=action==='reroll'?game-1:Math.min(view.round2.draw.completed,4);
+  if(snap)undoSnapshot=snap;
+  tab='round2';$('#save-status').textContent=action==='start'?'Five matchups generated':action==='reroll'?'Teams reshuffled':'Match completed';error('');
   return true;
  }finally{sitoutBusy=false;render();}
 }
@@ -420,7 +423,7 @@ function render(){
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>0${i+1}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=`BH / ROOM 0${tabs.findIndex(t=>t[0]===tab)+1} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
- $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. What Do You Want? now uses five fixed 4v4 games, so those stages start fresh. Like Never Before, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
+ $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. What Do You Want? uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Like Never Before, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
  window.BrawlMonuments?.renderScreen(view,state);
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
@@ -520,7 +523,7 @@ const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2
 // Human-readable labels for the per-round clear-round controls and their cascade.
 const clearRoundLabel={round1:'Clear Like Never Before',round2:'Clear What Do You Want?',final:'Clear You Wanted to Win, Right?'};
 const clearRoundCopy={round1:'Clear Like Never Before (also clears What Do You Want? &amp; You Wanted to Win, Right?)',round2:'Clear What Do You Want? (also clears You Wanted to Win, Right?)',final:'Clear You Wanted to Win, Right?'};
-function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:k==='round2'?5:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
+function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:k==='round2'?5:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelAngle=0;}
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();changed();});
@@ -538,6 +541,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-start'){await flush();doDestructive('Undo: Clear countdown',()=>{state.settings.start_at='';state.settings.disaster_started_at='';countdownDraft=null;});await save();return;}
  if(action==='r1-reroll'){await rerollRound1Game(Number(b.dataset.match));return;}
  if(action==='r2-start'){await progressRound2('start');return;}
+  if(action==='r2-reroll'){await progressRound2('reroll',Number(b.dataset.match)+1);return;}
  if(action==='r2-done'){const match=Number(b.dataset.match),completed=await progressRound2('done',match);if(completed)await openMatchResult('round2',match-1);return;}
  if(action==='submit-match'){await flush();await openMatchResult(key,Number(b.dataset.match));return;}
  if(action==='close-result'){closeResult();return;}
@@ -554,7 +558,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:5,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:k==='round2'?{goals:Array(5).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:k==='round2'?{goals:Array(5).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
