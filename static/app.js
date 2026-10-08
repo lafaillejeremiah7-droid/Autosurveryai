@@ -61,17 +61,44 @@ function goalRule(path){
  const max=Math.max(0,limit-(totals[team]-(value(path)||0)));
  return {max,message:totals[other]>=3?`Team ${other} already has 3 goals. Team ${team} is limited to 2 total; this player can have at most ${max}.`:`Team ${team} can score at most 3 goals combined; this player can have at most ${max}.`};
 }
+// When either side reaches the three-goal match limit, the game is over.
+// Remaining blank player scores on BOTH sides become zero, never overwriting
+// an entered number. This applies to all three rounds, not extra games.
+function zeroUnscoredPlayersAfterMatchEnd(key,g){
+ const teams=gameTeams(key,g);
+ if(!teams?.A?.length||!teams?.B?.length)return [];
+ const totals=teamGoals(key,g,teams);
+ if(totals.A!==3&&totals.B!==3)return [];
+ const filled=[];
+ for(const p of [...teams.A,...teams.B]){
+  if(state[key].players[p].goals[g]!==null)continue;
+  state[key].players[p].goals[g]=0;
+  filled.push(`${key}.players.${p}.goals.${g}`);
+ }
+ // Update every visible score input immediately, including Round 1's
+ // duplicate player-score inputs in its standings table.
+ if(filled.length){
+  const paths=new Set(filled);
+  for(const el of document.querySelectorAll('input[data-path]')){
+   if(paths.has(el.dataset.path))el.value='0';
+  }
+ }
+ return filled;
+}
 function enterGoal(path,n){
  const rule=goalRule(path),old=value(path);
  if(rule&&n!==null&&n>rule.max&&!(old!==null&&old>rule.max&&n<=old)){error(rule.message);return false;}
- setValue(path,n);return true;
+ setValue(path,n);
+ const match=path.match(/^(round1|round2|final)\\.players\\.p\\d+\\.goals\\.(\\d+)$/);
+ if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));
+ return true;
 }
 function refreshGoalControls(){
  for(const el of document.querySelectorAll('input[data-path]')){const rule=goalRule(el.dataset.path);if(rule)el.max=Math.max(rule.max,value(el.dataset.path)||0);}
  for(const b of document.querySelectorAll('button[data-step]')){const rule=goalRule(b.dataset.target);if(!rule)continue;const key=b.dataset.target.split('.')[0],n=value(b.dataset.target)||0;b.disabled=!!view[key].stale||sitoutBusy||spinning||(Number(b.dataset.step)>0?n>=rule.max:n<=0);}
  for(const el of document.querySelectorAll('[data-score-stage]')){const totals=teamGoals(el.dataset.scoreStage,Number(el.dataset.scoreGame));el.textContent=`Team A ${totals.A} : ${totals.B} Team B`;}
 }
-function matchScoreboard(key,g){const totals=teamGoals(key,g);return `<div class="notice match-score"><strong data-score-stage="${key}" data-score-game="${g}">Team A ${totals.A} : ${totals.B} Team B</strong><span>3 goals maximum per team. Once one team has 3, the other can have at most 2.</span></div>`;}
+function matchScoreboard(key,g){const totals=teamGoals(key,g);return `<div class="notice match-score"><strong data-score-stage="${key}" data-score-game="${g}">Team A ${totals.A} : ${totals.B} Team B</strong><span>First to 3 ends the match: remaining blank player goals become 0 automatically.</span></div>`;}
 function inp(path,label,type='number',disabled=false){const rule=type==='number'?goalRule(path):null;const max=rule?Math.max(rule.max,value(path)||0):100000;return `<input data-path="${path}" aria-label="${esc(label)}" type="${type}" ${type==='number'?'min="0" max="'+max+'" step="'+(path.startsWith('settings')?'any':'1')+'"':'maxlength="40"'} value="${esc(value(path))}" ${disabled?'disabled':''}>`;}
 function select(path,choices,label,disabled=false){return `<select data-path="${path}" aria-label="${esc(label)}" ${disabled?'disabled':''}><option value="">—</option>${choices.map(v=>`<option value="${v}" ${value(path)===v?'selected':''}>${v}</option>`).join('')}</select>`;}
 const badge=status=>`<span class="status ${status.startsWith('TIE')?'tie':status.toLowerCase()}">${esc(status)}</span>`;
@@ -526,7 +553,7 @@ const clearRoundCopy={round1:'Clear Like Never Before (also clears What Do You W
 function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:k==='round2'?5:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 function resetWheelResult(){wheelAngle=0;}
-document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);}refreshGoalControls();changed();});
+document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);const match=el.dataset.path.match(/^(round1|round2|final)\\.players\\.p\\d+\\.goals\\.(\\d+)$/);if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
  if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
