@@ -230,7 +230,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext('state.round1.players.p1.goals[0]',context),2);  // Sanity: scores present before.
  vm.runInContext("resetStage('round1')",context);
  assert.equal(vm.runInContext('state.round1.players.p1.goals.length',context),5,'round1 keeps 5 slots');
- assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),5,'round2 keeps 8 slots');
+ assert.equal(vm.runInContext('state.round2.players.p1.goals.length',context),5,'round2 keeps 5 slots');
  assert.equal(vm.runInContext('state.final.players.p1.goals.length',context),8,'final keeps 8 slots');
  assert(vm.runInContext('state.round1.players.p1.goals.every(x=>x===null)',context),'round1 goals all cleared');
  assert(vm.runInContext('Object.values(state.round2.players).every(d=>d.goals.every(x=>x===null))',context),'round2 goals all cleared');
@@ -255,7 +255,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(ovSettings.includes('data-tab="settings"'),'next-step button targets settings when names are missing');
  assert(ovSettings.includes('enter 10 unique player names'),'next-step wording names the settings action');
  const r2Next=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
-  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();\nfor p in list(s['round2']['players']):s['round2']['players'][p]['goals']=[None]*8\nfor p in list(s['final']['players']):\n s['final']['players'][p]['goals']=[None]*8\n s['final']['players'][p]['results']=['']*8\nprint(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
+  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();\nfor p in list(s['round2']['players']):s['round2']['players'][p]['goals']=[None]*5\nfor p in list(s['final']['players']):\n s['final']['players'][p]['goals']=[None]*8\n s['final']['players'][p]['results']=['']*8\nprint(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
  assert.equal(r2Next.view.names_ok,true);assert.equal(r2Next.view.round1.complete,true);assert.equal(r2Next.view.round2.complete,false);
  vm.runInContext(`state=${JSON.stringify(r2Next.state)};view=${JSON.stringify(r2Next.view)};tab='overview';`,context);
  const ovR2=vm.runInContext('overview()',context);
