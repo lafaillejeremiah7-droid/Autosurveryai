@@ -523,6 +523,12 @@
    e.style.left=((point[0]+1)*width/2)+'px';e.style.top=((1-point[1])*height/2)+'px';e.style.opacity=String(clamp(1-depth/170,.5,1));
   });
  }
+ function updateBloomHud(){
+  const label=document.getElementById('city-status'),pct=document.getElementById('city-damage'),bar=document.getElementById('city-progress');
+  if(label)label.textContent=bloomLevel>=1?'ROYAL GARDEN IN FULL BLOOM':bloomLevel>0?'THE ROSES ARE BLOOMING':state.phase;
+  if(pct)pct.textContent=Math.round(bloomLevel*100)+'% BLOOM';
+  if(bar)bar.style.width=(bloomLevel*100)+'%';
+ }
  function sample(now){
   const next=window.CityTimeline.sample(settings,now),arrived=next.remaining===0;
   if(next.progress!==state.progress)dirty=true;
@@ -535,10 +541,7 @@
    window.BrawlAudio?.ambientBirds?.(next.progress<BIRD_THRESHOLD&&!arrived&&dusk===0);
   }else window.BrawlAudio?.ambientBirds?.(false);
   document.body.style.setProperty('--arena-heat',String(state.progress));
-  const label=document.getElementById('city-status'),pct=document.getElementById('city-damage'),bar=document.getElementById('city-progress');
-  if(label)label.textContent=bloomLevel>=1?'ROYAL GARDEN IN FULL BLOOM':bloomLevel>0?'THE ROSES ARE BLOOMING':state.phase;
-  if(pct)pct.textContent=Math.round(bloomLevel*100)+'% BLOOM';
-  if(bar)bar.style.width=(bloomLevel*100)+'%';
+  updateBloomHud();
  }
  function updateCamera(now,moving){
   if(transition){
@@ -639,6 +642,7 @@
    // Three settled rounds produce three distinct flushes of roses.
    bloomLevel=['round1','round2','final'].filter(k=>tournament.some(t=>t.key===k&&t.status==='complete')).length/3;
    duskTarget=.08;
+   updateBloomHud();
    if(first)dusk=duskTarget;
    geometryDirty=true;dirty=true;
   },
