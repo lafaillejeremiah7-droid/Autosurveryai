@@ -16,6 +16,14 @@
  const PORTAL_CENTER=[0,44,-12],PORTAL_RADIUS=23,HAND_SCALE=4.8;
  const PORTAL_LEAD=.45,EMERGENCE_SECONDS=2.85,PORTAL_PLANE=44;
  const ease=t=>t*t*(3-2*t);
+ // Single source of truth for the slow "dramatic" one-by-one final cuts, so
+ // plant(), hand() and _geometry() cannot drift apart. The five final cuts are
+ // the only scene with cutIds.length===5, which for step>=3 is exactly step<5.
+ const isDramatic=(step,cutIds)=>step>=3&&(cutIds?cutIds.length===5:step<5);
+ // Shared blade-meet instant for a cutting step: ordinary 0.95s, dramatic
+ // step-3 3.0s, dramatic step-4 4.30s. Used for the plant contact, the hand's
+ // blade/finger touch and the exposed severed/close signals alike.
+ const contactTime=(step,cutIds)=>isDramatic(step,cutIds)?(step===4?4.30:3.0):.95;
  const portalOpening=(step,age)=>step<0?ease(clamp(age/1.15)):1;
  const handEmergence=(step,age)=>step<0?ease(clamp((age-PORTAL_LEAD)/EMERGENCE_SECONDS)):1;
  const pseudoRand=n=>{const t=Math.sin(n*127.1+311.7)*43758.5453;return t-Math.floor(t);};
@@ -322,21 +330,38 @@
   const [x,,z]=positions[index],tier=clamp(Math.floor(Number(model.tier)||0),0,6);
   const cutIndex=cutIds.indexOf(model.id),
    prior=!!model.priorPruned||cutIndex>=0&&cutIndex<step,cutting=cutIndex===step;
-  const dramatic=step>=3&&cutIds.length===5;
-  const contact=dramatic?(step===4?4.30:3.0):.95;
+  const dramatic=isDramatic(step,cutIds);
+  const contact=contactTime(step,cutIds);
+  // `fall` drives the SEVERED TOP away once the blades meet; the lower stump
+  // stays rooted. Before contact fall=0 so the whole plant reads upright/whole.
   const fall=prior?1:cutting?ease(clamp((age-(contact-.02))/.72)):0;
   const sway=prior?0:Math.sin(elapsed*1.4+index*1.31)*.055;
   const height=[.48,1.18,1.98,2.78,3.65,4.63,5.58][tier]*(prior?.64:1);
   const leafColor=prior?[.25,.27,.22]:tier>3?[.23,.56,.29]:[.21,.48,.24];
   const palette=[[.96,.48,.55],[.98,.72,.41],[.77,.57,.93],[.96,.86,.61]][index%4];
+  // The rose is bisected at `cutY`, just below the bloom head. Anything below
+  // stays an upright rooted stump; anything at/above cutY is the severed top
+  // that tips, drops under gravity and drifts sideways as `fall` ramps 0->1.
+  const cutY=height*.78,dir=index%2?-1:1;
+  const base=p=>[x+p[0]+sway*p[1],.75+p[1],z+p[2]];
   const map=p=>{
-   const t=fall*1.28,dir=index%2?-1:1;
-   return [x+p[0]*Math.cos(t)+p[1]*Math.sin(t)*dir+sway*p[1],
-     .75+p[1]*Math.cos(t)-p[0]*Math.sin(t)*dir,z+p[2]];
+   if(fall<=0)return base(p);
+   if(p[1]<cutY-1e-6)return base(p);
+   const t=fall*1.28,dy=p[1]-cutY,drop=fall*fall*(1.9+height*.4),drift=fall*(1.5+height*.22)*dir;
+   return [x+p[0]*Math.cos(t)+dy*Math.sin(t)*dir+sway*cutY+drift,
+     .75+cutY+dy*Math.cos(t)-p[0]*Math.sin(t)*dir-drop,z+p[2]+fall*.6];
   };
   m.cylinder([x,.71,z],[x,.95,z],.89,[.42,.28,.18],1.04,10);
   m.cylinder([x,.96,z],[x,1.01,z],1.05,[.68,.50,.28],1.05,10);
-  m.cylinder(map([0,.05,0]),map([0,height,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
+  // Stem: a single upright length when whole; once severed it splits into a
+  // rooted stump (below cutY) and an upper length riding away with the bloom.
+  const severed=fall>0;
+  if(severed){
+   m.cylinder(base([0,.05,0]),base([0,cutY,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
+   m.cylinder(map([0,cutY,0]),map([0,height,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
+  }else{
+   m.cylinder(base([0,.05,0]),base([0,height,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
+  }
   // Growth stage 0 is a seedling, not a pre-bloomed flower.
   if(tier===0){
    for(const d of [-1,1])addLeaf(m,map([0,.18,0]),d,.2,.20,.13,[.37,.69,.30]);
@@ -441,7 +466,7 @@
    m.cylinder(top,foot,.18*opening,beam,2.0*opening,4,2);
   }
  }
- function hand(m,position,elapsed,step,age){
+ function hand(m,position,elapsed,step,age,cutIds){
   const [x,y,z]=position,at=(a,b,c)=>[x+a,y+b,z+c];
   const ivory=[.77,.72,.63],shade=[.57,.57,.56],highlight=[.92,.86,.73],
    stone=[.75,.76,.78],metal=[.34,.21,.12],edge=[.62,.40,.26],dark=[.19,.11,.07];
@@ -452,12 +477,23 @@
   m.softSphere(at(0,1.09,.06),1.60,1.84,.77,ivory,7,12,20);
   m.softSphere(at(0,-.55,.48),1.74,1.34,.91,ivory,7,12,20);
   m.softSphere(at(-.42,-.55,.83),.67,1.10,.51,shade,7,10,12);
+  // Shear closure progress. The SAME `close` ease drives both the blades and
+  // the fingers, so the hand visibly grips shut and reaches full curl at the
+  // instant the blades meet (`touch`): finger-close, blade-close, contact and
+  // the sever all coincide. close=0 is the open pose (also the step<0 pose).
+  const dramatic=isDramatic(step,cutIds);
+  const touch=contactTime(step,cutIds);
+  const close=step<0?0:ease(clamp((age-(touch-(dramatic?1.9:.33)))/(dramatic?1.9:.33)));
+  // Fingers curl inward/downward as `close` ramps 0->1, bending each joint
+  // progressively toward the shear handles so the grip drives the snip.
   const spread=[-1.17,-.39,.41,1.16];
   for(let i=0;i<4;i++){
    const dx=spread[i],length=[2.30,2.82,2.68,2.14][i],
-     from=at(dx,-1.21,.97),knuckle=at(dx*.99,-1.55-length*.34,1.42),
-     joint=at(dx*.89,-1.65-length*.71,2.05),
-     tip=at(dx*.79,-1.62-length,2.22);
+     curl=close*(.86+(i===1||i===2?.14:0)),
+     from=at(dx,-1.21,.97),
+     knuckle=at(dx*(.99-.05*curl),-1.55-length*.34+length*.10*curl,1.42+.55*curl),
+     joint=at(dx*(.89-.12*curl),-1.65-length*.71+length*.46*curl,2.05+1.02*curl*length*.34),
+     tip=at(dx*(.79-.20*curl),-1.62-length+length*.92*curl,2.22+1.46*curl*length*.34);
    m.softSphere(from,.40,.42,.40,ivory,7,8,12);
    m.softTube([from,knuckle,joint,tip],[.38,.36,.27,.12],ivory,7,12);
    m.softSphere(joint,.28,.28,.30,shade,7,7,10);
@@ -465,7 +501,10 @@
    // Subtle finger nails and creases rather than sharp geometric spikes.
    m.softSphere(add(tip,[0,.075,.17]),.125,.064,.09,highlight,7,6,10);
   }
-  const thumb=[at(-1.42,.02,.74),at(-2.08,-.92,1.45),at(-1.53,-2.04,2.07)];
+  // Thumb presses in across the palm with the same closure factor.
+  const thumb=[at(-1.42,.02,.74),
+    at(-2.08+1.05*close,-.92-.55*close,1.45+.42*close),
+    at(-1.53+1.35*close,-2.04-.30*close,2.07+.46*close)];
   m.softTube(thumb,[.57,.42,.24],ivory,7,12);
   m.softSphere(thumb[1],.43,.41,.43,shade,7,8,12);
   // Faint tendon detail, like an older game with baked normal textures.
@@ -479,9 +518,8 @@
   for(const sx of [-1,1])m.gem(...at(sx*.54,.30,.94),.15,[.83,.67,.42],2,1.1);
   // Weathered rusty open shears. One oxidized pivot, two ring handles, twin
   // broad blades that progressively close on the target flower at exactly 0.95 s.
-  const dramatic=step>=3&&step<5;
-  const touch=dramatic?(step===4?4.30:3.0):.95;
-  const pivot=at(.72,-2.69,2.22),close=step<0?0:ease(clamp((age-(touch-(dramatic?1.9:.33)))/(dramatic?1.9:.33)));
+  // Blades share the `close` ease computed above with the fingers.
+  const pivot=at(.72,-2.69,2.22);
   const width=(1-close)*1.25;
   const left=at(.72-width,-5.55,2.38),right=at(.72+width,-5.55,2.38);
   function blade(tip,which){
@@ -579,7 +617,7 @@
   const [hx,hy,hz]=handPosition(models,cutIds,step,age,previous,elapsed);
   const start=m.data.length;
   if(step>=0||age>=PORTAL_LEAD){
-   hand(m,[hx,hy,hz],elapsed,step,age);
+   hand(m,[hx,hy,hz],elapsed,step,age,cutIds);
    for(let i=start;i<m.data.length;i+=10){
     m.data[i]=hx+(m.data[i]-hx)*HAND_SCALE;
     m.data[i+1]=hy+(m.data[i+1]-hy)*HAND_SCALE;
@@ -815,7 +853,44 @@ void main(){
    portalLead:PORTAL_LEAD,handPosition:handPosition(models,cuts,step,age),
    shearTipY:handPosition(models,cuts,step,age)[1]-5.55*HAND_SCALE,
    cameraPhase:shotCamera(models,cuts,step,age).phase,
+   // Sever + finger/blade/contact coincidence, exposed for a browserless
+   // regression check. `contact`/`touch` are the shared blade-meet instant for
+   // the active cutting step (computed via the SAME contactTime/isDramatic
+   // helpers plant()/hand() use, so they cannot drift); `close` is the single
+   // ease that drives BOTH the shear blades and the hand fingers, so
+   // fingerClose===bladeClose always and both reach 1 exactly at contact.
+   // `severed` tracks the actual first-split instant plant() uses to start the
+   // `fall` ramp (contact-.02), not the nominal contact, so the flag and the
+   // visible stem split flip together.
+   ...(()=>{const dramatic=isDramatic(step,cuts),contact=contactTime(step,cuts),
+     close=step<0?0:ease(clamp((age-(contact-(dramatic?1.9:.33)))/(dramatic?1.9:.33)));
+    return {contact,touch:contact,severed:step>=0&&age>=contact-.02,fingerClose:close,bladeClose:close};})(),
    gardenTriangles:baseField.triangles,plantStages:7,details:['marble paths','hedge maze','fountains','gazebos','rose arches','topiary','lamps','flower beds','palace']}),
+  // Non-mutating access to the REAL assembled frame mesh (flat Float32 data,
+  // 10 floats/vertex: x,y,z,nx,ny,nz,r,g,b,kind) so a browserless test can
+  // inspect the actual vertices plant()/hand() emit, not a recomputed summary.
+  _sceneMesh:(models,cuts,step,age=0)=>{const m=sceneGeometry(models,cuts,step,age,0);return {data:m.data.slice(),triangles:m.triangles};},
+  // Just the hand+shears meshes at a given closure, so a test can read a real
+  // finger-tip vertex and prove the fingers curl with `close`. Mirrors the
+  // hand-scaling sceneGeometry applies, but builds nothing else.
+  _handMesh:(step,age,cuts,position=[0,10,0])=>{
+   const m=new Mesh();hand(m,position,0,step,age,cuts);
+   for(let i=0;i<m.data.length;i+=10){
+    m.data[i]=position[0]+(m.data[i]-position[0])*HAND_SCALE;
+    m.data[i+1]=position[1]+(m.data[i+1]-position[1])*HAND_SCALE;
+    m.data[i+2]=position[2]+(m.data[i+2]-position[2])*HAND_SCALE;
+   }
+   return {data:m.data.slice(),triangles:m.triangles};
+  },
+  // Just one plant's real meshes at a given cutting age, so a test can read
+  // the actual stem vertices and prove the sever splits the stem (a rooted
+  // stump capped near cutY plus a separated upper length) instead of only a
+  // recomputed flag. index selects the plinth; cuts[step] must equal model.id
+  // for that plant to be the one being cut.
+  _plantMesh:(model,index,cuts,step,age)=>{
+   const m=new Mesh();plant(m,model,index,cuts,step,age,0);
+   return {data:m.data.slice(),triangles:m.triangles};
+  },
   _growthMeshes:()=>Array.from({length:7},(_,tier)=>{
    const sample=new Mesh();
    plant(sample,{id:'seed',tier,priorPruned:false},0,[],-1,0,0);

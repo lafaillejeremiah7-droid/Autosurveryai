@@ -517,20 +517,30 @@ body{background:#10271e}
 .divine-plant.prior-pruned .divine-stems,.divine-plant.severed .divine-stems{filter:grayscale(1) brightness(.37)}
 .divine-plant.prior-pruned .divine-name,.divine-plant.severed .divine-name{opacity:.58}
 .divine-plant.severing{animation:divine-impact .6s .9s ease-in-out both}
-.divine-plant.severing .divine-stems{animation:divine-cut-plant 1.15s .95s ease-in forwards}
+/* No-WebGL fallback for the sever: at blade contact the stem is cut through at
+   the shear line (~34% down from the top). The rooted lower stump stays put
+   (clip-path trims the frame to the stump) while a cloned top half (:after)
+   shears off, tumbles and drops away under gravity, reading as a rose cut in
+   two rather than a whole plant leaning over. */
+.divine-plant.severing .divine-stems{animation:divine-cut-plant 1.15s .95s ease-in forwards;transform-origin:50% 34%}
+.divine-plant.severing .divine-stems:after{content:"";position:absolute;left:0;top:0;width:100%;height:34%;z-index:8;transform-origin:50% 100%;background:radial-gradient(circle at 50% 42%,#f4b7c6ee 0 34%,#d87f98cc 46%,transparent 62%),linear-gradient(#5aa05fcc,#2f6b35aa);clip-path:polygon(50% 0,100% 20%,86% 100%,14% 100%,0 20%);animation:divine-top-fall 1.1s .95s cubic-bezier(.3,.6,.5,1) forwards}
 .divine-plant.severing:before{content:"";position:absolute;inset:20% 10% 35%;z-index:7;border-radius:50%;background:#cdeeb4c0;filter:blur(13px);animation:divine-cut-flash 1.4s .88s both}
 .divine-flash{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;background:radial-gradient(circle at var(--strike-x) var(--strike-y),#e4f6cccc,#b7e59a44 14%,transparent 25%)}
 .divine-scene.is-cutting .divine-flash{animation:divine-cut-flash .9s .9s ease-out both}
 .divine-progress{position:absolute;z-index:9;bottom:1%;right:2%;font:700 10px monospace;letter-spacing:2px;color:#fff0bc}
 @keyframes divine-hover{0%,100%{transform:translate(-50%,0) rotate(-2deg)}50%{transform:translate(-50%,11px) rotate(2deg)}}
 @keyframes divine-snip{0%{transform:rotate(0deg)}50%{transform:rotate(-26deg)}100%{transform:rotate(0deg)}}
-@keyframes divine-cut-plant{0%{transform:rotate(0) translateY(0);opacity:1}65%{transform:rotate(45deg) translate(28px,-8px);opacity:1}100%{transform:rotate(115deg) translate(40px,37px);opacity:.22;filter:grayscale(1)}}
+/* The remaining element is the standing stump: it holds upright and simply has
+   its severed top third clipped away at the cut line (no whole-plant tilt). */
+@keyframes divine-cut-plant{0%{transform:none;clip-path:inset(0 0 0 0);opacity:1}18%{transform:translateY(1px);clip-path:inset(0 0 0 0)}22%{clip-path:inset(34% 0 0 0)}100%{transform:none;clip-path:inset(34% 0 0 0);opacity:.92}}
+/* The cut-off top half tumbles sideways and falls out of frame under gravity. */
+@keyframes divine-top-fall{0%{transform:rotate(0) translate(0,0);opacity:0}6%{opacity:1}55%{transform:rotate(52deg) translate(22px,34px);opacity:.95}100%{transform:rotate(128deg) translate(40px,118px);opacity:0}}
 @keyframes divine-impact{0%,100%{transform:translate(0)}35%{transform:translate(-8px,4px)}70%{transform:translate(7px,-3px)}}
 @keyframes divine-cut-flash{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
 @keyframes divine-fade-in{from{opacity:0;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}
 @keyframes divine-fade-out{from{opacity:1}to{opacity:0}}
 @media(max-width:740px){.divine-advance{flex-direction:column;align-items:start}.divine-advance button{width:100%}#cutscene.divine-mode .cutscene-stage{height:min(650px,66vh);aspect-ratio:auto}.divine-plants{inset:35% 1% 8%}.divine-judge{width:42%}.divine-stems{height:69%}.divine-oracle{letter-spacing:1px;font-size:8px}}
-@media(prefers-reduced-motion:reduce){#cutscene.divine-mode,#cutscene.divine-mode.divine-leaving,.divine-scene *{animation:none!important;transition:none!important}.divine-plant.severing .divine-stems{filter:grayscale(1) brightness(.37)}}
+@media(prefers-reduced-motion:reduce){#cutscene.divine-mode,#cutscene.divine-mode.divine-leaving,.divine-scene *{animation:none!important;transition:none!important}.divine-plant.severing .divine-stems{filter:grayscale(1) brightness(.37)}.divine-plant.severing .divine-stems:after{display:none}}
 
 /* The established WebGL garden geometry is also used by Divine Selection.
    Vector foliage / hand exist only as a graceful no-WebGL fallback. */

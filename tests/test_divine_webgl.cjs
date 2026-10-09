@@ -103,6 +103,58 @@ assert.equal(three._geometry(model,['p3','p7'],-1,.55).shearTipY>geo.portalPlane
 const duringCut=three._geometry(model,['p3','p7'],0,0);
 assert.equal(duringCut.portalOpen,1,'portal remains open while the shears cut');
 assert.equal(duringCut.handScale,geo.handScale,'the same huge hand remains during elimination');
+// Sever + finger/blade/contact coincidence (FEAT-003 regression). For an
+// ordinary cut the blades meet at contact=0.95s: just before, the rose is not
+// yet severed and finger/blade closure is still partial; at and after contact
+// the rose is severed and the fingers have driven the blades fully shut, with
+// finger-closure and blade-closure derived from the SAME ease (so they match).
+const EPS=1e-9;
+const beforeCut=three._geometry(model,['p3','p7'],0,0.90);
+assert.equal(beforeCut.contact,0.95,'ordinary cut contact instant is 0.95s');
+assert.equal(beforeCut.touch,beforeCut.contact,'blade touch and plant contact share the same instant');
+assert.equal(beforeCut.severed,false,'rose is NOT yet severed just before blade contact');
+assert(beforeCut.fingerClose<1,'fingers are still closing just before contact');
+assert(beforeCut.bladeClose<1,'blades are still closing just before contact');
+assert(Math.abs(beforeCut.fingerClose-beforeCut.bladeClose)<EPS,'finger-closure equals blade-closure (same ease) before contact');
+const atCut=three._geometry(model,['p3','p7'],0,0.95);
+assert.equal(atCut.severed,true,'rose IS severed at the blade-contact instant');
+assert(Math.abs(atCut.fingerClose-1)<EPS&&Math.abs(atCut.bladeClose-1)<EPS,'finger and blade closure both reach 1 exactly at contact');
+assert(Math.abs(atCut.fingerClose-atCut.bladeClose)<EPS,'finger-closure equals blade-closure at contact');
+const afterCut=three._geometry(model,['p3','p7'],0,1.50);
+assert.equal(afterCut.severed,true,'rose stays severed after blade contact');
+assert(Math.abs(afterCut.fingerClose-1)<EPS&&Math.abs(afterCut.bladeClose-1)<EPS,'finger and blade grip stay fully closed after contact');
+// Final one-by-one cuts share the slower dramatic contact (step3=3.0s) and the
+// same coincidence of sever, finger-closure and blade-closure.
+const finalCuts=['p1','p2','p3','p4','p5'];
+const finalBefore=three._geometry(model,finalCuts,3,2.9);
+assert.equal(finalBefore.contact,3.0,'final step-3 cut lands its blades at 3.0s');
+assert.equal(finalBefore.severed,false,'final rose is not severed before its slower contact');
+assert(finalBefore.fingerClose<1&&finalBefore.bladeClose<1,'final finger/blade still closing before contact');
+const finalAt=three._geometry(model,finalCuts,3,3.0);
+assert.equal(finalAt.severed,true,'final rose severed at its 3.0s contact');
+assert(Math.abs(finalAt.fingerClose-1)<EPS&&Math.abs(finalAt.bladeClose-1)<EPS&&Math.abs(finalAt.fingerClose-finalAt.bladeClose)<EPS,'final finger and blade closure meet 1 together at contact');
+// REAL rendered-geometry checks (FEAT-003 review): the above assertions read a
+// recomputed summary, so they would still pass if the finger-curl or stem-split
+// code were reverted. These inspect the ACTUAL vertices hand()/plant() emit, so
+// the suite fails if either behavior is removed. (1) Fingers: the ivory (kind 7)
+// skin's forward reach in +Z must grow substantially as the grip closes --
+// finger tips curl toward the shear handles; freezing `curl` collapses that
+// reach to just the thumb's small motion.
+const ivoryMaxZ=(step,age)=>{const mesh=three._handMesh(step,age,['p3','p7']);let z=-1e9;for(let i=0;i<mesh.data.length;i+=10)if(mesh.data[i+9]===7&&mesh.data[i+2]>z)z=mesh.data[i+2];return z;};
+const fingersOpen=ivoryMaxZ(0,0),fingersClosed=ivoryMaxZ(0,0.95);
+assert(fingersClosed>fingersOpen+4,'real hand() finger tips curl measurably forward as close ramps 0->1 (fails if the finger `curl` math is reverted): '+JSON.stringify({fingersOpen,fingersClosed}));
+// (2) Stem split: render one real plant() mid/post-sever and read its green
+// stem (color [.11,.40,.16]) vertices. Whole, the stem reaches the bloom at
+// height+.75; once severed the upright stump is capped at cutY (=height*.78)
+// while the upper length rotates/drops away, so the stem's max Y falls well
+// below the whole height. Reverting the `if(severed){...}` split keeps the
+// stem a single full-height cylinder and this assertion fails.
+const severModel={id:'p3',tier:5,priorPruned:false};
+const stemMaxY=age=>{const mesh=three._plantMesh(severModel,2,['p3','p7'],0,age);let y=-1e9;const near=(a,b)=>Math.abs(a-b)<0.01;for(let i=0;i<mesh.data.length;i+=10)if(near(mesh.data[i+6],.11)&&near(mesh.data[i+7],.40)&&near(mesh.data[i+8],.16)&&mesh.data[i+1]>y)y=mesh.data[i+1];return y;};
+const stemWhole=stemMaxY(0.80),stemSevered=stemMaxY(3.0),cutWorldY=4.63*.78+.75;
+assert(stemWhole>5.3,'whole rose stem reaches up to the bloom head before contact: '+stemWhole);
+assert(stemSevered<stemWhole-0.5,'real plant() stem splits: severed stump max Y drops below the whole-stem height (fails if the stem split is reverted): '+JSON.stringify({stemWhole,stemSevered}));
+assert(Math.abs(stemSevered-cutWorldY)<0.2,'severed stump is capped near the cut line cutY=height*.78, not the full height: '+JSON.stringify({stemSevered,cutWorldY}));
 now=1520;frame();assert.equal(draws,2,'animation redraws WebGL geometry each frame');
 assert.equal(three.setAction(0,model,['p3','p7']),true,'cut updates the same WebGL scene');
 assert.equal(three._debug().canvas,firstCanvas,'no canvas replacement during elimination');
