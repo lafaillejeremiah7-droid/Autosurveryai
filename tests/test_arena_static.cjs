@@ -278,6 +278,12 @@ const equalArrays=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
  assert.equal(G.status().sceneView,'street');
  // Street camera: the aerial view sits high above the stands.
  assert.ok(G.status().cameraEye[1]>15);
+ // A page load with settled rounds starts at the saved dusk (no sunset replay, no morning birds).
+ const R=makeWorld({gl:fakeGL().gl});
+ R.W.setSettings(settingsAt(.05));R.W.setTournament(stages('complete','complete','current'));
+ assert.equal(R.status().dusk,2/3,'first setTournament snaps dusk');
+ R.W.setSettings(settingsAt(.05));assert.equal(R.audio.birds.at(-1),false,'no birds on a reload after settled rounds');
+ await R.step(FR);assert.equal(R.status().dusk,2/3,'no sunset replay after load');
  console.log('Arena WebGL pass: parts '+JSON.stringify(webglParts)+' total '+Object.values(webglParts).reduce((a,b)=>a+b,0));
  console.log('Arena static test passed: static + WebGL passes, AC 8, AC 9, AC 16, AC 19, budgets, dusk ease without rebuilds, still ceremony, labels, birds.');
 })().catch(e=>{console.error(e);process.exit(1);});

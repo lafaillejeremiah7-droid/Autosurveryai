@@ -706,9 +706,12 @@
     if(stage.status==='sealed')delete unlocks[stage.key];
     else if(previous?.status==='sealed')unlocks[stage.key]=routeTime;
    }
+   const first=!tournament.length;
    tournament=stages.map(s=>({...s}));
    // Each settled round lowers the sun a third of the way to dusk.
    duskTarget=['round1','round2','final'].filter(k=>tournament.some(t=>t.key===k&&t.status==='complete')).length/3;
+   // A page load starts at the saved dusk; only rounds settled live ease the sun down.
+   if(first)dusk=duskTarget;
    geometryDirty=true;dirty=true;
   },
   setSettings(value){settings={...value};sample(Date.now());dirty=true;},
