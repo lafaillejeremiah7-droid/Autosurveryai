@@ -194,7 +194,7 @@ function overview(){
  let html=title('PAVILION V / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
- html+=`<div class="round-path">${[['round1','01 · Face Your Weakness','10 players → 8 survivors'],['round2','02 · Abandon Your Comfort','8 players → 6 survivors'],['final','03 · Prove Your Resolve','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
+ html+=`<div class="round-path">${[['round1','01 · Face Your Weakness','Identify your shortcomings · 10 → 8'],['round2','02 · Abandon Your Comfort','Adapt to uncertainty · 8 → 6'],['final','03 · Prove Your Resolve','Execute under pressure · 6 → podium']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  const rowmap=key=>Object.fromEntries(view[key].rows.map(r=>[r.id,r]));const a=rowmap('round1'),b=rowmap('round2'),c=rowmap('final');
  html+=panel('Every player',table(['PLAYER','FACE YOUR WEAKNESS','ABANDON YOUR COMFORT','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
@@ -371,7 +371,7 @@ function closeResult(){
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
- let html=title('ROUND 01','Face Your Weakness','Five games with fresh random 5v5 teams. Each team can score at most 3 goals per match. The top eight individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 01 · SELF-AWARENESS','Face Your Weakness','Mental challenge: recognize your mistakes, confront your limitations, and adjust rather than repeat them. Prove it across five 5v5 games; the eight highest-ranked individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
  round1Game=Math.min(round1Game,4);
  html+=matchScoreboard('round1',round1Game);
@@ -389,7 +389,7 @@ function round(key){
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
- let html=title('ROUND 02','Abandon Your Comfort','Five 4v4 games with changing teams. Reshuffle before a game starts to reduce teammate bias; the top six individuals advance.','8 → 6 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 02 · ADAPTABILITY','Abandon Your Comfort','Mental challenge: let go of familiar habits, read unfamiliar teammates, and adapt to changing 4v4 lineups across five games. The six highest-ranked individual scorers advance.','8 → 6 PLAYERS')+notice(v.issues);
  if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to generate new 4v4 matchups.'])+clearRoundPanel('round2');
  if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Face Your Weakness. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(lineupBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
@@ -414,7 +414,7 @@ function round2Page(){
 
 function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
- let html=title('ROUND 03 / THE FINAL','Prove Your Resolve','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
+ let html=title('ROUND 03 · MENTAL FORTITUDE','Prove Your Resolve','Mental challenge: remain composed under pressure, commit to decisive choices, and execute across eight 3v3 games. Goals and wins determine the final podium.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  if(v.stale)html+=notice(['This roster changed since Prove Your Resolve was scored. Clearing Prove Your Resolve re-syncs it to the current finalists.']);
  if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish Abandon Your Comfort and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
