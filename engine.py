@@ -12,8 +12,8 @@ IDS = [f'p{i+1}' for i in range(10)]
 TEAM_GOAL_LIMIT = 3
 FINAL_GAMES = 8
 ROUND2_GAMES = 5
-WINNER_PRIZE = 40
-WINNER_TAKE_ALL_PRIZES = [40, 0, 0]
+WINNER_PRIZE = 30
+WINNER_TAKE_ALL_PRIZES = [30, 0, 0]
 
 def match_goals(stage, teams, game):
     return {t:sum(stage['players'][p]['goals'][game] or 0 for p in teams[t]) for t in ['A','B']}
@@ -268,7 +268,7 @@ def validate(s):
                     s['settings'][key]=parsed.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
                 except (ValueError,OverflowError): raise ValueError('Invalid countdown time.')
         # Existing saves/backups are automatically brought into the fixed
-        # $40 winner-take-all prize structure; clients cannot change the payout.
+        # $30 winner-take-all prize structure; clients cannot change the payout.
         s['settings']['prizes'] = WINNER_TAKE_ALL_PRIZES.copy()
         s['round1'].setdefault('lineups',[])
         lineups=s['round1']['lineups']
@@ -544,7 +544,7 @@ def evaluate(s):
                 r=rowmap[p];r['rank']=rank;r['status']='PENDING';r['prize']=None
             rank+=len(group)
     rows.sort(key=lambda r:r['rank'])
-    if any(r['status']==TIE for r in rows): issues.append('First-place tie: play extra games until exactly one champion earns the $40 prize.')
+    if any(r['status']==TIE for r in rows): issues.append('First-place tie: play extra games until exactly one champion earns the $30 prize.')
     final={'schedule':schedule,'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not any(r['status']==TIE for r in rows),'stale':stale}
     return {'round1':r1,'round2':r2,'final':final,'pool':WINNER_PRIZE,
             'awarded':sum(r['prize'] or 0 for r in rows),'names_ok':names_ok}
