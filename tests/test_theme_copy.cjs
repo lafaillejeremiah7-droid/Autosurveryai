@@ -32,7 +32,7 @@ assert(style.includes('.garden-verdict'),'garden verdict artwork');
 for(const token of ['gv-shears','gv-compost','gv-pruning-count','gv-snip','gv-pruned','gv-fling']){
  assert(style.includes(token),'missing pruning visual: '+token);
 }
-assert(app.includes("filter(r=>r.rank!==1)"),'five losing finalists are pruned');
+assert(app.includes("stage==='final'?p.rank!==1:p.status==='CUT'"),'five losing finalists are pruned by the current cut-list function');
 assert(app.includes('runReducedFinalPruning(cuts)'),'reduced-motion finalists also get individual scenes');
 assert(!app.includes('hookSvg='),'removed obsolete hook artwork');
 assert(!style.includes('.av-emperor'),'removed obsolete emperor styles');
