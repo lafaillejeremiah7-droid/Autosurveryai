@@ -624,7 +624,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext("reducedMotion()",context),true,'sandbox defaults to reduced motion');
  vm.runInContext("playCutscene(['Casey','Dakota']);",context);
  const captionEl=context.document.querySelector('#cutscene-caption');
- assert(/PAVILION OPEN/.test(captionEl.innerHTML),'reduced motion shows the static PAVILION OPEN card');
+ assert(/THE ROSES BLOOM/.test(captionEl.innerHTML),'reduced motion shows the static PAVILION OPEN card');
  assert(captionEl.innerHTML.includes('Final'),'static beat labels the opened pavilion');
  vm.runInContext('endCutscene();',context);
  // (E) EMPTY eliminated list: playCutscene resolves immediately and never flags active.
