@@ -9,7 +9,6 @@
  const add=(a,b)=>a.map((v,i)=>v+b[i]),mul=(a,k)=>a.map(v=>v*k);
  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
  const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),unit=a=>mul(a,1/(Math.hypot(...a)||1));
- const GOLD=[1,.79,.38],PALE=[1,.97,.76],STEEL=[.65,.86,.95],SHADOW=[.05,.22,.14];
  const positions=Array.from({length:10},(_,i)=>[(i%5-2)*5.8,0,i<5?-5.3:6.2]);
  // The overhead gate is a HORIZONTAL XZ ring suspended over the arena.
  // The palm descends along -Y, and the fragment shader clips everything
@@ -23,7 +22,6 @@
  function multiply(a,b){const c=new Float32Array(16);for(let j=0;j<4;j++)for(let i=0;i<4;i++)for(let k=0;k<4;k++)c[j*4+i]+=a[k*4+i]*b[j*4+k];return c;}
  function perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,2*far*near/(near-far),0]);}
  function lookAt(eye,target){const z=unit(vec(eye,target)),x=unit(cross([0,1,0],z)),y=cross(z,x);return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);}
- function project(p,m){const q=[0,0,0,0];for(let r=0;r<4;r++)q[r]=m[r]*p[0]+m[4+r]*p[1]+m[8+r]*p[2]+m[12+r];return [(q[0]/q[3]+1)*50,(1-q[1]/q[3])*50,q[3]];}
  const vertices=[[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1],[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]];
  const sides=[[0,1,2,3],[5,4,7,6],[3,2,6,7],[4,5,1,0],[1,5,6,2],[4,0,3,7]];
  class Mesh{
@@ -460,7 +458,6 @@
   const pivot=at(.72,-2.69,2.22),close=step<0?0:ease(clamp((age-(touch-(dramatic?1.9:.33)))/(dramatic?1.9:.33)));
   const width=(1-close)*1.25;
   const left=at(.72-width,-5.55,2.38),right=at(.72+width,-5.55,2.38);
-  const edgePoint=(v,i)=>[v[0]+i,v[1]+.13,v[2]+.18];
   function blade(tip,which){
    const base=add(pivot,[which*.34,-.28,-.05]),mid=add(mul(base,.56),mul(tip,.44));
    const wing=add(mid,[which*.45,.04,.19]);
