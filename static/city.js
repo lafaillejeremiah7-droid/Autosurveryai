@@ -170,7 +170,7 @@
      tunnelCeiling:size*.8,openTop:size*.8,archR:size*.2,tunnelLen:size*.6,laurelR:.9,laurelN:0}};
   });
   gates=rooms;
-  podiumSites=[2,1,3].map((place,i)=>({place,pos:[(i-1)*5.2,0,-99],size:2.1}));
+  podiumSites=[{place:1,pos:[0,0,-99],size:3.2}];
   geometryDirty=true;needsLayout=false;positionLabels();
  }
  function resize(){
