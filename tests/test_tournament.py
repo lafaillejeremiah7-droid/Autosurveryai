@@ -83,9 +83,32 @@ class Rules(unittest.TestCase):
         s=fixture();v=evaluate(s)
         self.assertEqual(v['round1']['survivors'],['p1','p2','p3','p4','p6','p7','p8','p9'])
         self.assertEqual(v['round2']['survivors'],['p1','p2','p3','p6','p7','p8'])
-        self.assertEqual([r['prize'] for r in v['final']['rows']],[18,8,4,0,0,0]);self.assertEqual(v['awarded'],30)
+        self.assertEqual([r['prize'] for r in v['final']['rows']],[40,0,0,0,0,0]);self.assertEqual(v['awarded'],40)
         first=v['final']['rows'][0];self.assertEqual(first['win_points'],10);self.assertEqual(first['goal_points'],30);self.assertEqual(first['total'],40)
         self.assertEqual(first['game_points'],[8,8]+[4]*6)
+    def test_fixed_winner_take_all_prize_and_legacy_migration(self):
+        fresh=new_state()
+        self.assertEqual(fresh['settings']['prizes'],[40,0,0])
+        old=fixture()
+        old['settings']['prizes']=[18,8,4]
+        migrated=validate(old)
+        self.assertEqual(migrated['settings']['prizes'],[40,0,0])
+        v=evaluate(migrated)
+        self.assertEqual(v['pool'],40)
+        self.assertEqual(v['awarded'],40)
+        self.assertEqual([r['prize'] for r in v['final']['rows']],[40,0,0,0,0,0])
+        self.assertEqual(sum(r['prize'] or 0 for r in v['final']['rows']),40)
+        migrated['settings']['prizes']=[500,500,500]
+        self.assertEqual(validate(migrated)['settings']['prizes'],[40,0,0])
+    def test_non_first_place_tie_does_not_block_champion(self):
+        s=fixture()
+        # Settle second place ties only by neutralizing both secondary
+        # nonwinning players without changing the unique top score.
+        v=evaluate(s)
+        self.assertTrue(v['final']['complete'])
+        self.assertEqual(v['awarded'],40)
+        self.assertEqual(len([r for r in v['final']['rows'] if r['prize']==40]),1)
+        self.assertTrue(all(r['prize']==0 for r in v['final']['rows'] if r['rank']!=1))
     def test_blank_zero_and_fresh_average(self):
         s=fixture();row=lambda: next(r for r in evaluate(s)['round2']['rows'] if r['id']=='p1')
         self.assertEqual((row()['played'],row()['average']),(5,1.0))
@@ -126,21 +149,21 @@ class Rules(unittest.TestCase):
         s=final_tie_state();v=evaluate(s)
         self.assertEqual([r['status'] for r in v['final']['rows'][:2]],[TIE,TIE]);self.assertIsNone(v['final']['rows'][0]['prize'])
         e={p:{'goals':None,'result':''} for p in IDS};e['p1']={'goals':1,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
-        self.assertEqual(evaluate(s)['final']['rows'][0]['prize'],18)
+        self.assertEqual(evaluate(s)['final']['rows'][0]['prize'],40)
     def test_final_podium_bubble_fold_and_safe_finalist(self):
         # Approved model for Forget The Past: fold the extra game's points (NORMAL scoring,
-        # no games 1-2 multiplier) into the tied podium bubble's total and re-rank
-        # only the bubble. A safe non-bubble finalist keeps its rank/prize.
+        # no games 1-2 multiplier) into the tied first-place bubble's total and re-rank
+        # only the bubble. All non-winning finalists keep rank and receive $0.
         s=final_tie_state()
         p3_before=next(r for r in evaluate(s)['final']['rows'] if r['id']=='p3')
         e={p:{'goals':None,'result':''} for p in IDS}
         e['p1']={'goals':2,'result':'W'};e['p2']={'goals':0,'result':'L'};s['final']['extras']=[e]
         v=evaluate(s)['final']
         p1=next(r for r in v['rows'] if r['id']=='p1');p2=next(r for r in v['rows'] if r['id']=='p2')
-        self.assertEqual(p1['total'],18.0);self.assertEqual(p1['prize'],18)  # 18 + 2*1.5, no multiplier.
-        self.assertEqual(p2['total'],15.0);self.assertEqual(p2['prize'],8)
+        self.assertEqual(p1['total'],18.0);self.assertEqual(p1['prize'],40)  # 18 + 2*1.5, no multiplier.
+        self.assertEqual(p2['total'],15.0);self.assertEqual(p2['prize'],0)
         p3=next(r for r in v['rows'] if r['id']=='p3')  # Safe finalist untouched.
-        self.assertEqual((p3['rank'],p3['prize'],p3['total']),(3,4,p3_before['total']))
+        self.assertEqual((p3['rank'],p3['prize'],p3['total']),(3,0,p3_before['total']))
         self.assertTrue(v['complete'])
     def test_final_podium_still_tied_asks_again(self):
         # Equal extra-game points keep the bubble tied -> prizes stay unassigned
@@ -172,7 +195,7 @@ class Rules(unittest.TestCase):
     def test_third_fourth_tie_and_nonpodium_tie(self):
         s=final_tie_state();s['final']['players']['p6']['goals'][1]=1
         v=evaluate(s);rows={r['id']:r for r in v['final']['rows']}
-        self.assertEqual(rows['p3']['status'],TIE);self.assertEqual(rows['p6']['status'],TIE)
+        self.assertEqual(rows['p3']['status'],'FINAL');self.assertEqual(rows['p6']['status'],'FINAL')
         s=fixture();v=evaluate(s);self.assertTrue(v['final']['complete'])
         self.assertEqual([r['rank'] for r in v['final']['rows'][-2:]],[5,6])
     def test_multiplier_setting_and_partial_inputs(self):
@@ -261,7 +284,7 @@ class Rules(unittest.TestCase):
     def test_wheel_large_lists_migration_and_validation(self):
         s=fixture();s['wheel']={'text':'\n'.join('Entry '+str(i) for i in range(25000)), 'remove_winner':True}
         validate(s);self.assertEqual(len(s['wheel']['text'].splitlines()),25000)
-        self.assertEqual(evaluate(s)['awarded'],30)
+        self.assertEqual(evaluate(s)['awarded'],40)
         old=deepcopy(s);del old['wheel'];migrated=validate(old)
         self.assertEqual(migrated['final'],s['final']);self.assertEqual(migrated['wheel']['text'],'')
         for value in [None,{'text':[],'remove_winner':False},{'text':'A','remove_winner':'yes'}]:
@@ -515,7 +538,7 @@ class HTTP(unittest.TestCase):
                 data=json.load(urlopen(url+'/api/state'));headers={'Content-Type':'application/json','X-Session-Token':data['token']}
                 data_state=fixture();data_state['wheel']['text']='Aaron\nGhost\nJay'
                 body=json.dumps({'revision':0,'state':data_state,'restore':True}).encode();req=Request(url+'/api/state',data=body,headers=headers,method='PUT')
-                result=json.load(urlopen(req));self.assertEqual(result['revision'],1);self.assertEqual(evaluate(Store(path).state)['awarded'],30);self.assertEqual(Store(path).state['wheel']['text'],'Aaron\nGhost\nJay')
+                result=json.load(urlopen(req));self.assertEqual(result['revision'],1);self.assertEqual(evaluate(Store(path).state)['awarded'],40);self.assertEqual(Store(path).state['wheel']['text'],'Aaron\nGhost\nJay')
                 with self.assertRaises(HTTPError) as cm:urlopen(req)
                 self.assertEqual(cm.exception.code,409)
                 self.assertEqual(json.load(urlopen(url+'/api/backup')),store.state)
