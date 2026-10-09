@@ -470,7 +470,7 @@ function renderDivineScene(stage,cuts,latest=-1){
  host.classList.toggle('divine-webgl',live);
 }
 function divineCutDuration(stage,i){
- return stage==='final'&&i===4?6200:stage==='final'&&i===3?4800:1750;
+ return stage==='final'&&i===4?6600:stage==='final'&&i===3?5200:2600;
 }
 function divineCutContact(stage,i){
  return stage==='final'&&i===4?4300:stage==='final'&&i===3?3000:950;
