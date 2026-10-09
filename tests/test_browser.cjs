@@ -114,7 +114,7 @@ let browser,page;
  await page.locator('[data-action="close-result"]').click();
  const saveHost=await page.locator('#screen-dialog').evaluate(e=>e.open)?'#screen-dialog':'#room-save-slot';
  assert.equal(await page.locator(saveHost+' #undo-action').count(),1,'save controls return to the active screen after the ceremony');
- // Fresh Enough: record all five rebalanced 4v4 matches via real controls, checking the saved draw.
+ // Fresh Abandon Your Comfort: record all five rebalanced 4v4 matches via real controls, checking the saved draw.
  const fresh=copy(fixture);
  for(const key of ['round2','final']){
   fresh[key].extras=[];fresh[key].roster=[];
@@ -139,8 +139,8 @@ let browser,page;
    await page.locator(`[data-path="round2.players.${p}.goals.${g}"]`).fill(scorers.includes(p)?'1':'0');await saved();
   }
   await page.locator('[data-action="r2-done"]').click();
-  // Match 5 done settles Enough: its verdict plays first. Skip it to reach the standings.
-  if(g===4){await page.locator('#cutscene[open]').waitFor();assert((await page.locator('#cutscene-label').textContent()).includes('Enough'));await page.locator('#cutscene-skip').click();}
+  // Match 5 done settles Abandon Your Comfort: its verdict plays first. Skip it to reach the standings.
+  if(g===4){await page.locator('#cutscene[open]').waitFor();assert((await page.locator('#cutscene-label').textContent()).includes('Abandon Your Comfort'));await page.locator('#cutscene-skip').click();}
   await page.locator('#result-dialog[open]').waitFor();
   assert.equal(await page.evaluate(()=>view.round2.draw.completed),g+1);
   await page.locator('[data-action="close-result"]').click();
