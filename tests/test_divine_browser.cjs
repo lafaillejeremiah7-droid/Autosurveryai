@@ -90,13 +90,18 @@ const url=new Promise((resolve,reject)=>{
    const u=gl.getUniform(program,loc);
    const px=new Uint8Array(4);
    gl.readPixels(Math.floor(c.width/2),Math.floor(c.height/2),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
-   const state={width:c.width,height:c.height,error:gl.getError(),currentProgram:!!program,
+   // Verify the PS2-painted backdrop actually renders rather than clearColor.
+   const sky=new Uint8Array(4);
+   gl.readPixels(5,c.height-6,1,1,gl.RGBA,gl.UNSIGNED_BYTE,sky);
+   const state={width:c.width,height:c.height,sky:Array.from(sky),error:gl.getError(),currentProgram:!!program,
      depth:gl.isEnabled(gl.DEPTH_TEST),vertices:gl.getBufferParameter(gl.ARRAY_BUFFER,gl.BUFFER_SIZE)/40,
      sample:Array.from(px),matrix:Array.from(u),uniformEye:Array.from(gl.getUniform(program,gl.getUniformLocation(program,'u_eye')))};
    return state;
   });
   console.log('DIVINE_GPU_STATE='+JSON.stringify(gpu));
   assert.equal(gpu.error,0,'no GL errors after actual render');
+  assert(gpu.sky[0]<110&&gpu.sky[2]>gpu.sky[0]+25,
+    'painted PS2 sky must replace the flat clear color: '+JSON.stringify(gpu.sky));
   assert(gpu.matrix.length===16&&gpu.matrix.every(Number.isFinite),
     'perspective matrix must be finite: malformed cross products create blank WebGL frames');
   // Print one compact visual sample for design inspection; large images are
