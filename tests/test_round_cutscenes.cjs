@@ -58,11 +58,11 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  const urls=[];context.fetch=async(url,o)=>{urls.push(url);assert.equal(JSON.parse(o.body).action,'done');assert.equal(JSON.parse(o.body).game,5);return reply(fx.settled);};
  const done=click({action:'r2-done',match:'5'});await flushMicro();
  assert.deepEqual(urls,['/api/round2-draw'],'Match 5 done goes through the round 2 draw endpoint');
- assert.equal(run('cutsceneActive'),true,'Match 5 of 5 done plays the Enough cutscene');
+ assert.equal(run('cutsceneActive'),true,'Match 5 of 5 done plays the Adapt or Wither cutscene');
  assert.equal(run('plays.length'),1);
  const r2Cut=cutOf(fx.settled,'round2');assert.equal(r2Cut.length,2);
- assert.deepEqual(stageNames().sort(),[...r2Cut].sort(),'the Enough verdict names exactly the round 2 CUT players');
- assert($('#cutscene-label').textContent.includes('Enough'),'the cutscene is labelled Enough');
+ assert.deepEqual(stageNames().sort(),[...r2Cut].sort(),'the Adapt or Wither verdict names exactly the round 2 CUT players');
+ assert($('#cutscene-label').textContent.includes('Adapt or Wither'),'the cutscene is labelled Adapt or Wither');
  run('endCutscene()');await done;
  assert.equal($('#result-dialog').open,true);assert.equal(run('resultStage'),'round2');assert.equal(run('resultFinal'),true);
  assert($('#result-dialog').classList.contains('fullscreen'),'standings open fullscreen after the cutscene');
@@ -153,5 +153,5 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  run('endCutscene()');await flushMicro();
  assert.equal($('#result-dialog').open,true);assert.equal(run('resultStage'),'round1');
  assert.equal(run('plays.length'),1);
- console.log('Round cutscenes: Enough via Match 5 done, no play on matches 1-4 or ties, on-screen tie settle, no early fire, superseded save, final five individual prunings, no double-fire passed.');
+ console.log('Round cutscenes: Adapt or Wither via Match 5 done, no play on matches 1-4 or ties, on-screen tie settle, no early fire, superseded save, final five individual prunings, no double-fire passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
