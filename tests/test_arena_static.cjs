@@ -163,7 +163,7 @@ const equalArrays=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
 
  // A settled round still calls the 3D pavilion ceremony once.
  let bloomCalls=0;
- const ceremony=S.W.crownGate('round1','Face Your Weakness',()=>bloomCalls++);
+ const ceremony=S.W.crownGate('round1','Know Thy Nature',()=>bloomCalls++);
  assert.equal(S.status().ceremony.phase,'approach');
  await flush();
  assert.equal(S.status().ceremony.phase,'descend');
