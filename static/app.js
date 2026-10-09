@@ -857,14 +857,7 @@ const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='
 // Cut players are decided by the engine. In the winner-take-all final,
 // the sole first-place champion survives; all five other finalists are pruned.
 
-function eliminatedNames(key){
- const v=view&&view[key];if(!v||!v.rows)return [];
- const byRank=(a,b)=>(a.rank||99)-(b.rank||99);
- const rows=key==='final'
-  ?[...v.rows].filter(r=>r.rank!==1).sort(byRank)
-  :[...v.rows].filter(r=>r.status==='CUT').sort(byRank);
- return rows.map(r=>r.name);
-}
+
 // Five seconds per eliminated player. Only engine-cut players are judged.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
 let ceremonyLabel="",ceremonyStage="",cutsceneRunId=0,cutsceneReturnResult=false;
