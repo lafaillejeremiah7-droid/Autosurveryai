@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run: python app.py. Opens the local dashboard in your browser."""
-import argparse, csv, io, json, os, secrets, threading, webbrowser
+import argparse, csv, io, json, os, secrets, sys, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -127,6 +127,8 @@ def make_server(store,port=8765):
     return ThreadingHTTPServer(('127.0.0.1',port),Handler)
 
 if __name__=='__main__':
+    if sys.version_info<(3,10):
+        raise SystemExit(f'This dashboard needs Python 3.10 or newer; you are running {sys.version_info.major}.{sys.version_info.minor}.')
     parser=argparse.ArgumentParser(description='Brawl Hockey tournament dashboard')
     parser.add_argument('--port',type=int,default=8765);parser.add_argument('--data',default=str(ROOT/'tournament.json'));parser.add_argument('--no-browser',action='store_true')
     args=parser.parse_args()
