@@ -40,9 +40,9 @@ The flowers follow tournament progress independently of the countdown. Before th
 
 ### Elimination: the gardener's pruning verdict
 
-After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Know Thy Nature and Adapt or Wither prune their two cut players. The final prunes exactly the five non-winning finalists, then reveals the single champion on the gold pedestal. All eliminated names and placements come from the existing scoring engine, not from the animation.
+After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Know Thy Nature and Adapt or Wither prune their two cut players. The final prunes the five non-winning finalists **one by one**: each gets a separate, indexed five-second scene showing their name, shears snapping shut, a flight into the compost, and the **PRUNED** verdict before the next person appears. Only after all five scenes does the sole **$30 champion** rise on the golden pedestal. All eliminated names and placements come from the existing scoring engine, not from the animation.
 
-The cutscene appears above the scoring and results screens. **Skip**, **Escape**, or natural completion exits cleanly; reduced-motion preference shows a still summary instead. Once a round is pruned, its pavilion opens with a cascade of flowers. The normal standings and result dialogs remain available afterwards, including when ties are resolved through extra games.
+The cutscene appears above the scoring and results screens. **Skip**, **Escape**, or natural completion exits cleanly; reduced-motion preference keeps the first two rounds as a still summary, but the final plays five **separate, shorter static snipping scenes**, one player at a time. Once a round is pruned, its pavilion opens with a cascade of flowers. The normal standings and result dialogs remain available afterwards, including when ties are resolved through extra games.
 
 ### Pavilions and tournament path
 
