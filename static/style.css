@@ -401,3 +401,89 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #f7efe20b}td.calc{backgroun
 @media(max-width:640px){#cutscene.final-mode .cutscene-stage{height:min(430px,54vh,var(--cs-room))}}
 @media(max-width:600px){#cutscene{--cs-room:max(100dvh - 430px,180px)}#cutscene .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 1.8)}#cutscene.verdict-mode .cutscene-stage,#cutscene.crown-mode .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 1.6)}}
 @media (prefers-reduced-motion: reduce){.arena-verdict *,.fc-judgment *,.crown-card *,.fc-victory *{animation:none!important;transition:none!important}#cutscene.fc-hook .fc-loser,#cutscene.fc-hook .fc-hook-n{visibility:hidden}#cutscene .fc-petal{opacity:.8}}
+
+/* ROYAL GARDEN / GARDENER'S PRUNING VERDICT. Stage is drawn entirely in CSS/SVG. */
+:root{--ink:#f3f7eb;--pink:#b97088;--bg:#0e231b;--panel:#102a20;--line:#52735c;--muted:#b9d1b7;--text:#eef5e8;--yellow:#e6c77c;--green:#99d69d;--red:#e88291;--gray:#354e41;--blue:#b7e3cb;color-scheme:dark}
+body{background:#10271e}
+.room-header{background:linear-gradient(180deg,#091d16db,transparent);border-color:#d6e7bc30}
+.brand .brand-mark{background:#20463099;border-color:#c5dfab;color:#d7f0c7}
+.room-intro{background:linear-gradient(110deg,#0b251bdc,#123d29b5 76%,transparent)}
+.room-intro h1 em{color:#e7bfd0}
+.games-clock{background:linear-gradient(135deg,#18432fdb,#0c251ddb);border:1px solid #95c79f55}
+.room-label{background:linear-gradient(180deg,transparent,#092419f2)}
+.route-stop{background:#112d23ea;border-color:#89ac83}
+.city-room{background:linear-gradient(135deg,#28533bbb,#09291deb);border-color:#c4dbb45e}
+#cutscene,#cutscene.final-mode{
+ background:radial-gradient(ellipse at 50% 55%,#295239,#102b23 62%,#06150f 100%);color:#f3f5e9
+}
+#cutscene .cutscene-head .eyebrow,#cutscene.final-mode .cutscene-head .eyebrow{color:#e8ce92}
+#cutscene .cutscene-head h2,#cutscene.final-mode .cutscene-head h2{color:#f4f9e9}
+#cutscene .cutscene-stage,#cutscene.final-mode .cutscene-stage{
+ background:#204c32;border:1px solid #bdd99b80;box-shadow:0 0 85px #82b87b26,inset 0 0 55px #04120a6b
+}
+#cutscene .cutscene-caption strong,#cutscene.final-mode .cutscene-caption strong{color:#f1c883}
+#cutscene .cutscene-skip{background:#17392b;border-color:#aacb98;color:#f0f6e6}
+#cutscene .garden-verdict{background:linear-gradient(#89b8a3 0 40%,#678c5a 40% 59%,#567e45 59% 100%);isolation:isolate}
+#cutscene .gv-sky{position:absolute;inset:0 0 45%;background:linear-gradient(#7eb8b1,#dbe1b4)}
+#cutscene .gv-palace{position:absolute;width:46%;height:38%;left:27%;top:17%;border:9px solid #d9d5ac;border-top:18px solid #e8d9a7;background:repeating-linear-gradient(90deg,#a8ba9e 0 14%,#dfe0bd 14% 18%,#8ea38d 18% 26%);clip-path:polygon(0 34%,18% 34%,18% 12%,50% 0,82% 12%,82% 34%,100% 34%,100% 100%,0 100%);box-shadow:0 8px 0 #638465}
+#cutscene .gv-hedge{position:absolute;bottom:15%;width:24%;height:56%;z-index:1;background:repeating-linear-gradient(30deg,#225b32 0 12px,#377a40 12px 26px,#316a38 26px 34px);border:7px solid #143c28;border-radius:20% 20% 3% 3%}
+#cutscene .gv-hedge-left{left:-2%}#cutscene .gv-hedge-right{right:-2%}
+#cutscene .gv-path{position:absolute;inset:58% 12% 0;background:linear-gradient(105deg,#8b926a,#ddd7a0 44%,#9da073 100%);clip-path:polygon(31% 0,69% 0,100% 100%,0 100%)}
+#cutscene .gv-rose-arch{position:absolute;left:30%;right:30%;top:13%;height:44%;border:18px solid #427a41;border-bottom:0;border-radius:47% 47% 0 0;box-shadow:0 0 0 6px #b4d39966,inset 0 0 0 6px #e3b0bd66;z-index:2}
+#cutscene .gv-rose-arch:after{content:'✿  ✿  ✿  ✿  ✿';position:absolute;inset:-16px -14px auto;color:#eeb2c7;font-size:clamp(12px,2.2vw,29px);text-align:center;text-shadow:0 2px #9f496c}
+#cutscene .gv-compost{position:absolute;left:4%;bottom:5%;width:24%;height:24%;z-index:6;border-radius:50% 50% 8% 8%;background:radial-gradient(ellipse at 50% 40%,#775d36,#3b3124 70%);border-bottom:12px solid #291e17;box-shadow:0 6px 20px #06190e80}
+#cutscene .gv-compost b{position:absolute;left:0;right:0;top:22%;color:#fff0bc;text-shadow:0 2px 4px #000;font:900 clamp(9px,1.2vw,17px)/1.1 monospace}
+#cutscene .gv-compost i{position:absolute;top:7%;width:18px;height:8px;left:18%;background:#639450;border-radius:100%;transform:rotate(25deg)}
+#cutscene .gv-compost i:nth-of-type(2){left:61%;transform:rotate(-55deg)}
+#cutscene .gv-compost i:nth-of-type(3){left:40%;top:47%;transform:rotate(85deg)}
+#cutscene .gv-gardener{position:absolute;right:18%;bottom:14%;width:18%;max-width:220px;z-index:5;filter:drop-shadow(0 6px 8px #041b10aa);transform-origin:50% 100%}
+#cutscene .gv-gardener svg{width:100%;height:auto}
+#cutscene .gv-gardener circle{fill:#d9ad86;stroke:#354b30;stroke-width:3}
+#cutscene .gv-hat{fill:#556d36;stroke:#304928;stroke-width:4}
+#cutscene .gv-coat{fill:#466b39;stroke:#263d29;stroke-width:4}
+#cutscene .gv-body{fill:none;stroke:#d8be8f;stroke-width:13;stroke-linecap:round}
+#cutscene .gv-shears{position:absolute;right:14%;bottom:33%;height:43%;width:25%;z-index:7;overflow:visible;transform-origin:60% 85%;transform:translateY(60%) rotate(-34deg);filter:drop-shadow(1px 4px 3px #12221caa)}
+#cutscene .gv-blade{fill:#d8e8e1;stroke:#647d75;stroke-width:3;transform-origin:84px 102px}
+#cutscene .gv-blade-b{transform:rotate(35deg)}
+#cutscene .gv-handle{fill:none;stroke:#b98b53;stroke-width:12}
+#cutscene .gv-pivot{fill:#ad9158}
+#cutscene .gv-handle-bar{fill:none;stroke:#c89a58;stroke-width:12}
+#cutscene .gv-snip,#cutscene .gv-pruned{position:absolute;z-index:12;opacity:0;pointer-events:none;font:900 clamp(24px,5.5vw,88px)/1 monospace;color:#fff2ba;text-shadow:3px 6px #214b30,0 0 26px #e9f7a7}
+#cutscene .gv-snip{left:42%;top:22%;transform:translate(-50%,-50%) scale(.2) rotate(-12deg)}
+#cutscene .gv-pruned{left:50%;top:40%;transform:translate(-50%,-50%) scale(.6);color:#f3a4b6;text-shadow:2px 5px #472c43,0 0 24px #f7d19a}
+#cutscene .garden-verdict .av-player{left:45%;bottom:15%;width:7.5%;z-index:5;transform-origin:center 88%;transition:none}
+#cutscene .garden-verdict .av-name{color:#fffaf1}
+#cutscene.verdict-enter .garden-verdict .av-player{animation:av-walk-in .9s ease-out both}
+#cutscene.verdict-judge .gv-gardener{animation:gv-gardener-raise .5s both}
+#cutscene.verdict-judge .gv-shears{animation:gv-raise .7s cubic-bezier(.1,.85,.2,1.25) forwards}
+#cutscene.verdict-down .gv-shears,#cutscene.verdict-hook .gv-shears,#cutscene.verdict-drag .gv-shears,#cutscene.verdict-gone .gv-shears{transform:translateY(-5%) rotate(8deg)}
+#cutscene.verdict-down .gv-blade-b{animation:gv-snip-blade .19s linear both}
+#cutscene.verdict-down .gv-snip,#cutscene.verdict-hook .gv-snip{animation:gv-snap .4s cubic-bezier(.1,1.2,.1,1) both}
+#cutscene.verdict-down .garden-verdict{animation:gv-impact .27s ease-in-out}
+#cutscene.verdict-hook .garden-verdict .av-player,#cutscene.verdict-drag .garden-verdict .av-player,#cutscene.verdict-gone .garden-verdict .av-player{animation:gv-fling 1.12s cubic-bezier(.15,.5,.65,1) forwards}
+#cutscene.verdict-drag .gv-compost{animation:gv-compost-hit .7s ease-in-out}
+#cutscene.verdict-drag .gv-compost:after{content:'✦  ✦  ✦';position:absolute;inset:-25px 0 auto;color:#d2bb7e;font-size:26px;animation:gv-compost-hit .5s ease-out}
+#cutscene.verdict-gone .gv-pruned{animation:gv-pruned .6s ease-out forwards}
+#cutscene.verdict-summary .garden-verdict .av-lineup{z-index:8;left:24%;right:16%;bottom:18%}
+#cutscene.verdict-summary .gv-pruned{opacity:1}
+#cutscene .gv-summary .av-player{transform:rotate(-21deg);opacity:.6}
+@keyframes gv-raise{from{transform:translateY(60%) rotate(-34deg)}to{transform:translateY(-5%) rotate(8deg)}}
+@keyframes gv-gardener-raise{from{transform:rotate(7deg)}to{transform:rotate(-8deg)}}
+@keyframes gv-snip-blade{0%{transform:rotate(35deg)}100%{transform:rotate(-4deg)}}
+@keyframes gv-snap{0%{opacity:0;transform:translate(-50%,-50%) scale(.15) rotate(-12deg)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
+@keyframes gv-impact{0%,100%{transform:translate(0,0)}15%{transform:translate(9px,-5px)}33%{transform:translate(-11px,4px)}55%{transform:translate(7px,5px)}75%{transform:translate(-3px,-3px)}}
+@keyframes gv-fling{0%{transform:translate(0,0) rotate(0deg) scale(1);opacity:1}25%{transform:translate(-80%,-130%) rotate(-45deg) scale(.9);opacity:1}70%{transform:translate(-315%,-90%) rotate(-310deg) scale(.64);opacity:1}100%{transform:translate(-395%,55%) rotate(-560deg) scale(.4);opacity:0}}
+@keyframes gv-compost-hit{0%,100%{transform:scale(1)}50%{transform:scale(1.2, .77)}}
+@keyframes gv-pruned{from{opacity:0;transform:translate(-50%,-50%) scale(.4)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@media(max-width:600px){
+ #cutscene .gv-gardener{right:9%;width:22%}
+ #cutscene .gv-shears{right:3%;width:32%}
+ #cutscene .gv-compost{left:1%;width:32%}
+ #cutscene .garden-verdict .av-player{left:46%;width:12%}
+ #cutscene .gv-rose-arch{left:21%;right:21%}
+}
+@media(prefers-reduced-motion:reduce){
+ #cutscene .gv-shears{transform:translateY(-5%) rotate(8deg)}
+ #cutscene.verdict-down .gv-snip,#cutscene.verdict-gone .gv-pruned{animation:none;opacity:1}
+ #cutscene .garden-verdict .av-player{animation:none!important}
+}
