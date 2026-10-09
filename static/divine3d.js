@@ -148,7 +148,7 @@
   let hx=0,hy=14.9+.22*Math.sin(elapsed*1.7),hz=-.3;
   if(step>=0){
    const index=models.findIndex(p=>p.id===cutIds[step]);
-   if(index>=0){const p=positions[index],t=clamp(age/.72);t*=t*(3-2*t);hx=lerp(0,p[0],t);hz=lerp(-.3,p[2],t);hy=lerp(14.9,10.3,t);}
+   if(index>=0){const p=positions[index];let t=clamp(age/.72);t*=t*(3-2*t);hx=lerp(0,p[0],t);hz=lerp(-.3,p[2],t);hy=lerp(14.9,10.3,t);}
   }
   hand(m,[hx,hy,hz],elapsed,step,age);
   return m;
