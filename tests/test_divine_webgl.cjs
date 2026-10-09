@@ -37,11 +37,17 @@ assert(uploaded>=three._debug().triangles*30,'vertices include 3D positions, nor
 assert.equal(draws,1);
 assert.equal(depthUsed,true,'depth-tested perspective rendering');
 assert(labels.every(p=>p.style.left&&p.style.top),'labels use projection from 3D model space');
-const EMERGENCE_FRAME=2.2;
+const EMERGENCE_FRAME=3.2;
 const geo=three._geometry(model,['p3','p7'],-1,0);
 assert.equal(geo.positions.length,10);
 assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows of roses');
 assert(geo.triangles>1000);
+assert(geo.gardenTriangles>3000,'detailed 3D garden includes thousands of architectural triangles');
+assert.equal(geo.plantStages,7,'all seven competitive flower growth stages have dedicated meshes');
+assert(geo.details.includes('fountains')&&geo.details.includes('gazebos')&&geo.details.includes('hedge maze')&&geo.details.includes('palace'),'3D field includes royal garden architecture');
+assert(geo.portalPlane<0,'emerging hand is revealed in front of a physical portal plane');
+assert(geo.handScale>=4.7,'enormous hand is nearly twice the previous 2.6x scale');
+assert(geo.portalRadius>=15,'portal surrounds the gigantic hand, not a small halo');
 assert(geo.portalRadius>=8,'portal is giant and centered over the plants');
 assert.deepEqual(Array.from(geo.portalCenter.slice(0,1)),[0],'portal stays on the horizontal centerline');
 assert(geo.portalCenter[1]>20,'portal is high above all rose flowers');

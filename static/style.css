@@ -587,3 +587,48 @@ body{background:#10271e}
  #cutscene .divine-portal,#cutscene .divine-portal:before,
  #cutscene .divine-portal:after,#cutscene .divine-scene .divine-judge{animation:none!important}
 }
+
+/* Rebuilt 3D Royal Judgment: larger cinematic frame for the entire maze garden.
+   The 3D portal, 5x hand, shears, royal hedges, fountains and flower tiers live in
+   the WebGL mesh. These rules preserve a clear accessible DOM label overlay. */
+#cutscene.divine-mode .cutscene-stage{
+ width:min(1590px,98vw);
+ height:min(765px,77dvh);
+ aspect-ratio:auto;
+ background:radial-gradient(ellipse at 50% 8%,#17233b,#14251a 70%,#0b1b13);
+ box-shadow:0 0 115px #e0b56a35,inset 0 0 95px #dbba6530;
+}
+#cutscene-stage.divine-webgl .divine-canvas{
+ width:100%;height:100%;image-rendering:auto;
+}
+#cutscene-stage.divine-webgl .divine-plant{
+ width:16.5%;
+ transform:translate(-50%,-8%);
+ background:linear-gradient(90deg,transparent,#11271cd1 20%,#122719d9 80%,transparent);
+ border-bottom:1px solid #cbaa6f88;
+ padding:2px 6px 3px;
+}
+#cutscene .divine-stage-name{
+ display:block;font:700 clamp(7px,.85vw,11px)/1.2 Georgia,serif;
+ font-style:normal;color:#c9ebc0;letter-spacing:.2px;
+ text-shadow:0 1px 4px #000;
+}
+#cutscene-stage.divine-webgl .divine-name{
+ font-size:clamp(10px,1.22vw,17px);
+}
+#cutscene-stage.divine-webgl .divine-plant small{
+ font-size:clamp(9px,.77vw,12px);
+}
+#cutscene .divine-scene .divine-portal{
+ width:min(94%,1020px);top:-31%;
+}
+#cutscene .divine-scene .divine-judge{
+ width:clamp(420px,92%,1180px);
+}
+@media(max-width:700px){
+ #cutscene.divine-mode .cutscene-stage{width:99vw;height:min(670px,75dvh)}
+ #cutscene-stage.divine-webgl .divine-plant{width:22%;padding:1px}
+ #cutscene-stage.divine-webgl .divine-stage-name{font-size:7px}
+ #cutscene-stage.divine-webgl .divine-name{font-size:9px}
+ #cutscene .divine-scene .divine-portal{top:-14%;width:120%}
+}
