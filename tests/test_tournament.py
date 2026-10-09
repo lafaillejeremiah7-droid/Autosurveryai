@@ -89,10 +89,14 @@ class Rules(unittest.TestCase):
     def test_fixed_winner_take_all_prize_and_legacy_migration(self):
         fresh=new_state()
         self.assertEqual(fresh['settings']['prizes'],[30,0,0])
-        old=fixture()
-        old['settings']['prizes']=[18,8,4]
-        migrated=validate(old)
-        self.assertEqual(migrated['settings']['prizes'],[30,0,0])
+        # Support both the original $18/$8/$4 save and the more recent
+        # $40 winner-take-all save without changing match results.
+        for old_prizes in ([18,8,4],[40,0,0]):
+            old=fixture()
+            old['settings']['prizes']=old_prizes
+            migrated=validate(old)
+            self.assertEqual(migrated['settings']['prizes'],[30,0,0])
+            self.assertEqual(evaluate(migrated)['awarded'],30)
         v=evaluate(migrated)
         self.assertEqual(v['pool'],30)
         self.assertEqual(v['awarded'],30)
