@@ -33,7 +33,7 @@ assert.equal(typeof three.mount,'function');
 assert.equal(three.mount(canvas,model,['p3','p7'],-1,labels),true);
 assert.equal(three._debug().plants,10);
 assert(three._debug().triangles>1000,'scene includes many surface-lit 3D triangles');
-assert(uploaded>=three._debug().triangles*30,'vertices include 3D positions, normals, RGB and material');
+assert(uploaded>=three._debug().triangles*30,'vertices include 3D positions, normals, RGB and material: '+JSON.stringify({uploaded,triangles:three._debug().triangles,draws}));
 assert.equal(draws,1);
 assert.equal(depthUsed,true,'depth-tested perspective rendering');
 assert(labels.every(p=>p.style.left&&p.style.top),'labels use projection from 3D model space');
