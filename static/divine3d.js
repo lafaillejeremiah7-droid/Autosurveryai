@@ -347,7 +347,7 @@
   const map=p=>{
    if(fall<=0)return base(p);
    if(p[1]<cutY-1e-6)return base(p);
-   const t=fall*1.28,dy=p[1]-cutY,drop=fall*fall*(1.9+height*.4),drift=fall*(1.5+height*.22)*dir;
+   const t=fall*1.95,dy=p[1]-cutY,drop=fall*fall*(2.8+height*.62)+fall*.55,drift=fall*(2.3+height*.34)*dir;
    return [x+p[0]*Math.cos(t)+dy*Math.sin(t)*dir+sway*cutY+drift,
      .75+cutY+dy*Math.cos(t)-p[0]*Math.sin(t)*dir-drop,z+p[2]+fall*.6];
   };
@@ -357,7 +357,7 @@
   // rooted stump (below cutY) and an upper length riding away with the bloom.
   const severed=fall>0;
   if(severed){
-   m.cylinder(base([0,.05,0]),base([0,cutY,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
+   m.cylinder(base([0,.05,0]),base([0,cutY-fall*.12,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
    m.cylinder(map([0,cutY,0]),map([0,height,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
   }else{
    m.cylinder(base([0,.05,0]),base([0,height,0]),.10+tier*.016,[.11,.40,.16],.035+tier*.011,8);
@@ -489,11 +489,11 @@
   const spread=[-1.17,-.39,.41,1.16];
   for(let i=0;i<4;i++){
    const dx=spread[i],length=[2.30,2.82,2.68,2.14][i],
-     curl=close*(.86+(i===1||i===2?.14:0)),
+     curl=close*(1.0+(i===1||i===2?.16:0)),
      from=at(dx,-1.21,.97),
-     knuckle=at(dx*(.99-.05*curl),-1.55-length*.34+length*.10*curl,1.42+.55*curl),
-     joint=at(dx*(.89-.12*curl),-1.65-length*.71+length*.46*curl,2.05+1.02*curl*length*.34),
-     tip=at(dx*(.79-.20*curl),-1.62-length+length*.92*curl,2.22+1.46*curl*length*.34);
+     knuckle=at(dx*(.99-.07*curl),-1.55-length*.34+length*.14*curl,1.42+.82*curl),
+     joint=at(dx*(.89-.16*curl),-1.65-length*.71+length*.58*curl,2.05+1.46*curl*length*.34),
+     tip=at(dx*(.79-.26*curl),-1.62-length+length*1.08*curl,2.22+2.08*curl*length*.34);
    m.softSphere(from,.40,.42,.40,ivory,7,8,12);
    m.softTube([from,knuckle,joint,tip],[.38,.36,.27,.12],ivory,7,12);
    m.softSphere(joint,.28,.28,.30,shade,7,7,10);

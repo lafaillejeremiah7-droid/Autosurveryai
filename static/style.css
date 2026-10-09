@@ -534,7 +534,7 @@ body{background:#10271e}
    its severed top third clipped away at the cut line (no whole-plant tilt). */
 @keyframes divine-cut-plant{0%{transform:none;clip-path:inset(0 0 0 0);opacity:1}18%{transform:translateY(1px);clip-path:inset(0 0 0 0)}22%{clip-path:inset(34% 0 0 0)}100%{transform:none;clip-path:inset(34% 0 0 0);opacity:.92}}
 /* The cut-off top half tumbles sideways and falls out of frame under gravity. */
-@keyframes divine-top-fall{0%{transform:rotate(0) translate(0,0);opacity:0}6%{opacity:1}55%{transform:rotate(52deg) translate(22px,34px);opacity:.95}100%{transform:rotate(128deg) translate(40px,118px);opacity:0}}
+@keyframes divine-top-fall{0%{transform:rotate(0) translate(0,0);opacity:0}6%{opacity:1}50%{transform:rotate(74deg) translate(34px,58px);opacity:.95}100%{transform:rotate(176deg) translate(62px,196px);opacity:0}}
 @keyframes divine-impact{0%,100%{transform:translate(0)}35%{transform:translate(-8px,4px)}70%{transform:translate(7px,-3px)}}
 @keyframes divine-cut-flash{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
 @keyframes divine-fade-in{from{opacity:0;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}
