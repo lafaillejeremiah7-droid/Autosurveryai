@@ -31,3 +31,8 @@ jobs:
           node tests/test_city_timeline.cjs
           node tests/test_arena_static.cjs
           node tests/test_theme_copy.cjs
+      - name: Browser portal shader and emergence smoke test
+        run: |
+          npm install --no-save --no-package-lock playwright
+          CHROMIUM_EXECUTABLE="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node tests/test_divine_browser.cjs
+
