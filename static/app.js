@@ -142,10 +142,7 @@ function gateStages(){
   const v=view[key],reason=roomLock(key),status=reason?'sealed':v.complete?'complete':'current';
   const cut=v.rows.filter(r=>r.status==='CUT').map(r=>r.name);
   const detail=reason||(status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches');
-  // Use validated match readiness, not score totals: an unfinished match earns no bloom.
-  // Locked or stale rounds must not contribute archived scores from an old roster.
-  const progress=reason||v.stale?0:v.complete?1:v.games.length?v.games.filter(g=>g.ready).length/v.games.length:0;
-  return {key,label,status,detail,progress};
+  return {key,label,status,detail};
  })];
 }
 function renderRoom(){
@@ -206,7 +203,7 @@ function localStartValue(iso){
 function countdownSettings(){
  const current=countdownDraft===null?localStartValue(state.settings.start_at):countdownDraft;
  const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
- return '<section class="panel settings-countdown"><div class="panel-head"><h2>Games countdown</h2></div><form id="countdown-form"><label for="starts-at">Tournament starts · '+esc(zone)+'<input id="starts-at" data-path="settings.start_at" type="datetime-local" required min="1970-01-01T00:00" max="9999-12-31T23:59" step="60" value="'+esc(current)+'" aria-describedby="start-help"></label><button type="submit" class="accent">Save countdown</button><button type="button" class="danger" data-action="clear-start" '+(!state.settings.start_at?'disabled':'')+'>Clear countdown</button></form><p id="start-help">A changed start time empties the stands. Spectators arrive throughout the countdown and the crowd reaches full bloodlust at zero. Refreshing keeps the crowd. Pause arena stops motion, not the timer.</p></section>';
+ return '<section class="panel settings-countdown"><div class="panel-head"><h2>Games countdown</h2></div><form id="countdown-form"><label for="starts-at">Tournament starts · '+esc(zone)+'<input id="starts-at" data-path="settings.start_at" type="datetime-local" required min="1970-01-01T00:00" max="9999-12-31T23:59" step="60" value="'+esc(current)+'" aria-describedby="start-help"></label><button type="submit" class="accent">Save countdown</button><button type="button" class="danger" data-action="clear-start" '+(!state.settings.start_at?'disabled':'')+'>Clear countdown</button></form><p id="start-help">Saving a new future start time begins at 0% bloom. Roses open as the countdown runs and reach 100% when it hits zero. Refreshing preserves progress. Clearing the countdown returns the garden to closed buds. Pause garden stops decorative motion; the countdown and bloom keep advancing.</p></section>';
 }
 function settings(){
  const html=playerSettings(),at=html.indexOf('<div class="settings-grid">');

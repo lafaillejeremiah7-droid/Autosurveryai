@@ -1,5 +1,5 @@
 // Royal Garden WebGL and 2D fallback tests with a fake DOM.
-// Pass 1: static 2D fallback, five pavilions and three flower-bloom phases.
+// Pass 1: static 2D fallback, five pavilions and countdown-driven flower bloom.
 // Pass 2: fake WebGL, aerial camera, pause/resume and dynamic mesh rebuilds.
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.join(__dirname,'..');
@@ -58,6 +58,7 @@ function makeWorld({gl=null}={}){
  const api={W,context,elements,classes,audio,ctx2d,warnings,
   get now(){return now;},
   async step(ms){now+=ms;const fns=rafs.splice(0);for(const fn of fns)fn(now);await flush();},
+  async advance(ms){dateNow+=ms;await this.step(ms);},
   status:()=>plain(W.getStatus()),layout:()=>plain(W._debugLayout()),dynamic:()=>Array.from(W._debugDynamic())};
  return api;
 }
@@ -69,7 +70,7 @@ function makeWorld({gl=null}={}){
  assert.equal(status.rooms,5,'royal garden has five pavilion rooms');
  assert.equal(status.gates.length,5,'no Coliseum gates remain');
  assert.equal(status.bloomLevel,0,'rosebuds begin closed');
- assert.equal(status.gardenFlowers,0,'no open roses before qualification');
+ assert.equal(status.gardenFlowers,0,'no open roses without a countdown');
  assert.ok(status.gardenHedges>40,'maze hedges have actual 3D geometry');
  assert.ok(status.debug.staticTriangles>2000&&status.debug.staticTriangles<12000,'garden mesh budget');
  assert.equal(Object.values(status.debug.parts).reduce((sum,n)=>sum+n,0),status.debug.staticTriangles,'part triangle counts sum to mesh');
@@ -79,49 +80,52 @@ function makeWorld({gl=null}={}){
  const labels=S.elements['door-labels'];
  assert.equal(labels.children.length,5,'only real tournament pavilions have scene labels');
  assert.equal(S.elements['city-damage'].textContent,'0% BLOOM');
- // Match progress changes while pavilion status stays 'current'. Both the HUD
- // and actual roses must update; identical saves must not rebuild the geometry.
- const partial=fraction=>stages().map(s=>({...s,progress:s.key==='round1'?fraction:0}));
- S.W.setTournament(partial(.2));await S.step(301);
- assert.equal(S.status().bloomLevel,.2/3);
- assert.equal(S.elements['city-damage'].textContent,'7% BLOOM');
- const firstMatchFlowers=S.status().gardenFlowers;
- assert(firstMatchFlowers>0,'first match opens roses before the round settles');
- S.W.setTournament(partial(.4));await S.step(301);
- assert.equal(S.elements['city-damage'].textContent,'13% BLOOM');
- assert(S.status().gardenFlowers>firstMatchFlowers,'same-status match advances the flowers');
- const cachedBuilds=S.status().debug.rebuilds;
- S.W.setTournament(partial(.4));await S.step(301);
- assert.equal(S.status().debug.rebuilds,cachedBuilds,'unchanged progress reuses geometry');
- S.W.setTournament(partial(.2));await S.step(301);
- assert.equal(S.status().gardenFlowers,firstMatchFlowers,'correction restores the exact prior bloom');
- S.W.setTournament(partial(0));await S.step(301);
- assert.equal(S.status().gardenFlowers,0,'reset closes the roses again');
- assert.equal(S.elements['city-damage'].textContent,'0% BLOOM');
- const unflowered=status.gardenFlowers;
- S.W.setTournament(stages('complete','current','sealed'));
- await S.step(301);
- status=S.status();
- assert.equal(status.bloomLevel,1/3);
- assert.ok(status.gardenFlowers>unflowered&&status.gardenFlowers<112,'first bloom');
- const one=status.gardenFlowers;
- S.W.setTournament(stages('complete','complete','current'));await S.step(301);
- status=S.status();assert.equal(status.bloomLevel,2/3);
- assert.ok(status.gardenFlowers>one,'second bloom adds flowers');
- S.W.setTournament(stages('complete','complete','current').map(s=>({...s,progress:1})));await S.step(301);
- assert.equal(S.status().bloomLevel,.99,'unsettled final cannot claim full bloom');
- assert.equal(S.elements['city-damage'].textContent,'99% BLOOM');
- assert(S.status().gardenFlowers<112,'title tie leaves roses unopened');
+ // Tournament results cannot grow the flowers. The timer advances them even
+ // with locked pavilions, no player scores, or paused decorative animation.
  S.W.setTournament(stages('complete','complete','complete'));await S.step(301);
+ assert.equal(S.status().bloomLevel,0,'completed rounds do not set bloom');
+ S.W.setTournament(stages());S.W.setSettings(settingsAt(0));await S.step(301);
+ await S.advance(25000);
+ assert.equal(S.status().bloomLevel,.25);
+ assert.equal(S.elements['city-damage'].textContent,'25% BLOOM');
+ assert.equal(S.status().gardenFlowers,28,'one quarter of the roses open');
+ await S.advance(25000);
+ assert.equal(S.status().bloomLevel,.5);
+ assert.equal(S.elements['city-damage'].textContent,'50% BLOOM');
+ assert.equal(S.status().gardenFlowers,56);
+ const cachedBuilds=S.status().debug.rebuilds;
+ S.W.setSettings(settingsAt(0));await S.step(301);
+ assert.equal(S.status().debug.rebuilds,cachedBuilds,'unchanged progress reuses geometry');
+ S.W.setPaused(true);await S.advance(25000);
+ assert.equal(S.status().bloomLevel,.75,'pause does not stop the bloom clock');
+ assert.equal(S.status().gardenFlowers,84);
+ S.W.setSuspended(true);await S.advance(24000);
+ assert.equal(S.status().bloomLevel,.99);
+ assert.equal(S.elements['city-damage'].textContent,'99% BLOOM');
+ assert(S.status().gardenFlowers<112,'full bloom waits for zero');
+ await S.advance(1000);
  status=S.status();assert.equal(status.bloomLevel,1);
- assert.equal(status.gardenFlowers,112,'all roses open at final');
+ assert.equal(status.gardenFlowers,112,'all roses open exactly at the deadline');
  assert.equal(S.elements['city-status'].textContent,'ROYAL GARDEN IN FULL BLOOM');
  assert.equal(S.elements['city-damage'].textContent,'100% BLOOM');
  assert.equal(S.elements['city-progress'].style.width,'100%');
- assert.equal(status.gates.find(g=>g.key==='round1').state,'crowned');
- S.W.setSettings(settingsAt(1));
- assert.equal(S.status().progress,1);
  assert.equal(S.status().phase,'THE GARDEN IS OPEN');
+ assert.equal(status.gates.find(g=>g.key==='round2').state,'sealed','bloom does not unlock rounds');
+ await S.advance(60000);
+ assert.equal(S.status().bloomLevel,1,'the garden stays open after the countdown');
+ S.W.setSettings({});await S.step(301);
+ assert.equal(S.status().bloomLevel,0,'clearing the countdown resets bloom');
+ assert.equal(S.status().gardenFlowers,0);
+ S.W.setSettings({disaster_started_at:at(160),start_at:at(400)});await S.step(301);
+ assert.equal(S.status().bloomLevel,0,'a new countdown begins closed');
+ await S.advance(239000);
+ assert.equal(S.elements['city-damage'].textContent,'99% BLOOM','99.58% cannot round up early');
+ assert.equal(S.status().gardenFlowers,111,'the last rose waits for zero');
+ await S.advance(1000);
+ assert.equal(S.status().gardenFlowers,112);
+ S.W.setPaused(false);S.W.setSuspended(false);
+ S.W.setTournament(stages('complete','complete','complete'));await S.step(301);
+ assert.equal(S.status().gates.find(g=>g.key==='round1').state,'crowned');
 
  // A settled round still calls the 3D pavilion ceremony once.
  let bloomCalls=0;
@@ -140,29 +144,31 @@ function makeWorld({gl=null}={}){
  // Fake WebGL path: two shader programs, draws, mesh and live bloom.
  const {gl,rec}=fakeGL(),G=makeWorld({gl});
  G.W.setTournament(stages('complete','current','sealed'));
+ G.W.setSettings(settingsAt(.25));
  await G.step(33);
  let g=G.status();
  assert.equal(g.mode,'webgl');
  assert.equal(g.rooms,5);
- assert.equal(g.bloomLevel,1/3);
- G.W.setTournament(stages('complete','current','sealed').map(s=>({...s,progress:s.key==='round2'?.2:0})));await G.step(33);
- assert.equal(G.status().bloomLevel,(1+.2)/3,'WebGL also updates within the second round');
+ assert.equal(g.bloomLevel,.25);
+ await G.advance(25000);
+ assert.equal(G.status().bloomLevel,.5,'WebGL also follows the countdown');
+ assert.equal(G.status().gardenFlowers,56);
  assert.ok(g.gardenHedges>40);
  assert.ok(g.debug.staticTriangles<12000);
  assert.equal(rec.programs.length,2,'3D shader and sky shader');
  assert.ok(rec.buffers.length>=2);
  assert.ok(g.cameraEye[1]>30,'aerial first-person garden camera');
  const firstTime=rec.uniforms.u_wtime;
- G.W.setPaused(true);await G.step(33);
+ G.W.setPaused(true);await G.advance(25000);
  assert.equal(rec.uniforms.u_wtime,firstTime,'pausing holds the camera animation');
+ assert.equal(G.status().bloomLevel,.75,'WebGL bloom keeps advancing when paused');
  G.W.setPaused(false);await G.step(33);
  assert.ok(rec.uniforms.u_wtime>firstTime,'resuming advances time');
  const oldBuilds=G.status().debug.rebuilds;
- G.W.setTournament(stages('complete','complete','complete'));
- await G.step(33);
+ await G.advance(25000);
  assert.equal(G.status().bloomLevel,1);
  assert.equal(G.status().debug.rebuilds,oldBuilds+1,'bloom transition rebuilds flowers');
  assert.equal(G.status().gardenFlowers,112);
  assert.deepEqual(G.warnings,[]);
- console.log('Royal Garden renderer passed: live match bloom, corrections, resets, title ties, cached geometry, 2D/WebGL, camera and ceremony.');
+ console.log('Royal Garden renderer passed: countdown bloom, exact arrival, no early 100%, pause, resets, scoring independence, 2D/WebGL, camera and ceremony.');
 })().catch(e=>{console.error(e);process.exit(1);});

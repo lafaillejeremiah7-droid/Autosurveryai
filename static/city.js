@@ -144,7 +144,7 @@
   const m=new Mesh(),still=mode==='static';partTris={};rebuilds++;
   const part=(name,fn)=>{const before=m.data.length;fn();partTris[name]=(m.data.length-before)/30;};
   const stone=[.78,.77,.65],gravel=[.83,.77,.60],hedge=[.14,.36,.18],hedgeTip=[.21,.49,.25],gold=[.83,.67,.36];
-  const openRoses=Math.round(bloomLevel*112);
+  const openRoses=Math.floor(bloomLevel*112);
   const roseColors=[[.99,.42,.53],[.97,.73,.48],[.92,.67,.87],[.97,.93,.76]];
   gardenFlowers=0;gardenHedges=0;
   part('lawn',()=>{
@@ -183,7 +183,7 @@
     if(Math.abs(x)<10)continue;m.box(x,1.2,z,4,2.4,5,[.12,.34,.18]);}
   });
   part('rose-beds',()=>{
-   // Each completed match opens more roses. A stable permutation scatters the
+   // The opening countdown grows the roses. A stable permutation scatters the
    // flowers around the maze and preserves their positions across reloads.
    for(let i=0;i<112;i++){
     const lane=i%8,rank=Math.floor(i/8),side=lane<4?-1:1;
@@ -379,13 +379,16 @@
  function updateBloomHud(){
   const label=document.getElementById('city-status'),pct=document.getElementById('city-damage'),bar=document.getElementById('city-progress');
   if(label)label.textContent=bloomLevel>=1?'ROYAL GARDEN IN FULL BLOOM':bloomLevel>0?'THE ROSES ARE BLOOMING':state.phase;
-  if(pct)pct.textContent=Math.round(bloomLevel*100)+'% BLOOM';
+  if(pct)pct.textContent=Math.floor(bloomLevel*100)+'% BLOOM';
   if(bar)bar.style.width=(bloomLevel*100)+'%';
  }
  function sample(now){
   const next=window.CityTimeline.sample(settings,now),arrived=next.remaining===0;
   if(next.progress!==state.progress)dirty=true;
   state=next;
+  // The saved countdown is the only bloom source. Scores and round status never
+  // affect it; zero remaining time opens every rose, even before any match starts.
+  bloomLevel=next.progress;
   if(!suspended&&!paused){
    // Gentle garden wind and opening chimes follow the countdown progress.
    const ev=window.BrawlAudio?.ambience?.(next.progress,arrived);
@@ -483,8 +486,7 @@
    monuments=value;needsLayout=true;dirty=true;
   },
   setTournament(stages){
-   const progress=s=>s.status==='sealed'?0:s.status==='complete'?1:Number.isFinite(s.progress)?clamp(s.progress):0;
-   const signature=items=>JSON.stringify(items.map(s=>[s.key,s.status,progress(s)]));
+   const signature=items=>JSON.stringify(items.map(s=>[s.key,s.status]));
    if(signature(stages)===signature(tournament))return;
    for(const stage of stages){
     const previous=tournament.find(s=>s.key===stage.key);
@@ -493,14 +495,7 @@
    }
    const first=!tournament.length;
    tournament=stages.map(s=>({...s}));
-   // Each round contributes a third, including valid matches within that round.
-   // Keep 100% for a settled final, so an unresolved title tie is never full bloom.
-   bloomLevel=['round1','round2','final'].reduce((sum,key)=>{
-    const stage=tournament.find(s=>s.key===key);return sum+(stage?progress(stage):0);
-   },0)/3;
-   if(!tournament.some(s=>s.key==='final'&&s.status==='complete'))bloomLevel=Math.min(.99,bloomLevel);
    duskTarget=.08;
-   updateBloomHud();
    if(first)dusk=duskTarget;
    geometryDirty=true;dirty=true;
   },

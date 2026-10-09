@@ -36,7 +36,7 @@ The landing screen is a live **royal hedge maze garden** rendered in WebGL with 
 
 The opening timer is **The Garden Opens**. Set the tournament's date and time under Players & rules, or use **Set start time** on the home screen. The countdown persists in the saved tournament state and survives page refreshes, backups, and Undo. Ambient birds and local sound effects accompany the opening. **Pause garden** and reduced-motion preferences stop decorative movement without stopping the countdown. **Garden sound off** silences the synthesized audio.
 
-The flowers follow tournament progress independently of the countdown. **Each fully scored, valid match opens more roses**, without waiting for the entire round to finish. Each round contributes one third of the bloom meter: the first completed Know Thy Nature match shows about **7%**, all five show **33%**, and completing Adapt or Wither reaches **67%**. The Last Bloom's eight matches fill the remaining third. Full bloom (**100%, all 112 roses**) waits for the final to settle, including any title tie; an unresolved final stays at most **99%**. Partial matches and locked or stale rounds do not count. Reloading, score corrections, clearing rounds, and Undo recalculate both the meter and flowers from saved results.
+The flowers follow **The Garden Opens countdown**. Saving a new future start time begins at **0% bloom**. As time passes, the meter rises and roses open across the maze: halfway through the countdown is **50% bloom**, and **00:00:00:00 reaches 100% with all 112 roses open**. The meter and flowers never reach full bloom early. Progress updates at timed intervals and uses the saved start and end timestamps, so refreshing or returning after sleep restores the correct bloom. Scores, round completion, and ties do not affect it. Pause garden and reduced-motion mode keep the countdown and bloom advancing. Clearing the countdown returns to closed buds; setting a different future start time begins a new bloom cycle. A countdown that has already ended stays at full bloom.
 
 ### Elimination: the gardener's pruning verdict
 
@@ -179,4 +179,4 @@ The tests cover the current five-game Know Thy Nature, five-game Adapt or Wither
 
 Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the pavilion bloom ceremony, tie settlement, native-dialog visibility, and skip behavior.
 
-Run `node tests/test_bloom_browser.cjs` with the same browser setup to verify live bloom after individual matches, reloads, clear/Undo, and reset.
+Run `node tests/test_bloom_browser.cjs` with the same browser setup to verify countdown bloom, arrival at zero, reload, pause, clear/Undo, rescheduling, and independence from match scores.
