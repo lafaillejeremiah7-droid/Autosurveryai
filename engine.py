@@ -12,6 +12,8 @@ IDS = [f'p{i+1}' for i in range(10)]
 TEAM_GOAL_LIMIT = 3
 FINAL_GAMES = 8
 ROUND2_GAMES = 5
+WINNER_PRIZE = 40
+WINNER_TAKE_ALL_PRIZES = [40, 0, 0]
 
 def match_goals(stage, teams, game):
     return {t:sum(stage['players'][p]['goals'][game] or 0 for p in teams[t]) for t in ['A','B']}
@@ -69,7 +71,7 @@ def blank_round(games=5, is_round2=False):
 
 def new_state():
     return {'version': 6, 'wheel': {'text': '', 'remove_winner': False}, 'names': {p: '' for p in IDS},
-            'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': [18,8,4], 'start_at': '', 'disaster_started_at': ''},
+            'settings': {'win_points': 1, 'goal_points': 1.5, 'multiplier': 2, 'prizes': WINNER_TAKE_ALL_PRIZES.copy(), 'start_at': '', 'disaster_started_at': ''},
             'round1': blank_round(), 'round2': blank_round(5, is_round2=True),
             'final': {'players': {p: {'goals': [None]*FINAL_GAMES, 'results': ['']*FINAL_GAMES} for p in IDS}, 'extras': [], 'roster': []}}
 
@@ -265,8 +267,9 @@ def validate(s):
                     if parsed.tzinfo is None: parsed=parsed.replace(tzinfo=timezone.utc)
                     s['settings'][key]=parsed.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
                 except (ValueError,OverflowError): raise ValueError('Invalid countdown time.')
-        if len(s['settings']['prizes']) != 3: raise ValueError('Enter exactly three prizes.')
-        for v in s['settings']['prizes']: numeric(v)
+        # Existing saves/backups are automatically brought into the fixed
+        # $40 winner-take-all prize structure; clients cannot change the payout.
+        s['settings']['prizes'] = WINNER_TAKE_ALL_PRIZES.copy()
         s['round1'].setdefault('lineups',[])
         lineups=s['round1']['lineups']
         if not isinstance(lineups,list) or (lineups and not _valid_lineups(lineups)):
@@ -521,19 +524,19 @@ def evaluate(s):
                 row.update(total=float(totals[p]),win_points=float(win_totals[p]),goal_points=float(goal_totals[p]))
                 row['goals']+=extra['goals'];row['wins']+=extra['result']=='W';row['played']+=1
                 return totals[p]
-            out=resolve_extra_bubble(group,extra_scores,start,3,False,fold)
+            out=resolve_extra_bubble(group,extra_scores,start,1,False,fold)
             for info in out.values():
                 tied=info['status']==TIE;rank=info['rank']
                 info['status']=TIE if tied else 'FINAL'
-                info['prize']=None if tied else (settings['prizes'][rank-1] if rank<=3 else 0)
+                info['prize']=None if tied else (WINNER_PRIZE if rank==1 else 0)
             return out
-        placing=rank_bubble(roster,scores,extra_scores,3,False,resolve_final)
+        placing=rank_bubble(roster,scores,extra_scores,1,False,resolve_final)
         for p,info in placing.items():
             r=rowmap[p];r['rank']=info['rank']
             if info['bubble']:
                 r['status']=info['status']; r['prize']=info['prize']
             else:
-                r['status']='FINAL'; r['prize']=settings['prizes'][info['rank']-1] if info['rank']<=3 else 0
+                r['status']='FINAL'; r['prize']=WINNER_PRIZE if info['rank']==1 else 0
     else:
         rank=1
         for group in order_groups(roster,scores,extra_scores):
@@ -541,9 +544,9 @@ def evaluate(s):
                 r=rowmap[p];r['rank']=rank;r['status']='PENDING';r['prize']=None
             rank+=len(group)
     rows.sort(key=lambda r:r['rank'])
-    if any(r['status']==TIE for r in rows): issues.append('Podium tie: play extra games for the highlighted players. Those prizes stay unassigned.')
+    if any(r['status']==TIE for r in rows): issues.append('First-place tie: play extra games until exactly one champion earns the $40 prize.')
     final={'schedule':schedule,'rows':rows,'games':games,'issues':issues,'ready':ready,'complete':ready and not any(r['status']==TIE for r in rows),'stale':stale}
-    return {'round1':r1,'round2':r2,'final':final,'pool':sum(settings['prizes']),
+    return {'round1':r1,'round2':r2,'final':final,'pool':WINNER_PRIZE,
             'awarded':sum(r['prize'] or 0 for r in rows),'names_ok':names_ok}
 
 def bind_rosters(s):
