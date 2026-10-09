@@ -15,7 +15,7 @@ function harness(){
  vm.runInNewContext(audioCode,{window,document:doc,$:()=>button,Math,Date:{now:()=>clock.now},Set,Number});
  return {a:window.BrawlAudio,nodes,buffers,events,button,doc,clock};
 }
-const generators=['roar','cheer','boo','horn','fanfare','hook','slam','victory'];
+const generators=['roar','cheer','boo','horn','fanfare','hook','slam','shears','compost','victory'];
 const {a,nodes,buffers,events,button,doc,clock}=harness();
 // Locked: nothing sounds before a user gesture unlocks the AudioContext.
 assert.equal(a.getStatus().unlocked,false);
@@ -29,31 +29,31 @@ assert.equal(typeof a.scream,'undefined','the recorded scream is gone');
 for(const old of ['explosion','portal','finalOmen','finalPurge','cut','doom'])assert.equal(typeof a[old],'undefined',old+' is gone');
 assert(!/atob|pcm/i.test(audioCode),'no embedded PCM');
 assert(!buffers.some(b=>b.sampleRate===16000),'no 16000 Hz recording buffer');
-assert.deepEqual(Object.keys(a).sort(),['ambience','ambientBirds','boo','cheer','fanfare','getStatus','hook','horn','roar','slam','stop','toggle','unlock','victory'].sort());
+assert.deepEqual(Object.keys(a).sort(),['ambience','ambientBirds','boo','cheer','compost','fanfare','getStatus','hook','horn','roar','shears','slam','stop','toggle','unlock','victory'].sort());
 // Audio-clock scheduling: a five-argument tone starts at currentTime; a delay of .4 starts at currentTime+.4.
 let before=nodes.length;a.hook();
 const whistle=nodes.slice(before).find(n=>n.kind==='oscillator');assert.deepEqual(whistle.startArgs,[3],'five-argument tone starts at currentTime');
 before=nodes.length;a.cheer(false);
 const starts=nodes.slice(before).filter(n=>n.kind==='oscillator').map(n=>n.startArgs[0]);
-assert(starts.some(t=>Math.abs(t-3.4)<1e-9),'delayed whoop starts at currentTime+.4: '+starts);
+assert(starts.some(t=>Math.abs(t-3.3)<1e-9),'delayed bell starts at currentTime+.3: '+starts);
 assert(starts.some(t=>t===3),'first whoop starts at currentTime');
 before=nodes.length;a.fanfare();
 const notes=nodes.slice(before).filter(n=>n.kind==='oscillator').map(n=>+n.startArgs[0].toFixed(2));
-assert.deepEqual([...new Set(notes)],[3,3.18,3.36,3.54],'fanfare notes are staggered on the audio clock');
+assert.deepEqual([...new Set(notes)],[3,3.19,3.38,3.57],'fanfare notes are staggered on the audio clock');
 // Mute stops every active node and blocks new sounds; label text follows.
 const live=nodes.filter(n=>n.onended&&n.kind!=='gain'&&n.kind!=='filter');assert(live.length>0);
 a.toggle();
 assert(live.every(n=>n.stopCalls.at(-1)?.length===0),'mute stops active nodes immediately');
-assert.equal(button.textContent,'Arena sound off');
+assert.equal(button.textContent,'Garden sound off');
 let count=nodes.length;for(const g of generators)assert.equal(a[g](),null,g+' returns null when muted');
 assert.equal(nodes.length,count,'mute blocks every generator');
-a.toggle();assert.equal(button.textContent,'Arena sound on');
+a.toggle();assert.equal(button.textContent,'Garden sound on');
 // document.hidden blocks every generator too.
 doc.hidden=true;count=nodes.length;for(const g of generators)a[g]();assert.equal(nodes.length,count,'hidden tab blocks every generator');doc.hidden=false;
 // Ambience cadence.
 count=nodes.length;
-assert.equal(a.ambience(.1,false),null,'null below .3');assert.equal(a.ambience(.29,false),null);assert.equal(nodes.length,count,'quiet early arena');
-assert.equal(a.ambience(.4,false),'murmur','murmur band .3 to .65');assert(nodes.length>count,'murmur makes a crowd sound');
+assert.equal(a.ambience(.1,false),null,'null below .3');assert.equal(a.ambience(.29,false),null);assert.equal(nodes.length,count,'quiet early garden');
+assert.equal(a.ambience(.4,false),'murmur','murmur band .3 to .65');assert(nodes.length>count,'murmur makes a garden wind sound');
 assert.equal(a.ambience(.4,false),null,'murmur waits at least 7 s');
 clock.now+=7001;assert.equal(a.ambience(.5,false),'murmur');
 clock.now+=6999;assert.equal(a.ambience(.5,false),null);
@@ -78,7 +78,7 @@ assert.equal(a.ambience(NaN,false),null);clock.now+=1;assert.equal(a.ambience(1,
 clock.now+=20000;assert.equal(a.ambience(5,false),'big','progress clamps to 1');
 // Morning birds behave as before.
 const beforeBirds=nodes.length;a.ambientBirds(true);assert(nodes.length>beforeBirds,'morning birds chirp when calm, unmuted and running');
-const beforeOff=nodes.length;a.ambientBirds(false);assert.equal(nodes.length,beforeOff,'crowd building (birds off) produces no chirp');
+const beforeOff=nodes.length;a.ambientBirds(false);assert.equal(nodes.length,beforeOff,'garden wind building (birds off) produces no chirp');
 a.ambientBirds(false);a.toggle();const mutedCount=nodes.length;a.ambientBirds(true);assert.equal(nodes.length,mutedCount,'mute silences morning birds');a.toggle();
 a.ambientBirds(false);doc.hidden=true;const hiddenCount=nodes.length;a.ambientBirds(true);assert.equal(nodes.length,hiddenCount,'hidden tab silences morning birds');doc.hidden=false;
 a.stop();
