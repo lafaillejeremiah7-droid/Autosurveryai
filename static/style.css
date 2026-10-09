@@ -481,3 +481,53 @@ body{background:#10271e}
 .plant-card small{display:block;color:#bfd1ac;font-size:9px;margin-top:5px}
 @media(max-width:980px){.plant-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:530px){.plant-garden{padding:12px}.plant-heading{display:block}.plant-heading p{margin:7px 0}.plant-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.plant-art{height:115px}.plant-card{padding:8px 5px}.plant-top{font-size:7px}}
+
+/* Cinematic divine gardener. The light hovers over all TEN original plants for
+   five full seconds, then precisely cuts only the two latest losers. */
+.divine-advance{display:flex;gap:22px;align-items:center;justify-content:space-between;border-color:#d7bd7a;background:linear-gradient(120deg,#3e3321,#253c2c)}
+.divine-advance h2{margin:3px 0;font:600 21px Georgia,serif;color:#fff1bf}
+.divine-advance p{font-size:12px;max-width:650px;color:#d8d7b8;margin:5px 0}
+.divine-advance button{flex-shrink:0;padding:13px 20px}
+#cutscene.divine-mode{padding:12px 16px;background:radial-gradient(ellipse at center,#3e3b26,#151b17 67%,#070e0b);animation:divine-fade-in .72s ease-out both}
+#cutscene.divine-mode.divine-leaving{animation:divine-fade-out .65s ease-in forwards}
+#cutscene.divine-mode .cutscene-head .eyebrow{color:#fff1b4;text-shadow:0 0 22px #ffd46e}
+#cutscene.divine-mode .cutscene-head h2{color:#fffbe9;font-size:clamp(18px,2.6vw,36px);text-shadow:0 0 28px #ffd46e}
+#cutscene.divine-mode .cutscene-stage{width:min(1300px,97vw);height:min(630px,73vh);aspect-ratio:2.05;background:radial-gradient(ellipse at 50% 8%,#697357,#344c38 54%,#182f25);overflow:hidden;border:2px solid #e2ca8a88;box-shadow:0 0 110px #fff0a43a,inset 0 0 85px #fff5b014}
+#cutscene.divine-mode .cutscene-caption{min-height:2.5em;color:#f6e8bc;text-shadow:0 0 16px #fff2be}
+#cutscene.divine-mode .cutscene-caption strong{color:#fff2b1}
+.divine-scene{position:absolute;inset:0;isolation:isolate;background:radial-gradient(ellipse at 50% 24%,#f9eab722,transparent 49%),linear-gradient(#2b4853 0%,#42624f 46%,#28432b 82%,#1a3326);overflow:hidden}
+.divine-scene:before{content:"";position:absolute;inset:-28% 3% 10%;background:conic-gradient(from 180deg at 50% 0%,transparent 0deg,#fff3b619 27deg,transparent 54deg,#f7e5a930 90deg,transparent 118deg,#ffd87d24 149deg,transparent 190deg);filter:blur(12px);pointer-events:none}
+.divine-stars{position:absolute;inset:0;opacity:.65;background-image:radial-gradient(circle,#ffefba 1px,transparent 2px),radial-gradient(circle,#ffffff 1px,transparent 2px);background-size:73px 62px,109px 85px;background-position:13px 8px,54px 25px;mask-image:linear-gradient(#000,transparent 77%)}
+.divine-halo{position:absolute;z-index:1;left:50%;top:-33%;width:65%;aspect-ratio:1;border:2px solid #ffeca655;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 80px 18px #ffe0934c,inset 0 0 100px #fff2c038}
+.divine-judge{position:absolute;z-index:7;width:clamp(135px,29%,350px);left:50%;top:0%;transform:translateX(-50%);filter:drop-shadow(0 0 10px #fff7c9) drop-shadow(0 0 35px #ffdb78);transition:left 1s ease,top 1s ease}
+.divine-hand-art{width:100%;height:auto;overflow:visible}
+.divine-shears{transform-origin:184px 165px}
+.divine-moving-blade{transform-origin:184px 165px}
+.divine-scene.is-thinking .divine-judge{animation:divine-hover 3s ease-in-out infinite}
+.divine-scene.is-cutting .divine-judge{left:var(--strike-x);top:var(--strike-y)}
+.divine-scene.is-cutting .divine-moving-blade{animation:divine-snip .42s .9s ease-in-out both}
+.divine-oracle{position:absolute;z-index:8;right:2.5%;top:3%;font:700 clamp(8px,1vw,13px) monospace;letter-spacing:3px;color:#fff3c6;text-shadow:0 0 15px #ffd77b}
+.divine-plants{position:absolute;inset:42% 4% 6%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:2% 1%;z-index:4}
+.divine-plant{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:end;text-align:center;border-radius:40% 40% 5px 5px;background:linear-gradient(transparent 32%,#17351b44 83%,#0c200f9c);border-bottom:3px solid #ac8554;box-shadow:inset 0 -5px 20px #0c240f55}
+.divine-stems{width:100%;height:min(73%,148px);transform-origin:50% 90%;transition:filter .35s}
+.divine-stems .plant-art{width:100%;height:100%;margin:0;display:block}
+.divine-name{max-width:98%;overflow-wrap:anywhere;font:700 clamp(8px,1.3vw,15px)/1.1 Georgia,serif;color:#fff5db;text-shadow:0 2px 6px #000,0 0 10px #152f19}
+.divine-plant small{font:700 clamp(7px,.8vw,11px)/1.3 monospace;color:#efce87}
+.divine-cut-label{font:700 clamp(7px,.9vw,12px) monospace;color:#ffb4a6;min-height:1.3em;letter-spacing:1px}
+.divine-plant.prior-pruned .divine-stems,.divine-plant.severed .divine-stems{filter:grayscale(1) brightness(.37)}
+.divine-plant.prior-pruned .divine-name,.divine-plant.severed .divine-name{opacity:.58}
+.divine-plant.severing{animation:divine-impact .6s .9s ease-in-out both}
+.divine-plant.severing .divine-stems{animation:divine-cut-plant 1.15s .95s ease-in forwards}
+.divine-plant.severing:before{content:"";position:absolute;inset:20% 10% 35%;z-index:7;border-radius:50%;background:#fff4b8b0;filter:blur(13px);animation:divine-cut-flash 1.4s .88s both}
+.divine-flash{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;background:radial-gradient(circle at var(--strike-x) var(--strike-y),#ffffe8bb,transparent 25%)}
+.divine-scene.is-cutting .divine-flash{animation:divine-cut-flash .9s .9s ease-out both}
+.divine-progress{position:absolute;z-index:9;bottom:1%;right:2%;font:700 10px monospace;letter-spacing:2px;color:#fff0bc}
+@keyframes divine-hover{0%,100%{transform:translate(-50%,0) rotate(-2deg)}50%{transform:translate(-50%,11px) rotate(2deg)}}
+@keyframes divine-snip{0%{transform:rotate(0deg)}50%{transform:rotate(-26deg)}100%{transform:rotate(0deg)}}
+@keyframes divine-cut-plant{0%{transform:rotate(0) translateY(0);opacity:1}65%{transform:rotate(45deg) translate(28px,-8px);opacity:1}100%{transform:rotate(115deg) translate(40px,37px);opacity:.22;filter:grayscale(1)}}
+@keyframes divine-impact{0%,100%{transform:translate(0)}35%{transform:translate(-8px,4px)}70%{transform:translate(7px,-3px)}}
+@keyframes divine-cut-flash{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
+@keyframes divine-fade-in{from{opacity:0;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}
+@keyframes divine-fade-out{from{opacity:1}to{opacity:0}}
+@media(max-width:740px){.divine-advance{flex-direction:column;align-items:start}.divine-advance button{width:100%}#cutscene.divine-mode .cutscene-stage{height:min(650px,66vh);aspect-ratio:auto}.divine-plants{inset:35% 1% 8%}.divine-judge{width:42%}.divine-stems{height:69%}.divine-oracle{letter-spacing:1px;font-size:8px}}
+@media(prefers-reduced-motion:reduce){#cutscene.divine-mode,#cutscene.divine-mode.divine-leaving,.divine-scene *{animation:none!important;transition:none!important}.divine-plant.severing .divine-stems{filter:grayscale(1) brightness(.37)}}

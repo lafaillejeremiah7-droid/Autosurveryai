@@ -279,6 +279,98 @@ function plantGarden(key){
  return `<section class="plant-garden" aria-labelledby="${key}-plant-title"><div class="plant-heading"><div><span class="eyebrow">THE LIVING ROSTER / ${key==='round1'?'01':key==='round2'?'02':'03'}</span><h2 id="${key}-plant-title">Ten roots. Ten futures.</h2></div><p>Every competitor starts as a seedling at 0 goals. More goals grow a larger, brighter rose. Growth carries across rounds; eliminated plants remain pruned.</p></div><ol class="plant-grid">${cards}</ol></section>`;
 }
 
+
+/* The judgement is an explicit transition, not a side effect of scoring.
+   Exactly the two engine-cut players are targeted. The original ten plants
+   remain visible, including already-pruned competitors in later rounds. */
+const visitedVerdicts=new Set();
+function advancementButton(stage){
+ if(!view[stage]?.complete||!['round1','round2'].includes(stage))return '';
+ const target=stage==='round1'?'Adapt or Wither':'The Last Bloom';
+ return `<div class="panel divine-advance"><div><span class="eyebrow">THE GARDENER AWAITS</span><h2>Judgement before the next trial</h2><p>Enter the garden. The hand will consider the surviving plants for five seconds before pruning this round's two eliminated competitors.</p></div><button class="accent" data-action="advance-stage" data-stage="${stage}">Continue to ${target} →</button></div>`;
+}
+function divineHandSvg(){
+ return `<svg class="divine-hand-art" viewBox="0 0 380 300" aria-hidden="true" focusable="false">
+ <defs><linearGradient id="divine-gold" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fffde8"/><stop offset=".4" stop-color="#ffdc87"/><stop offset=".8" stop-color="#c18836"/><stop offset="1" stop-color="#fff3bc"/></linearGradient><linearGradient id="divine-steel" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fff"/><stop offset=".45" stop-color="#c8f3fc"/><stop offset="1" stop-color="#698da6"/></linearGradient><filter id="divine-light"><feGaussianBlur stdDeviation="6"/></filter></defs>
+ <path d="M83 0 L156 0 L162 69 Q182 82 194 104 L207 130 Q217 143 205 153 Q193 165 181 148 L154 117 L161 163 Q163 179 151 183 Q137 187 132 170 L118 125 L119 177 Q118 194 104 193 Q90 191 89 176 L88 122 L79 169 Q75 182 61 179 Q50 174 53 159 L59 89 Q63 53 83 37Z" fill="url(#divine-gold)" stroke="#fff4bd" stroke-width="5"/>
+ <path d="M73 75 Q104 57 144 76 M74 97 L68 150 M99 100 L99 160 M127 95 L140 159" fill="none" stroke="#af7026" stroke-width="3" opacity=".55"/>
+ <g class="divine-shears" stroke-linejoin="round">
+ <path d="M170 145 L333 30 Q313 105 194 175Z" fill="url(#divine-steel)" stroke="#ecfdff" stroke-width="5"/>
+ <path class="divine-moving-blade" d="M174 156 L346 228 Q270 227 196 178Z" fill="url(#divine-steel)" stroke="#ecfdff" stroke-width="5"/>
+ <circle cx="184" cy="165" r="12" fill="#ffdf93" stroke="#fff5be" stroke-width="4"/>
+ <path d="M184 165 L117 222 M184 165 L219 235" fill="none" stroke="#d0a15c" stroke-width="17" stroke-linecap="round"/>
+ <ellipse cx="99" cy="238" rx="28" ry="19" fill="none" stroke="#ffdb82" stroke-width="14" transform="rotate(-38 99 238)"/>
+ <ellipse cx="231" cy="249" rx="30" ry="18" fill="none" stroke="#ffdb82" stroke-width="14" transform="rotate(30 231 249)"/>
+ </g></svg>`;
+}
+function divineModels(stage){
+ return plantGardenModel(stage).map(p=>({ ...p,priorPruned:p.pruned }));
+}
+function divineCuts(stage){
+ return (view[stage]?.rows||[]).filter(p=>p.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99)).map(p=>p.id);
+}
+function renderDivineScene(stage,cuts,latest=-1){
+ const models=divineModels(stage);
+ const i=latest>=0?models.findIndex(p=>p.id===cuts[latest]):-1;
+ const strikeX=i<0?50:10+20*(i%5),strikeY=i<0?3:(i<5?17:43);
+ const flowers=models.map((p,n)=>{
+  const idx=cuts.indexOf(p.id),severed=idx>=0&&idx<latest,severing=idx===latest;
+  const cls=p.priorPruned?'prior-pruned':severed?'severed':severing?'severing':'';
+  return `<div class="divine-plant ${cls}" data-player="${p.id}" data-goals="${p.goals}"><div class="divine-stems">${plantSvg(p.tier)}</div><strong class="divine-name">${esc(p.name)}</strong><small>${p.goals} ${p.goals===1?'GOAL':'GOALS'}</small><b class="divine-cut-label">${p.priorPruned||severed||severing?'PRUNED':''}</b></div>`;
+ }).join('');
+ const html=`<div class="divine-scene ${latest>=0?'is-cutting':'is-thinking'}" data-stage="${stage}" style="--strike-x:${strikeX}%;--strike-y:${strikeY}%"><div class="divine-stars"></div><div class="divine-halo"></div><div class="divine-judge">${divineHandSvg()}</div><div class="divine-oracle">${latest<0?'THE HAND DELIBERATES':'THE VERDICT IS ABSOLUTE'}</div><div class="divine-plants">${flowers}</div><div class="divine-flash"></div><div class="divine-progress">${latest<0?'JUDGEMENT IN 5 SECONDS':`PRUNING ${latest+1} OF ${cuts.length}`}</div></div>`;
+ $('#cutscene-stage').innerHTML=html;
+}
+function strikeDivinePlant(stage,cuts,i){
+ if(!cutsceneActive)return;
+ if(i>=cuts.length){
+  $('#cutscene-caption').innerHTML='<strong>THE TWO HAVE BEEN PRUNED</strong><br>THE NEXT TRIAL AWAITS';
+  schedule(()=>{const overlay=$('#cutscene');overlay.classList.add('divine-leaving');schedule(endCutscene,650);},850);
+  return;
+ }
+ renderDivineScene(stage,cuts,i);
+ const p=view[stage].rows.find(r=>r.id===cuts[i]);
+ $('#cutscene-caption').innerHTML='<strong>SNIP! · PRUNED</strong><br>'+esc(p?.name||'');
+ window.BrawlAudio?.shears?.();
+ schedule(()=>strikeDivinePlant(stage,cuts,i+1),1750);
+}
+function beginDivineJudgement(stage,cuts){
+ renderDivineScene(stage,cuts);
+ $('#cutscene-caption').innerHTML='<strong>SILENCE. THE HAND CONSIDERS.</strong><br>TEN ROOTS. ONLY THE STRONG CONTINUE.';
+ schedule(()=>strikeDivinePlant(stage,cuts,0),5000);
+}
+function playDivineCutscene(stage){
+ return new Promise(resolve=>{
+  const cuts=divineCuts(stage);
+  if(!['round1','round2'].includes(stage)||!view[stage]?.complete||cuts.length!==2||cutsceneActive){resolve();return;}
+  const overlay=$('#cutscene');if(!overlay){resolve();return;}
+  cutsceneRunId++;cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];cutsceneReturnResult=false;
+  window.BrawlAudio?.unlock?.();cutsceneResolve=resolve;cutsceneActive=true;
+  window.CityWorld?.setSuspended?.(true);
+  ceremonyLabel=stageMeta[stage].label;ceremonyStage=stage;
+  overlay.classList.remove('divine-leaving');overlay.classList.add('divine-mode','open');
+  overlay.hidden=false;overlay.setAttribute?.('aria-hidden','false');
+  $('#cutscene .eyebrow').textContent='THE GARDENER’S JUDGEMENT';
+  $('#cutscene-label').textContent=stageMeta[stage].label+' · DIVINE SELECTION';
+  overlay.showModal();overlay.focus?.({preventScroll:true});
+  cutsceneKeyHandler=e=>{if(e.key==='Escape'||e.key==='Esc'){e.preventDefault?.();e.stopPropagation?.();endCutscene();}};
+  document.addEventListener?.('keydown',cutsceneKeyHandler,true);
+  beginDivineJudgement(stage,cuts);
+ });
+}
+async function advanceTournament(stage){
+ if(cutsceneActive||roomTransition||!['round1','round2'].includes(stage))return;
+ await flush();
+ if(!view[stage].complete){error('Resolve the round and all cut ties before proceeding.');return;}
+ const target=stage==='round1'?'round2':'final';
+ if(!visitedVerdicts.has(stage)){
+  await playDivineCutscene(stage);
+  visitedVerdicts.add(stage);
+ }
+ if($('#result-dialog').open)closeResult();
+ await openScreen(target);
+}
+
 // Per-match submit + popup/fullscreen. Submitting a non-final match shows cumulative
 // round standings THROUGH that match (computed client-side); submitting the last match
 // shows the fullscreen total round ranking with ADVANCE/CUT/TIE and the add-extra flow.
@@ -348,6 +440,7 @@ function resultFullscreen(key){
  let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div><h1 id="result-title">${meta.label} — total round ranking</h1><p>${!v.ready?'This round is incomplete. Finish the missing scores or resolve the roster change.':tied?`A tie affects the ${boundary}. Complete extra games before this round can close.`:`Round complete. No ties affect the ${boundary}.`}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
  html+=`<div class="result-banner ${v.complete?'done':'tie'}">${v.complete?'✓ ROUND SETTLED — no extra games needed.':tied?'⚠ EXTRA GAMES NEEDED — resolve the tied players below.':'ROUND INCOMPLETE — '+v.issues.map(esc).join(' ')}</div>`;
  html+=panel('Total round ranking',body);
+ html+=advancementButton(key);
  if(tied||state[key].extras.length)html+=extras(key);
  return html;
 }
@@ -381,10 +474,9 @@ async function openMatchResult(key,match){
  const v=view[key],meta=stageMeta[key];
  if(v.stale||!v.games[match]||!v.games[match].ready){error(v.stale?'Clear this round first — its player roster changed.':`Finish entering match ${match+1} scores and results first.`);return;}
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
- // FEAT-003: at the end-of-round moment, if the round is SETTLED (no unresolved tie) and
- // there are players to eliminate, play the verdict cutscene BEFORE the standings.
- // An unresolved tie (v.complete false) falls through to the normal extra-game fullscreen.
- if(resultFinal&&v.complete){
+ // Rounds 1 and 2 reveal judgement only when Continue is clicked. The final
+ // retains its distinct five-player champion ceremony after the last match.
+ if(resultFinal&&v.complete&&key==='final'){
   const names=eliminatedNames(key);
   if(names.length)await playCutscene(names,meta.label,key);
  }
@@ -426,7 +518,7 @@ function round(key){
  html+='</div><p class="hint">Teams are reshuffled per game and share a 3-goal allowance. Individual totals decide advancement. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
  html+=panel('Player scores',table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>Top 8 of 10 advance</small>`);
- return html+extras('round1')+clearRoundPanel('round1');
+ return html+advancementButton('round1')+extras('round1')+clearRoundPanel('round1');
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
@@ -451,7 +543,7 @@ function round2Page(){
  html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===5?'All 5 matches marked done':`Match ${g+1} of 5`}</h2><p>${v.draw.completed===5?'Resolve any cut ties to unlock the final.':'Save eight scores to unlock the next game.'}</p></div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(why)}"`:''}>${g===4?'Match 5 of 5 done — finish round':`Match ${g+1} of 5 done — next game`}</button></div>`;
  html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${playedLabel(r.played,5)}</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
  html+=`<details><summary>View all five 4v4 matchups</summary><p class="hint">Matchups change to reduce repeated teammates, are stored in the tournament, and remain the same after refreshing.</p>${table(['GAME','TEAM A','TEAM B'],v.schedule.map(m=>`<tr><td>${m.game}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td></tr>`))}</details>`;
- return html+extras('round2')+clearRoundPanel('round2');
+ return html+advancementButton('round2')+extras('round2')+clearRoundPanel('round2');
 }
 
 function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
@@ -591,8 +683,9 @@ async function save(){
    if(seq===editVersion){settled=settledByEdit(settleBaseView,data.view);settleBaseView=null;}
    saveFailed=false;revision=data.revision;view=data.view;
    if(seq===editVersion){state=data.state;render();renderResult();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
-   const names=settled&&!cutsceneActive?eliminatedNames(settled):[];
-   if(names.length)playCutscene(names,stageMeta[settled].label,settled).then(()=>{if(view[settled]?.complete&&!($('#result-dialog').open&&resultFinal&&resultStage===settled))showRoundStandings(settled);});
+   // Resolving an extra-game tie updates the standings but never interrupts
+   // the player's next-round transition with an unsolicited cutscene.
+   if(settled&&!cutsceneActive&&!($('#result-dialog').open&&resultFinal&&resultStage===settled))showRoundStandings(settled);
   }catch(e){saveFailed=true;dirty=true;error(e.message);$('#save-status').textContent='Not saved';$('#retry-save').hidden=false;}
   finally{saving=false;}
  })();await saveTask;if(dirty&&!saveFailed)return save();
@@ -634,8 +727,8 @@ function markWinner(team,game=finalGame){const match=view.final.schedule[game];i
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);const match=el.dataset.path.match(/^(round1|round2|final)\.players\.p\d+\.goals\.(\d+)$/);if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
- if(b.dataset.open){await openScreen(b.dataset.open);return;}
- if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
+ if(b.dataset.open){if(b.dataset.open==='round2'&&tab==='round1'&&view.round1.complete&&!visitedVerdicts.has('round1'))await advanceTournament('round1');else if(b.dataset.open==='final'&&tab==='round2'&&view.round2.complete&&!visitedVerdicts.has('round2'))await advanceTournament('round2');else await openScreen(b.dataset.open);return;}
+ if(b.dataset.tab){if(b.dataset.tab==='round2'&&(resultStage==='round1'||tab==='round1')&&view.round1.complete&&!visitedVerdicts.has('round1'))await advanceTournament('round1');else if(b.dataset.tab==='final'&&(resultStage==='round2'||tab==='round2')&&view.round2.complete&&!visitedVerdicts.has('round2'))await advanceTournament('round2');else await openScreen(b.dataset.tab);return;}
  if(b.dataset.r2Game!==undefined){if(lineupBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
  if(b.dataset.r1Game!==undefined){await flush();round1Game=Number(b.dataset.r1Game);render();return;}
  if(b.dataset.game!==undefined){await flush();finalGame=Number(b.dataset.game);render();return;}
@@ -649,6 +742,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
   if(action==='r2-reroll'){await progressRound2('reroll',Number(b.dataset.match)+1);return;}
  if(action==='r2-done'){const match=Number(b.dataset.match),completed=await progressRound2('done',match);if(completed)await openMatchResult('round2',match-1);return;}
  if(action==='submit-match'){await flush();await openMatchResult(key,Number(b.dataset.match));return;}
+ if(action==='advance-stage'){await advanceTournament(key);return;}
  if(action==='close-result'){closeResult();return;}
  
  
@@ -833,7 +927,7 @@ function revealFinalWinners(run){
 
 // ONE dismiss path for Skip / click / Esc / natural completion. Stops audio, cancels the
 // gate ceremony, clears timers, hides the overlay and resolves so the standings can show.
-const cutsceneClasses=['open','verdict-mode',...verdictPhases.map(p=>'verdict-'+p),'final-mode','fc-winners','crown-mode'];
+const cutsceneClasses=['open','verdict-mode',...verdictPhases.map(p=>'verdict-'+p),'final-mode','fc-winners','crown-mode','divine-mode','divine-leaving'];
 function endCutscene(){
  if($('#ceremony-hud'))$('#ceremony-hud').hidden=true;
  cutsceneRunId++;window.BrawlAudio?.stop();window.CityWorld?.cancelCeremony?.();

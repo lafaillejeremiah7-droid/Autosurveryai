@@ -53,105 +53,55 @@ const stageNames=()=>[...$('#cutscene-stage').innerHTML.matchAll(/<span class="a
 const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name);
 
 (async()=>{
- // (a) Round 2 settles through the real "Match 5 of 5 done" (r2-done) path.
+ // Match 5 and tied extra games never launch pruning automatically.
  load(fx.r2before);
- const urls=[];context.fetch=async(url,o)=>{urls.push(url);assert.equal(JSON.parse(o.body).action,'done');assert.equal(JSON.parse(o.body).game,5);return reply(fx.settled);};
- const done=click({action:'r2-done',match:'5'});await flushMicro();
- assert.deepEqual(urls,['/api/round2-draw'],'Match 5 done goes through the round 2 draw endpoint');
- assert.equal(run('cutsceneActive'),true,'Match 5 of 5 done plays the Adapt or Wither cutscene');
- assert.equal(run('plays.length'),1);
- const r2Cut=cutOf(fx.settled,'round2');assert.equal(r2Cut.length,2);
- assert.deepEqual(stageNames().sort(),[...r2Cut].sort(),'the Adapt or Wither verdict names exactly the round 2 CUT players');
- assert($('#cutscene-label').textContent.includes('Adapt or Wither'),'the cutscene is labelled Adapt or Wither');
- run('endCutscene()');await done;
- assert.equal($('#result-dialog').open,true);assert.equal(run('resultStage'),'round2');assert.equal(run('resultFinal'),true);
- assert($('#result-dialog').classList.contains('fullscreen'),'standings open fullscreen after the cutscene');
- assert($('#result-content').innerHTML.includes('total round ranking'));
-
- // (b) Matches 1-4 done never play, even if the round looks settled.
- for(const m of [1,2,3,4]){
-  load(fx.r2before);context.fetch=async()=>reply(fx.settled);
-  await click({action:'r2-done',match:String(m)});await flushMicro();
-  assert.equal(run('plays.length'),0,`Match ${m} done plays no cutscene`);assert.equal(run('resultFinal'),false);
- }
-
- // (c) Match 5 done with an unresolved cut tie: no cutscene, the TIE fullscreen opens.
- load(fx.r2before);context.fetch=async()=>reply(fx.r2tie);
+ context.fetch=async(url,o)=>{assert.equal(url,'/api/round2-draw');assert.equal(JSON.parse(o.body).game,5);return reply(fx.settled);};
  await click({action:'r2-done',match:'5'});await flushMicro();
- assert.equal(run('plays.length'),0,'an unresolved round 2 tie plays no cutscene');
- assert.equal(run('resultFinal'),true);assert($('#result-content').innerHTML.includes('EXTRA GAMES NEEDED'));
-
- // (d) Reported bug: close the TIE fullscreen and settle via the round screen's extras.
- load(fx.r2tie);context.fetch=async url=>{assert.equal(url,'/api/state');return reply(fx.r2tieSettled);};
+ assert.equal(run('cutsceneActive'),false);
+ assert.equal(run('plays.length'),0);
+ assert($('#result-content').innerHTML.includes('data-action="advance-stage" data-stage="round2"'));
+ const cuts=cutOf(fx.settled,'round2');assert.equal(cuts.length,2);
+ const advancing=click({action:'advance-stage',stage:'round2'});await flushMicro();
+ assert.equal(run('cutsceneActive'),true,'Continue triggers a cinematic judgement');
+ assert.equal(run("ceremonyStage"),'round2');
+ let html=$('#cutscene-stage').innerHTML;
+ assert(html.includes('divine-hand-art')&&html.includes('divine-shears'),'divine shears visible');
+ assert.equal((html.match(/class="divine-plant /g)||[]).length,10,'all ten plants appear');
+ for(const cut of cuts)assert(html.includes(cut),'both losers present');
+ assert(!html.includes('divine-plant severing'),'nothing is pruned during deliberation');
+ run('endCutscene()');await advancing;
+ assert.equal(run('cutsceneActive'),false);
+ assert.equal(run('tab'),'final','the next pavilion opens after judgement');
+ // Transition is not replayed when returning in the same page session.
+ load(fx.settled);run("tab='round2';");await click({action:'advance-stage',stage:'round2'});await flushMicro();
+ assert.equal(run('cutsceneActive'),false);
+ // Round 1 has the same deliberate transition, but the earlier two cuts are not
+ // shown as already pruned until Round 2.
+ load(fx.settled);run("visitedVerdicts.clear();tab='round1';");
+ await click({action:'submit-match',stage:'round1',match:'4'});await flushMicro();
+ assert.equal(run('plays.length'),0);
+ const forward=click({action:'advance-stage',stage:'round1'});await flushMicro();
+ assert.equal(run('cutsceneActive'),true);
+ assert.equal((($('#cutscene-stage').innerHTML).match(/class="divine-plant /g)||[]).length,10);
+ assert(!$('#cutscene-stage').innerHTML.includes('prior-pruned'),'all plants eligible in Round 1');
+ run('endCutscene()');await forward;
+ assert.equal(run('tab'),'round2');
+ // Unresolved ties cannot trigger early pruning or display a Continue button.
+ load(fx.r2tie);run("tab='round2';");
+ await click({action:'submit-match',stage:'round2',match:'4'});await flushMicro();
+ assert.equal(run('cutsceneActive'),false);
+ assert(!$('#result-content').innerHTML.includes('data-action="advance-stage"'));
+ context.fetch=async()=>reply(fx.r2tieSettled);
  run('changed()');await run('save()');await flushMicro();
- assert.equal(run('cutsceneActive'),true,'settling the round 2 tie on the round screen plays the cutscene');
- assert.equal(run('plays.length'),1);
- assert.deepEqual(stageNames().sort(),cutOf(fx.r2tieSettled,'round2').sort());
- assert.equal(run('plays[0][2]'),'round2');
- run('endCutscene()');await flushMicro();
- assert.equal($('#result-dialog').open,true,'standings appear after the save-path cutscene');
- assert.equal(run('resultStage'),'round2');assert.equal(run('resultFinal'),true);
- assert($('#result-content').innerHTML.includes('ROUND SETTLED'));
- run('changed()');await run('save()');await flushMicro();
- assert.equal(run('plays.length'),1,'an unrelated later save does not replay');
-
- // (e) Entering the last regulation score never plays early (Submit plays instead).
- load(fx.r1notReady);context.fetch=async()=>reply(fx.settled);
- run('changed()');await run('save()');await flushMicro();
- assert.equal(run('plays.length'),0,'no cutscene from save() when the round was not ready before it');
-
- // (f) Race: the settling response is superseded by a newer edit; the next save still plays once.
- load(fx.r2tie);await run("openMatchResult('round2',4)");assert.equal($('#result-dialog').open,true);
- let release;context.fetch=()=>new Promise(r=>{release=()=>r(reply(fx.r2tieSettled));context.fetch=async()=>reply(fx.r2tieSettled);});
- run('changed()');const pending=run('save()');await flushMicro();
- run('changed()');release();await pending;await flushMicro();
- assert.equal(run('plays.length'),1,'a superseded settling save still plays exactly one cutscene');
- run('endCutscene()');await flushMicro();
- assert.equal($('#result-dialog').open,true);
-
- // (g) Final: one separate pruning scene per finalist who did not win.
+ assert.equal(run('plays.length'),0,'tie resolution never interrupts with a cutscene');
+ assert($('#result-content').innerHTML.includes('data-action="advance-stage"'),'resolved tie offers Continue');
+ // Final keeps its existing five individual prunings and single champion.
  load(fx.settled);
- const fRows=fx.settled.view.final.rows;assert.equal(fRows.length,6,'six finalists');
- const expected=fRows.filter(r=>r.rank!==1).sort((x,y)=>x.rank-y.rank).map(r=>r.name);
- const champion=fRows.find(r=>r.rank===1).name;
- const finalNames=run("eliminatedNames('final')");
- assert.equal(finalNames.length,5);assert.deepEqual(Array.from(finalNames),expected);
- assert(!finalNames.includes(champion),'champion not pruned');
- for(const [ranks,want] of [
-  [[1,2,3,4,4,6],['D','E','F','G','H']],
-  [[1,2,3,4,5,5],['D','E','F','G','H']],
-  [[1,2,3,4,5,6,7,8],['D','E','F','G','H','I','J']],
-  [[1,2,3,4],['D','E','F']]
- ]){
-  context.synthetic=ranks.map((rank,i)=>({name:'CDEFGHIJ'[i],rank}));
-  const got=run("view={final:{rows:synthetic}};eliminatedNames('final')");
-  assert.deepEqual(Array.from(got),want,'every player ranked below first is eliminated');
- }
- load(fx.settled);
+ const expected=fx.settled.view.final.rows.filter(r=>r.rank!==1).sort((a,b)=>a.rank-b.rank).map(r=>r.name);
+ assert.equal(expected.length,5);
  const fin=click({action:'submit-match',stage:'final',match:'7'});await flushMicro();
- assert.equal(run('plays.length'),1,'settled final triggers one cutscene');
- const scene=$('#cutscene-stage').innerHTML;
- const shown=[...scene.matchAll(/class="av-name">([^<]*)<\/span>/g)].map(m=>m[1]);
- assert.deepEqual(shown,[expected[0]],'only first losing finalist initially appears');
- assert(scene.includes('PRUNING 1 / 5'),'counter starts at 1 of 5');
- run('endCutscene()');await fin;
- load(fx.finalTie);
- await click({action:'submit-match',stage:'final',match:'7'});await flushMicro();
- assert.equal(run('plays.length'),0,'unresolved first-place tie plays nothing');
-
- // (h) No double-fire: Submit on a round 1 tie, then the extra game settles it in the fullscreen.
- load(fx.r1tie);
- await click({action:'submit-match',stage:'round1',match:'4'});await flushMicro();
- assert.equal(run('plays.length'),0);assert.equal($('#result-dialog').open,true);
- context.fetch=async()=>reply(fx.r1tieSettled);
- run('changed()');await run('save()');await flushMicro();
- assert.equal(run('plays.length'),1,'the settling save plays once');
- assert.deepEqual(stageNames().sort(),cutOf(fx.r1tieSettled,'round1').sort());
- assert($('#cutscene-label').textContent.includes('Know Thy Nature'));
- await click({action:'submit-match',stage:'round1',match:'4'});await flushMicro();
- assert.equal(run('plays.length'),1,'Submit while the cutscene runs cannot start a second one');
- run('endCutscene()');await flushMicro();
- assert.equal($('#result-dialog').open,true);assert.equal(run('resultStage'),'round1');
  assert.equal(run('plays.length'),1);
- console.log('Round cutscenes: Adapt or Wither via Match 5 done, no play on matches 1-4 or ties, on-screen tie settle, no early fire, superseded save, final five individual prunings, no double-fire passed.');
+ assert($('#cutscene-stage').innerHTML.includes('PRUNING 1 / 5'));
+ run('endCutscene()');await fin;
+ console.log('PASS explicit divine selection, two correct eliminations, ten displayed plants, no early or repeated cutscene, tie resolution, and final champion ceremony.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

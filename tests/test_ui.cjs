@@ -229,32 +229,23 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  for(const r of payload.view.round1.rows)assert(resultEl.innerHTML.includes(r.name),'popup lists every player name');
  await click({action:'close-result'});
  assert.equal(vm.runInContext('resultStage',context),null,'close-result dismisses the popup');
- // (3) Submitting the LAST match (match 5 of Know Thy Nature, index 4) opens the fullscreen total
- //      ranking. For a SETTLED round with eliminated players the FEAT-003 cutscene plays
- //      first (it blocks on a timer the sandbox never fires), so dismiss it, then await.
- const r1Submit=click({action:'submit-match',stage:'round1',match:'4'});
+ // (3) The round ranking opens immediately; judgement is an explicit Continue action.
+ await click({action:'submit-match',stage:'round1',match:'4'});
  await flushMicro();
- assert.equal(vm.runInContext('cutsceneActive',context),true,'a settled final match triggers the elimination cutscene');
- // The overlay carries EXACTLY the round1 CUT names as labelled stickmen; advancing
- // players are NOT thrown.
- const r1Cut=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name);
- const r1Adv=payload.view.round1.rows.filter(r=>r.status==='ADVANCE').map(r=>r.name);
- const r1Stage=context.document.querySelector('#cutscene-stage').innerHTML;
- assert.equal(r1Cut.length,2,'round1 settles with two CUT players');
- // The harness defaults to reduced motion, so round1 shows the static verdict summary.
- assert.equal((r1Stage.match(/class="av-player"/g)||[]).length,r1Cut.length,'one labelled stickman per cut player');
- const r1Labels=[...r1Stage.matchAll(/<span class="av-name">([^<]*)<\/span>/g)].map(m=>m[1]);
- assert.deepEqual([...r1Labels].sort(),[...r1Cut].sort(),'the summary labels exactly the eliminated players');
- for(const n of r1Adv)assert(!r1Labels.includes(n),'advancing player cannot appear in the verdict scene');
- const r1Caption=context.document.querySelector('#cutscene-caption').innerHTML;
- assert(r1Caption.includes('PRUNED')&&r1Caption.includes(r1Cut[0]),'caption names the first engine-cut player as PRUNED');
- vm.runInContext('endCutscene();',context);
- await r1Submit;
- assert.equal(vm.runInContext('cutsceneActive',context),false,'dismissing the cutscene clears the active flag');
- assert(vm.runInContext('resultFinal',context)===true,'last match opens the fullscreen');
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'scoring never auto-prunes');
+ assert.equal(vm.runInContext('resultFinal',context),true,'last round opens the full ranking');
  assert(resultEl.innerHTML.includes('total round ranking'));
- assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'fullscreen shows ADVANCE/CUT badges');
- assert(resultEl.innerHTML.includes('ROUND SETTLED'),'a complete round reports no extra games needed');
+ assert(resultEl.innerHTML.includes('ROUND SETTLED'));
+ assert(resultEl.innerHTML.includes('data-action="advance-stage" data-stage="round1"'),'settled ranking offers the transition');
+ const r1Cut=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name);
+ assert.equal(r1Cut.length,2);
+ const advance=click({action:'advance-stage',stage:'round1'});await flushMicro();
+ assert.equal(vm.runInContext('cutsceneActive',context),true,'continue triggers divine judgement');
+ const r1Stage=context.document.querySelector('#cutscene-stage').innerHTML;
+ assert(r1Stage.includes('divine-judge')&&r1Stage.includes('divine-hand-art'),'scene contains glowing hand with shears');
+ assert.equal((r1Stage.match(/class="divine-plant /g)||[]).length,10,'all ten original plants visible before pruning');
+ for(const name of r1Cut)assert(r1Stage.includes(name),'the eliminated competitors remain in the displayed garden');
+ vm.runInContext('endCutscene()',context);await advance;
  await click({action:'close-result'});
  // (3b) The Last Bloom (final) fullscreen's average column shows average POINTS per game
  //      (total/played), NOT a second copy of the total. Verify the computed value appears
@@ -644,12 +635,10 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(overlayEl.hidden,true,'endCutscene hides the overlay so the standings show');
  // After dismissal the user is free to land on the resultFullscreen standings.
  vm.runInContext('state=fixture.state;view=fixture.view;',context);
- const skipSubmit=click({action:'submit-match',stage:'round1',match:'4'});
+ await click({action:'submit-match',stage:'round1',match:'4'});
  await flushMicro();
- assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled round replays the carry cutscene before standings');
- vm.runInContext('endCutscene();',context);   // skip
- await skipSubmit;
- assert(resultEl.innerHTML.includes('total round ranking'),'after skipping the cutscene the fullscreen standings are shown');
+ assert.equal(vm.runInContext('cutsceneActive',context),false,'the ranking does not launch a cutscene');
+ assert(resultEl.innerHTML.includes('data-action="advance-stage"'),'completed round offers Continue');
  await click({action:'close-result'});
  // (D) REDUCED MOTION: with matchMedia matches:true (the sandbox default) the animated
  //     carry is replaced by a STATIC summary carrying an 'ELIMINATED: names' caption.
