@@ -39,7 +39,7 @@ assert(uploaded>=three._debug().triangles*30,'vertices include 3D positions, nor
 assert.equal(draws,1);
 assert.equal(depthUsed,true,'depth-tested perspective rendering');
 assert(labels.every(p=>!p.style.left&&!p.style.top),'stable HUD labels are no longer projected into overlapping world coordinates');
-const EMERGENCE_FRAME=3.2;
+const EMERGENCE_FRAME=3.4;
 const geo=three._geometry(model,['p3','p7'],-1,0);
 assert.equal(geo.positions.length,10);
 assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows of roses');

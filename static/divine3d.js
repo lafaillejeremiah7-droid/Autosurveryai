@@ -538,7 +538,7 @@
  function init(canvas){
   const gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'low-power'});
   if(!gl)return null;
-  const vertex='attribute vec3 a_pos,a_normal,a_color;attribute float a_kind;uniform mat4 u_vp;varying vec3 v_normal,v_color,v_pos;varying float v_kind;void main(){v_pos=a_pos;v_normal=a_normal;v_color=a_color;v_kind=a_kind;gl_Position=u_vp*vec4(a_pos,1.);}';
+  const vertex='precision mediump float;attribute vec3 a_pos,a_normal,a_color;attribute float a_kind;uniform mat4 u_vp;varying vec3 v_normal,v_color,v_pos;varying float v_kind;void main(){v_pos=a_pos;v_normal=a_normal;v_color=a_color;v_kind=a_kind;gl_Position=u_vp*vec4(a_pos,1.);}';
   // Retro-console lighting: Gouraud-looking skin, restrained specular steel,
  // bright white-blue portal, subtle procedural garden texture and distance fog.
  const fragment='precision mediump float;varying vec3 v_normal,v_color,v_pos;varying float v_kind;uniform vec3 u_eye;void main(){if(v_kind>6.5&&v_kind<8.5&&v_pos.y>44.0)discard;vec3 n=normalize(v_normal),lightDir=normalize(vec3(-.45,.87,.4)),eyeDir=normalize(u_eye-v_pos);float diffuse=max(dot(n,lightDir),0.);float wrap=max(dot(n,lightDir)*.55+.45,0.);float spec=pow(max(dot(reflect(-lightDir,n),eyeDir),0.),18.);float material=fract(sin(dot(floor(v_pos.xz*2.1),vec2(127.1,311.7)))*43758.54);vec3 col=v_color*(.43+diffuse*.53);if(v_kind>6.5&&v_kind<7.5){col=v_color*(.61+wrap*.38)+vec3(.13,.13,.15)*spec;}else if(v_kind>7.5){col=v_color*(.42+diffuse*.55)+vec3(.23,.28,.33)*spec;}else if(v_kind>1.5&&v_kind<3.0){col=v_color*(1.20+.08*wrap);}else{col*=.91+material*.12;}float fog=clamp((length(v_pos-u_eye)-45.)/120.,0.,.55);col=mix(col,vec3(.55,.63,.67),fog);gl_FragColor=vec4(col,1.);}';
