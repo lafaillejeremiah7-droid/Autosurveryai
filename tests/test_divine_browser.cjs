@@ -61,9 +61,12 @@ const url=new Promise((resolve,reject)=>{
   });
   console.log('DIVINE_GPU_STATE='+JSON.stringify(gpu));
   assert.equal(gpu.error,0,'no GL errors after actual render');
+  assert(gpu.matrix.length===16&&gpu.matrix.every(Number.isFinite),
+    'perspective matrix must be finite: malformed cross products create blank WebGL frames');
   // Print one compact visual sample for design inspection; large images are
   // intentionally not saved to the repo.
   const jpg=await page.screenshot({type:'jpeg',quality:46});
+  assert(jpg.length>9000,'scene must draw actual portal, hand and garden rather than a blank clear-color canvas');
   console.log('DIVINE_ARRIVAL_JPEG_BASE64='+jpg.toString('base64'));
   const next=await page.evaluate(()=>{
    const m=Array.from({length:10},(_,i)=>({id:'p'+(i+1),name:'Plant '+(i+1),tier:i%7,priorPruned:false}));
