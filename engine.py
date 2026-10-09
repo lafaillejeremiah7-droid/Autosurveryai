@@ -503,6 +503,11 @@ def evaluate(s):
         teams=schedule[g] if schedule else {'A':[], 'B':[]}
         outcomes=[{stage['players'][p]['results'][g] for p in teams[t]} for t in ['A','B']]
         consistent=outcomes in [[{'W'},{'L'}],[{'L'},{'W'}]]
+        goal_totals=match_goals(stage,teams,g)
+        if consistent:
+            winning_team='A' if outcomes[0]=={'W'} else 'B'
+            losing_team='B' if winning_team=='A' else 'A'
+            consistent=goal_totals[winning_team]>goal_totals[losing_team]
         score_error=match_goal_error(stage,teams,g)
         games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'teams':teams,'goals':match_goals(stage,teams,g),'score_error':score_error,
                       'ready':count==6 and consistent and not score_error})

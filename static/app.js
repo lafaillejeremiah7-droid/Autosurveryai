@@ -284,6 +284,12 @@ function plantGarden(key){
    Exactly the two engine-cut players are targeted. The original ten plants
    remain visible, including already-pruned competitors in later rounds. */
 const visitedVerdicts=new Set();
+let finalCeremonyShown=false;
+function resetCeremonyHistory(stage){
+ if(stage==='round1')visitedVerdicts.clear();
+ else if(stage==='round2')visitedVerdicts.delete('round2');
+ finalCeremonyShown=false;
+}
 function advancementButton(stage){
  if(!view[stage]?.complete||!['round1','round2'].includes(stage))return '';
  const target=stage==='round1'?'Adapt or Wither':'The Last Bloom';
@@ -528,7 +534,8 @@ async function openMatchResult(key,match){
  resultStage=key;resultMatch=match;resultFinal=(match===meta.count-1)&&v.games.every(g=>g.ready);
  // Rounds 1 and 2 reveal judgement only when Continue is clicked. The final
  // retains its distinct five-player champion ceremony after the last match.
- if(resultFinal&&v.complete&&key==='final'){
+ if(resultFinal&&v.complete&&key==='final'&&!finalCeremonyShown){
+  finalCeremonyShown=true;
   finalWinners=finalRoster();
   await playDivineCutscene('final');
  }
@@ -767,14 +774,14 @@ async function performUndo(){
   const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
   undoSnapshot=null;
-  state=data.state;view=data.view;revision=data.revision;countdownDraft=null;error('');render();renderResult();$('#save-status').textContent='Undo applied';
+  state=data.state;view=data.view;revision=data.revision;resetCeremonyHistory('round1');countdownDraft=null;error('');render();renderResult();$('#save-status').textContent='Undo applied';
  }catch(err){undoSnapshot=snap;renderUndo();throw err;}
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
 // Human-readable labels for the per-round clear-round controls and their cascade.
 const clearRoundLabel={round1:'Clear Know Thy Nature',round2:'Clear Adapt or Wither',final:'Clear The Last Bloom'};
 const clearRoundCopy={round1:'Clear Know Thy Nature (also clears Adapt or Wither &amp; The Last Bloom)',round2:'Clear Adapt or Wither (also clears The Last Bloom)',final:'Clear The Last Bloom'};
-function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
+function resetStage(key){resetCeremonyHistory(key);for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);const match=el.dataset.path.match(/^(round1|round2|final)\.players\.p\d+\.goals\.(\d+)$/);if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
@@ -809,7 +816,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[30,0,0],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))};});await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{resetCeremonyHistory('round1');countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[30,0,0],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))};});await save();}
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
@@ -823,7 +830,7 @@ $('#cutscene').onclick=()=>endCutscene();
 $('#cutscene').addEventListener('cancel',e=>{e.preventDefault();endCutscene();});
 $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
-$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(lineupBusy)throw new Error('Wait for the current operation to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;undoSnapshot=null;countdownDraft=null;round1Game=0;round2Game=Math.min(view.round2.draw.completed,4);finalGame=0;error('');render();renderResult();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
+$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(lineupBusy)throw new Error('Wait for the current operation to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;undoSnapshot=null;resetCeremonyHistory('round1');countdownDraft=null;round1Game=0;round2Game=Math.min(view.round2.draw.completed,4);finalGame=0;error('');render();renderResult();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});
 function updateCountdown(){
  if(state)window.CityWorld?.setSettings(state.settings);

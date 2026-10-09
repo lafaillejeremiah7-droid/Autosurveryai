@@ -605,10 +605,13 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
  let coronation=null;
  function stop(){
   if(!active)return;
-  active.stopped=true;
-  if(typeof cancelAnimationFrame==='function'&&active.raf)cancelAnimationFrame(active.raf);
-  const {gl,buffer,program}=active;
-  try{gl.deleteBuffer(buffer);gl.deleteProgram(program);}catch{}
+  const instance=active;
+  instance.stopped=true;
+  if(typeof cancelAnimationFrame==='function'&&instance.raf)cancelAnimationFrame(instance.raf);
+  instance.canvas.removeEventListener?.('webglcontextlost',instance.onLost);
+  instance.canvas.removeEventListener?.('webglcontextrestored',instance.onRestored);
+  const {gl,buffer,program}=instance;
+  try{if(!gl.isContextLost?.()){gl.deleteBuffer(buffer);gl.deleteProgram(program);}}catch{}
   active=null;
  }
  function mount(canvas,models,cuts,step,labels){
@@ -621,8 +624,21 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
     start:performance.now(),actionAt:performance.now(),raf:0,stopped:false,
     triangles:0,floats:0,actionFrom:null,cameraFrom:null,lastHand:null,lastCamera:null,phase:'arrival'};
   active=instance;coronation=null;
-  const frame=()=>{
+  instance.onLost=e=>{
+   e.preventDefault();
+   if(instance.stopped)return;
+   if(instance.raf)cancelAnimationFrame(instance.raf);
+   instance.raf=0;instance.contextLost=true;
+  };
+  instance.onRestored=()=>{
    if(instance.stopped||active!==instance)return;
+   const saved={models:instance.models,cuts:instance.cuts,step:instance.step,labels:instance.labels};
+   mount(canvas,saved.models,saved.cuts,saved.step,saved.labels);
+  };
+  canvas.addEventListener?.('webglcontextlost',instance.onLost);
+  canvas.addEventListener?.('webglcontextrestored',instance.onRestored);
+  const frame=()=>{
+   if(instance.stopped||instance.contextLost||active!==instance)return;
    const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,1.5);
    const w=Math.max(1,Math.floor(rect.width*dpr)),h=Math.max(1,Math.floor(rect.height*dpr));
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
@@ -695,7 +711,7 @@ const presets={
  final:{tier:[0,3,5,6,6,1,2,6,5,6],goals:[0,7,22,34,35,1,3,31,23,38],prior:[0,5,6,1],cuts:[2,8,7,3,4],champion:9}
 };
 window.DivinePreviewData={presets,growth,names};
-const $=id=>document.getElementById(id),scene=$('scene'),stage=$('round');let timers=[],currentStage='round1',step=-1,target=-1;
+const $=id=>document.getElementById(id),scene=$('scene'),stage=$('round');let timers=[],pollRaf=0,currentStage='round1',step=-1,target=-1;
 const models=()=>names.map((name,i)=>({id:'p'+(i+1),name,tier:presets[currentStage].tier[i],goals:presets[currentStage].goals[i],priorPruned:presets[currentStage].prior.includes(i)}));
 function plates(){
  const p=presets[currentStage],past=p.cuts.slice(0,Math.max(step,0));
@@ -707,7 +723,7 @@ function plates(){
 }
 const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
 function replay(){
- timers.forEach(clearTimeout);timers=[];window.Divine3D.stop();currentStage=stage.value;step=-1;target=-1;plates();
+ timers.forEach(clearTimeout);timers=[];if(pollRaf)cancelAnimationFrame(pollRaf);pollRaf=0;window.Divine3D.stop();currentStage=stage.value;step=-1;target=-1;plates();
  $('phase').textContent='THE PORTAL OPENS';$('caption').textContent='THE ANCIENT HAND BEGINS TO EMERGE.';
  const roster=models(),cuts=presets[currentStage].cuts.map(i=>roster[i].id);
  if(!window.Divine3D.mount($('canvas'),roster,cuts,-1,[])){$('info').textContent='WebGL context unavailable';return;}
@@ -737,11 +753,11 @@ function replay(){
    $('caption').textContent=names[winner]+' — CHAMPION’S CROWN';
   }else $('caption').textContent='TWO ARE PRUNED. THE NEXT STAGE AWAITS.';
  },elapsedCutTime+150);
- let raf=0;function poll(){if(!window.Divine3D._debug()){cancelAnimationFrame(raf);return}debug();raf=requestAnimationFrame(poll)}poll();
+ function poll(){if(!window.Divine3D._debug()){pollRaf=0;return}debug();pollRaf=requestAnimationFrame(poll)}poll();
 }
 $('again').onclick=replay;stage.onchange=replay;
 $('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():scene.requestFullscreen?.();
-window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);window.Divine3D.stop()});
+window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);if(pollRaf)cancelAnimationFrame(pollRaf);pollRaf=0;window.Divine3D.stop()});
 if(window.Divine3D)replay();else $('info').textContent='Renderer failed to initialize';
 })();
 </script></body></html>

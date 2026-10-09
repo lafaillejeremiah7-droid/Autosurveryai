@@ -586,10 +586,13 @@
  let coronation=null;
  function stop(){
   if(!active)return;
-  active.stopped=true;
-  if(typeof cancelAnimationFrame==='function'&&active.raf)cancelAnimationFrame(active.raf);
-  const {gl,buffer,program}=active;
-  try{gl.deleteBuffer(buffer);gl.deleteProgram(program);}catch{}
+  const instance=active;
+  instance.stopped=true;
+  if(typeof cancelAnimationFrame==='function'&&instance.raf)cancelAnimationFrame(instance.raf);
+  instance.canvas.removeEventListener?.('webglcontextlost',instance.onLost);
+  instance.canvas.removeEventListener?.('webglcontextrestored',instance.onRestored);
+  const {gl,buffer,program}=instance;
+  try{if(!gl.isContextLost?.()){gl.deleteBuffer(buffer);gl.deleteProgram(program);}}catch{}
   active=null;
  }
  function mount(canvas,models,cuts,step,labels){
@@ -602,8 +605,21 @@
     start:performance.now(),actionAt:performance.now(),raf:0,stopped:false,
     triangles:0,floats:0,actionFrom:null,cameraFrom:null,lastHand:null,lastCamera:null,phase:'arrival'};
   active=instance;coronation=null;
-  const frame=()=>{
+  instance.onLost=e=>{
+   e.preventDefault();
+   if(instance.stopped)return;
+   if(instance.raf)cancelAnimationFrame(instance.raf);
+   instance.raf=0;instance.contextLost=true;
+  };
+  instance.onRestored=()=>{
    if(instance.stopped||active!==instance)return;
+   const saved={models:instance.models,cuts:instance.cuts,step:instance.step,labels:instance.labels};
+   mount(canvas,saved.models,saved.cuts,saved.step,saved.labels);
+  };
+  canvas.addEventListener?.('webglcontextlost',instance.onLost);
+  canvas.addEventListener?.('webglcontextrestored',instance.onRestored);
+  const frame=()=>{
+   if(instance.stopped||instance.contextLost||active!==instance)return;
    const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,1.5);
    const w=Math.max(1,Math.floor(rect.width*dpr)),h=Math.max(1,Math.floor(rect.height*dpr));
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
