@@ -297,12 +297,12 @@ function advancementButton(stage){
 }
 function divineHandSvg(){
  return `<svg class="divine-hand-art" viewBox="0 0 380 300" aria-hidden="true" focusable="false">
- <defs><linearGradient id="divine-gold" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fffde8"/><stop offset=".4" stop-color="#ffdc87"/><stop offset=".8" stop-color="#c18836"/><stop offset="1" stop-color="#fff3bc"/></linearGradient><linearGradient id="divine-steel" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fff"/><stop offset=".45" stop-color="#c8f3fc"/><stop offset="1" stop-color="#698da6"/></linearGradient><filter id="divine-light"><feGaussianBlur stdDeviation="6"/></filter></defs>
+ <defs><linearGradient id="divine-gold" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fffde8"/><stop offset=".4" stop-color="#ffdc87"/><stop offset=".8" stop-color="#c18836"/><stop offset="1" stop-color="#fff3bc"/></linearGradient><linearGradient id="divine-steel" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#caa06a"/><stop offset=".45" stop-color="#9c5a2e"/><stop offset="1" stop-color="#5c3016"/></linearGradient><filter id="divine-light"><feGaussianBlur stdDeviation="6"/></filter></defs>
  <path d="M83 0 L156 0 L162 69 Q182 82 194 104 L207 130 Q217 143 205 153 Q193 165 181 148 L154 117 L161 163 Q163 179 151 183 Q137 187 132 170 L118 125 L119 177 Q118 194 104 193 Q90 191 89 176 L88 122 L79 169 Q75 182 61 179 Q50 174 53 159 L59 89 Q63 53 83 37Z" fill="url(#divine-gold)" stroke="#fff4bd" stroke-width="5"/>
  <path d="M73 75 Q104 57 144 76 M74 97 L68 150 M99 100 L99 160 M127 95 L140 159" fill="none" stroke="#af7026" stroke-width="3" opacity=".55"/>
  <g class="divine-shears" stroke-linejoin="round">
- <path d="M170 145 L333 30 Q313 105 194 175Z" fill="url(#divine-steel)" stroke="#ecfdff" stroke-width="5"/>
- <path class="divine-moving-blade" d="M174 156 L346 228 Q270 227 196 178Z" fill="url(#divine-steel)" stroke="#ecfdff" stroke-width="5"/>
+ <path d="M170 145 L333 30 Q313 105 194 175Z" fill="url(#divine-steel)" stroke="#d8b483" stroke-width="5"/>
+ <path class="divine-moving-blade" d="M174 156 L346 228 Q270 227 196 178Z" fill="url(#divine-steel)" stroke="#d8b483" stroke-width="5"/>
  <circle cx="184" cy="165" r="12" fill="#ffdf93" stroke="#fff5be" stroke-width="4"/>
  <path d="M184 165 L117 222 M184 165 L219 235" fill="none" stroke="#d0a15c" stroke-width="17" stroke-linecap="round"/>
  <ellipse cx="99" cy="238" rx="28" ry="19" fill="none" stroke="#ffdb82" stroke-width="14" transform="rotate(-38 99 238)"/>
