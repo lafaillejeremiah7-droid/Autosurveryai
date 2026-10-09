@@ -38,7 +38,19 @@ let browser,page;
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?5:2);
   if(key!=='final')await page.waitForFunction(name=>document.querySelector('#cutscene').classList.contains('verdict-hook')&&document.querySelector('#cutscene-caption').textContent.includes(name),expected[0]);
-  else await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('verdict-hook'));
+  else{
+   await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('verdict-hook'));
+   // The Last Bloom must prune all five finalists as SEPARATE scenes.
+   // Observe each named player and the 1/5 ... 5/5 progression, never a group shot.
+   for(let i=0;i<expected.length;i++){
+    await page.waitForFunction(([name,step])=>{
+      const scene=document.querySelector('#cutscene-stage');
+      return scene?.querySelector('.gv-pruning-count')?.textContent.includes('PRUNING '+step+' / 5')
+       &&scene?.querySelector('.av-name')?.textContent===name;
+    },[expected[i],i+1],{timeout:11000});
+    assert.equal(await page.locator('#cutscene-stage .av-player').count(),1,'one person per final snip');
+   }
+  }
   if(key!=='final'){assert.equal(await page.locator('#cutscene .av-player').count(),1);assert.equal(await page.locator('#cutscene .gv-shears').count(),1);assert.equal(await page.locator('#cutscene .gv-compost').count(),1);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-verdict.png')});}}
   assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
@@ -50,7 +62,7 @@ let browser,page;
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:55000});
   assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','the garden bloom ceremony exits the scoring room; a verdict-only skip keeps it');
   assert.equal(await page.locator('#ceremony-hud').isVisible(),false,'ceremony HUD hides when the cutscene ends');
-  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','shears','hook','compost','slam','horn','shears','hook','compost','slam'],'per player: gardener raises shears, snip, fling, compost impact');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'sole champion plays victory');}
+  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','shears','hook','compost','slam','horn','shears','hook','compost','slam'],'per player: gardener raises shears, snip, fling, compost impact');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='shears').length,5,'five separate snips');assert.equal(sounds.filter(s=>s==='compost').length,5,'five compost impacts');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'sole champion plays victory');}
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
