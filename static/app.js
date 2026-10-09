@@ -764,6 +764,7 @@ function startFinalSequence(cuts){
 function revealFinalWinners(run){
  if(!cutsceneActive||run!==cutsceneRunId)return;
  const overlay=$('#cutscene');
+ setVerdictClass(''); // Clear the fifth player's PRUNED state before revealing the champion.
  overlay.classList.remove('crown-mode');overlay.classList.add('final-mode','fc-winners');
  const name=rank=>finalWinners?.find(x=>x.rank===rank)?.name||'-';
  const block=(rank,cls)=>'<div class="fc-medal '+cls+'">'+laurelSvg('fc-laurel')+'<span class="fc-winner-name">'+esc(name(rank))+'</span><div class="fc-plinth">'+rank+'</div></div>';
