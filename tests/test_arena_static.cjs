@@ -1,23 +1,17 @@
-// Arena world harness: runs city-timeline.js + city.js in a vm with a fake DOM.
-// Pass 1: getContext('webgl') is null, so the static 2D fallback runs (AC 8, AC 9, budgets, still ceremony).
-// Pass 2: a recording fake WebGL context (uniform declarations, AC 19 precision, dusk ease, AC 16 camera gating).
+// Royal Garden WebGL and 2D fallback tests with a fake DOM.
+// Pass 1: static 2D fallback, five pavilions and three flower-bloom phases.
+// Pass 2: fake WebGL, aerial camera, pause/resume and dynamic mesh rebuilds.
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.join(__dirname,'..');
 const timelineSrc=fs.readFileSync(path.join(root,'static/city-timeline.js'),'utf8');
 const citySrc=fs.readFileSync(path.join(root,'static/city.js'),'utf8');
-const TAU=Math.PI*2,DEG=Math.PI/180;
 const plain=v=>JSON.parse(JSON.stringify(v));
-const angDist=(a,b)=>Math.abs(((a-b+Math.PI)%TAU+TAU)%TAU-Math.PI);
 const flush=()=>new Promise(r=>setImmediate(r));
 const BASE_DATE=Date.parse('2030-01-01T00:00:00Z');
 const at=sec=>new Date(BASE_DATE+sec*1000).toISOString();
 // Settings that put the countdown at a given progress p (100 s window, 1 s steps).
 const settingsAt=p=>p>=1?{start_at:at(-10),disaster_started_at:at(-110)}:{start_at:at(100-p*100),disaster_started_at:at(-p*100)};
 const stages=(r1='current',r2='sealed',fin='sealed')=>[{key:'settings',status:'complete'},{key:'round1',status:r1},{key:'round2',status:r2},{key:'final',status:fin}];
-
-const BUDGET={
- webgl:{ground:108,hills:120,cypresses:192,floor:48,rings:192,wall:192,cavea:2304,facade:1776,masts:288,velarium:96,pulvinar:80,torches:480,gates:1742,spectators:3840,dais:44},
- static:{ground:108,hills:0,cypresses:0,floor:48,rings:0,wall:192,cavea:2304,facade:1776,masts:288,velarium:96,pulvinar:80,torches:480,gates:1742,spectators:1920,dais:44}};
 
 function element(id){
  return {id,textContent:'',hidden:false,className:'',dataset:{},children:[],replaceCount:0,
@@ -67,63 +61,6 @@ function makeWorld({gl=null}={}){
   status:()=>plain(W.getStatus()),layout:()=>plain(W._debugLayout()),dynamic:()=>Array.from(W._debugDynamic())};
  return api;
 }
-function checkBudgets(s,mode,cap){
- const parts=s.debug.parts;
- assert.ok(s.debug.staticTriangles<=cap,mode+' static triangles '+s.debug.staticTriangles+' > '+cap+' parts '+JSON.stringify(parts));
- for(const [k,row] of Object.entries(BUDGET[mode])){
-  assert.ok(k in parts,'missing part '+k+' '+JSON.stringify(parts));
-  assert.ok(parts[k]<=row*1.1,mode+' part '+k+'='+parts[k]+' over budget '+row+' parts '+JSON.stringify(parts));
- }
- assert.equal(Object.values(parts).reduce((a,b)=>a+b,0),s.debug.staticTriangles,'parts sum to the static mesh');
- assert.ok(s.debug.dynamicTriangles<=4000,'dynamic '+s.debug.dynamicTriangles);
-}
-function checkLayout(L){
- assert.equal(L.gates.length,7);
- assert.deepEqual(L.gates.map(g=>g.key),['settings','round1','round2','final','overview','losers','triumph']);
- const halves=[11.7,9.5,8.8,9.5,13.1,11.9,11.9];
- L.gates.forEach((g,i)=>assert.ok(Math.abs(g.half/DEG-halves[i])<.15,g.key+' half '+g.half/DEG));
- for(let i=0;i<L.gates.length;i++)for(let j=i+1;j<L.gates.length;j++){
-  const a=L.gates[i],b=L.gates[j];assert.ok(angDist(a.th,b.th)>a.half+b.half,a.key+' overlaps '+b.key);
- }
- const P=L.pulvinar;
- for(const g of L.gates)assert.ok(g.rows<=6||angDist(g.th,P.th)>g.half+P.half,'pulvinar overlaps '+g.key);
- for(const g of L.gates){
-  assert.equal(g.rows,{7:3,8:4,9:5}[g.size],g.key+' rows');
-  assert.ok(3.2+g.rows*1.4>=g.size*1.05-1e-9&&3.2+(g.rows-1)*1.4<g.size*1.05,g.key+' first unclipped tread');
-  assert.ok(P.base>g.size*1.05+.6,'pulvinar base above '+g.key+' door label');
-  const f=g.face,s=g.size;
-  assert.ok(f.keystoneTop<f.bannerBottom,g.key+' keystone below banner');
-  assert.ok(f.bannerTop<f.blockTop,g.key+' banner below block top');
-  assert.ok(Math.abs(f.tunnelCeiling-f.archApex)<1e-9,g.key+' tunnel ceiling at arch apex');
-  assert.ok(Math.abs(f.keystoneTop-.87*s)<1e-9&&Math.abs(f.bannerBottom-.88*s)<1e-9&&Math.abs(f.bannerTop-1.04*s)<1e-9&&Math.abs(f.blockTop-1.05*s)<1e-9);
-  // Laurel circle inside the banner box (T/U) and in front of its surface (N).
-  const lu=g.laurelAt[1]-g.pos[1];
-  assert.ok(Math.abs(lu-f.bannerCenter)<1e-9,g.key+' laurel centered on banner');
-  assert.ok(lu-f.laurel.r>=f.bannerBottom-1e-9&&lu+f.laurel.r<=f.bannerTop+1e-9,g.key+' laurel inside banner height');
-  assert.ok(f.laurel.r<f.bannerHalfW,g.key+' laurel inside banner width');
-  assert.ok(f.laurel.n>f.bannerFrontN,g.key+' laurel in front of banner');
-  const off=g.laurelAt.map((v,i)=>v-g.pos[i]),alongN=off[0]*g.N[0]+off[2]*g.N[2];
-  assert.ok(Math.abs(alongN-f.laurel.n)<1e-9,g.key+' laurel offset along N');
-  assert.ok(f.tunnelLen<g.depthN,g.key+' tunnel '+f.tunnelLen+' fits block depth '+g.depthN);
-  assert.ok(Math.abs(Math.hypot(...g.N)-1)<1e-9&&Math.abs(g.N[1])<1e-12,g.key+' N is a horizontal unit vector');
- }
- assert.ok(Math.abs(P.base-11.6)<.005&&Math.abs(P.s0-1.39)<.005&&Math.abs(P.s1-1.61)<.005,'pulvinar extent');
- assert.ok(P.s1<L.torchS,'pulvinar inside the torch ring');
- assert.ok(Math.abs(L.torchS-1.6925)<1e-9);
- assert.equal(L.torches.length,24);
-}
-function expectedSeats(L,lite){
- let n=0;const D=TAU/48;
- for(let r=0;r<12;r++)for(let j=0;j<48;j++){if(j%6===0)continue;for(let k=0;k<2;k++){
-  const th=j*D+(k+.5)*D/2;
-  if(r>=6&&r<=10&&angDist(th,L.pulvinar.th)<L.pulvinar.half)continue;
-  if(L.gates.some(g=>r<g.rows&&angDist(th,g.th)<=g.half))continue;
-  if(lite&&(r*96+j*2+k)%2)continue;n++;}}
- return n;
-}
-function centroid(data){let x=0,y=0,z=0,n=0;for(let i=0;i<data.length;i+=10){x+=data[i];y+=data[i+1];z+=data[i+2];n++;}return [x/n,y/n,z/n];}
-const equalArrays=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
-
 (async()=>{
  const S=makeWorld();
  await S.step(301);
@@ -135,6 +72,8 @@ const equalArrays=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
  assert.equal(status.gardenFlowers,0,'no open roses before qualification');
  assert.ok(status.gardenHedges>40,'maze hedges have actual 3D geometry');
  assert.ok(status.debug.staticTriangles>2000&&status.debug.staticTriangles<12000,'garden mesh budget');
+ assert.equal(Object.values(status.debug.parts).reduce((sum,n)=>sum+n,0),status.debug.staticTriangles,'part triangle counts sum to mesh');
+ assert.ok(status.debug.dynamicTriangles<4000,'bounded petals/fountain mesh');
  for(const key of ['lawn','maze-hedges','rose-beds','pavilions','royal-palace','fountains','rose-arches'])
   assert.ok(status.debug.parts[key]>0,'garden mesh part '+key+' missing');
  const labels=S.elements['door-labels'];
