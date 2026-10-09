@@ -42,8 +42,7 @@ vm.runInContext('state=fixture.state;view=fixture.view;',context);
  vm.runInContext("state.names.p1='<img src=x onerror=alert(1)>';",context);
  assert(!vm.runInContext("plantGarden('round1')",context).includes('<img src=x'),'names are HTML-escaped');
  vm.runInContext(`state.names.p1=${JSON.stringify(oldName)};`,context);
- const before=vm.runInContext("JSON.stringify({state,view})",context);
- vm.runInContext("view.round1.complete=false;view.round1.survivors=[];",context);
+ vm.runInContext("view=JSON.parse(JSON.stringify(view));view.round1.complete=false;view.round1.survivors=[];",context);
  assert(!JSON.parse(vm.runInContext("JSON.stringify(plantGardenModel('round2'))",context)).some(p=>p.pruned),'unsettled cut cannot prune');
  vm.runInContext(`({state,view}=fixture)`,context);
 }
