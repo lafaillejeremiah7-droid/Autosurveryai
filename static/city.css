@@ -160,3 +160,32 @@ body.gate-ceremony{overflow:hidden}
  #walkway-view .walkway-caption{padding:9px 14px;font-size:7px}
  #walkway-view::after{width:7px;height:7px}
 }
+
+/* Royal hedge garden HUD and pavilion theme. */
+body{background:#09261a}
+.city-vignette{background:linear-gradient(180deg,#0a241b86 0%,transparent 33%,transparent 62%,#092316b0 100%)}
+.room-header{background:linear-gradient(180deg,#0b281dcf,transparent);border-bottom-color:#a7d09e70}
+.room-intro{background:linear-gradient(110deg,#102d22eb,#183e2cd9 68%,transparent);border-color:#a0c88f}
+.games-clock{background:linear-gradient(135deg,#193b2fdf,#112d22e8);border-color:#b9d4a870}
+.city-condition{background:#0c291ed9;padding:8px 11px;border:1px solid #90b88a75;border-radius:4px;width:224px}
+.bloodlust-label{color:#c6e8b0}
+.city-condition i{background:linear-gradient(90deg,#569c64,#d99aaa,#efd296);box-shadow:0 0 10px #d597c877}
+.gate-route:before{background:#d9c996;box-shadow:0 0 12px #d9c996}
+.route-stop,.city-room{background:linear-gradient(145deg,#163e2ddf,#0a241bec);border-color:#a7c89f88}
+.route-stop.sealed,.city-room.sealed .room-label{background:#14261de8;border-color:#4a6651}
+.route-stop.sealed:hover,.city-room.sealed:hover .room-label{background:#14261de8}
+.room-label,.city-room .room-label{background:linear-gradient(180deg,#1b422644,#09251df5);border-color:#b0d59b66}
+.door-marker{background:#0f3226ed;border:1px solid #b9dbad;color:#edf9e6}
+.door-marker.locked{background:#0b231be8;border-color:#718d72;color:#a9baa6}
+.street-controls button{background:#163c2cdd;border-color:#a1c893}
+.podium-heading,.podium-label{background:#132f25eb}
+#screen-podium{background:radial-gradient(ellipse at bottom,#527e4f88,#0f2b24)}
+.room-footer{background:linear-gradient(0deg,#07251ccf,transparent)}
+#ceremony-hud{background:#123f2eea;border-color:#b2d391;color:#eff9e2}
+#ceremony-hud button{background:#194932;border-color:#b2d391;color:#eaf7dc}
+#ceremony-status{color:#e8d0a0}
+#walkway-view{background:#163b2b}
+#walkway-view .city-vignette{background:linear-gradient(180deg,#0a281a72,transparent 31%,transparent 62%,#0b281bc0)}
+#walkway-view .walkway-caption{background:linear-gradient(0deg,#0a271bcb,transparent)}
+#walkway-view::after{border-color:#e4f7be80;box-shadow:0 0 15px #b7ecb650}
+@media(max-width:599px){.city-condition{width:180px}}
