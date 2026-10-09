@@ -658,14 +658,13 @@ const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='
 
 // Elimination cutscene: the gardener's shears and compost heap. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
-// The eliminated players for a stage come straight from the engine view (no server
-// change): round1/round2 -> rows with status 'CUT'; final -> exactly the three
-// lowest-ranked finishers (never a top-3 podium place, whatever the final's size).
+// Cut players are decided by the engine. In the winner-take-all final,
+// the sole first-place champion survives; all five other finalists are pruned.
 function eliminatedNames(key){
  const v=view&&view[key];if(!v||!v.rows)return [];
  const byRank=(a,b)=>(a.rank||99)-(b.rank||99);
  const rows=key==='final'
-  ?[...v.rows].filter(r=>r.rank>3).sort((a,b)=>byRank(b,a)).slice(0,3).sort(byRank)
+  ?[...v.rows].filter(r=>r.rank!==1).sort(byRank)
   :[...v.rows].filter(r=>r.status==='CUT').sort(byRank);
  return rows.map(r=>r.name);
 }
@@ -751,17 +750,15 @@ function runCrownFallback(label){
 let finalWinners=null;
 function finalRoster(cuts){
  const rows=Array.isArray(view?.final?.rows)?view.final.rows:[];
- const winners=[1,2,3].map(rank=>({rank,name:rows.find(x=>x.rank===rank)?.name||('PLACE '+rank)}));
- const lost=cuts.slice(0,3).map(name=>({rank:0,name}));
- const lineup=[lost[0],winners[1],lost[1],winners[0],lost[2],winners[2]].filter(Boolean);
- return {winners,lineup};
+ const winners=[{rank:1,name:rows.find(x=>x.rank===1)?.name||'CHAMPION'}];
+ return {winners,lineup:cuts.map(name=>({rank:0,name})).concat(winners)};
 }
 function finalTitle(a,b){$('#cutscene-caption').innerHTML='<strong>'+a+'</strong><br>'+esc(b);}
 function startFinalSequence(cuts){
  if(!cutsceneActive)return;
  finalWinners=finalRoster(cuts).winners;
- // The three non-podium finalists receive the identical individual pruning
- // ceremony before the surviving three rise on their podium.
+ // Five finalists are pruned. Only the first-place player survives to
+ // claim the entire $40, with no runner-up payout.
  if(reducedMotion())buildVerdictSummary(cuts);
  else runVerdictSequence(cuts);
 }
@@ -772,10 +769,10 @@ function revealFinalWinners(run){
  const name=rank=>finalWinners?.find(x=>x.rank===rank)?.name||'-';
  const block=(rank,cls)=>'<div class="fc-medal '+cls+'">'+laurelSvg('fc-laurel')+'<span class="fc-winner-name">'+esc(name(rank))+'</span><div class="fc-plinth">'+rank+'</div></div>';
  const petals=Array.from({length:25},(_,i)=>'<span class="fc-petal" style="--x:'+((i*41)%98+1)+'%;--y:'+((i*61)%87+5)+'%;--delay:'+(-(i%8)*.29)+'s"></span>').join('');
- $('#cutscene-stage').innerHTML='<div class="fc-victory"><div class="fc-victory-title">THE CHAMPIONS</div><div class="fc-podium">'+block(2,'silver')+block(1,'gold')+block(3,'bronze')+'</div>'+petals+'</div>';
+ $('#cutscene-stage').innerHTML='<div class="fc-victory"><div class="fc-victory-title">THE LAST BLOOM · $40 CHAMPION</div><div class="fc-podium">'+block(1,'gold')+'</div>'+petals+'</div>';
  $('#cutscene .eyebrow').textContent='TOURNAMENT COMPLETE';
  $('#cutscene-label').textContent='The Last Bloom';
- finalTitle('CHAMPION',name(1));
+ finalTitle('SOLE CHAMPION · $40',name(1));
  overlay.hidden=false;overlay.setAttribute('aria-hidden','false');if(!overlay.open)overlay.showModal();
  window.BrawlAudio?.victory();
  cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive&&run===cutsceneRunId)endCutscene()},reducedMotion()?3000:6400));
