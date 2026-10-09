@@ -304,7 +304,8 @@ function divineHandSvg(){
  </g></svg>`;
 }
 function divineModels(stage){
- return plantGardenModel(stage).map(p=>({ ...p,priorPruned:p.pruned }));
+ const earlier=stage==='final'&&view.round2?.complete?new Set(view.round2.survivors):null;
+ return plantGardenModel(stage).map(p=>({ ...p,priorPruned:earlier?!earlier.has(p.id):p.pruned }));
 }
 function divineCuts(stage){
  return (view[stage]?.rows||[]).filter(p=>stage==='final'?p.rank!==1:p.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99)).map(p=>p.id);
@@ -915,7 +916,7 @@ function revealFinalWinners(run){
  if(!cutsceneActive||run!==cutsceneRunId)return;
  const overlay=$('#cutscene');
  setVerdictClass(''); // Clear the fifth player's PRUNED state before revealing the champion.
- overlay.classList.remove('crown-mode');overlay.classList.add('final-mode','fc-winners');
+ overlay.classList.remove('crown-mode','divine-mode','divine-leaving');overlay.classList.add('final-mode','fc-winners');
  const name=rank=>finalWinners?.find(x=>x.rank===rank)?.name||'-';
  const block=(rank,cls)=>'<div class="fc-medal '+cls+'">'+laurelSvg('fc-laurel')+'<span class="fc-winner-name">'+esc(name(rank))+'</span><div class="fc-plinth">'+rank+'</div></div>';
  const petals=Array.from({length:25},(_,i)=>'<span class="fc-petal" style="--x:'+((i*41)%98+1)+'%;--y:'+((i*61)%87+5)+'%;--delay:'+(-(i%8)*.29)+'s"></span>').join('');

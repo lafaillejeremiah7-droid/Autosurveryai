@@ -95,13 +95,17 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  run('changed()');await run('save()');await flushMicro();
  assert.equal(run('plays.length'),0,'tie resolution never interrupts with a cutscene');
  assert($('#result-content').innerHTML.includes('data-action="advance-stage"'),'resolved tie offers Continue');
- // Final keeps its existing five individual prunings and single champion.
+ // The final uses the same 3D garden, with five cuts and a single champion.
  load(fx.settled);
- const expected=fx.settled.view.final.rows.filter(r=>r.rank!==1).sort((a,b)=>a.rank-b.rank).map(r=>r.name);
+ const expected=fx.settled.view.final.rows.filter(r=>r.rank!==1).sort((a,b)=>a.rank-b.rank).map(r=>r.id);
  assert.equal(expected.length,5);
  const fin=click({action:'submit-match',stage:'final',match:'7'});await flushMicro();
- assert.equal(run('plays.length'),1);
- assert($('#cutscene-stage').innerHTML.includes('PRUNING 1 / 5'));
+ assert.equal(run('cutsceneActive'),true);
+ assert.equal(run('ceremonyStage'),'final');
+ assert.equal(run('plays.length'),0,'old stick-figure verdict is not called');
+ assert.deepEqual(JSON.parse(run("JSON.stringify(divineCuts('final'))")),expected);
+ assert($('#cutscene-stage').innerHTML.includes('divine-canvas'));
+ assert.equal((($('#cutscene-stage').innerHTML).match(/class="divine-plant /g)||[]).length,10);
  run('endCutscene()');await fin;
- console.log('PASS explicit divine selection, two correct eliminations, ten displayed plants, no early or repeated cutscene, tie resolution, and final champion ceremony.');
+  console.log('PASS explicit divine selection, two correct eliminations, ten displayed plants, no early or repeated cutscene, tie resolution, and final champion ceremony.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
