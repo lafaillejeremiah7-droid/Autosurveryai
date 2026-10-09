@@ -107,11 +107,7 @@
  const surface=mode==='static'?document.getElementById('city-canvas'):canvas;
  const isMoving=()=>!paused&&!media.matches&&!suspended&&!inside&&mode==='webgl';
  // Front face vertical layout of a gate, all heights from y=0 at the gate (s = gate size).
- function faceLayout(s){
-  return {openHalfW:.25*s,openTop:.55*s,archR:.25*s,archOut:.32*s,archApex:.8*s,keystoneTop:.87*s,tunnelCeiling:.8*s,tunnelLen:.6*s,
-   bannerBottom:.88*s,bannerTop:1.04*s,bannerCenter:.96*s,bannerHalfW:.2*s,bannerH:.16*s,bannerN:.08,bannerD:.05,bannerFrontN:.105,
-   laurelR:.075*s,laurelW:.025*s,laurelN:.14,ribbonY:.89*s,ribbonT:.05*s,blockTop:1.05*s};
- }
+ 
  function layout(){
   // Five garden pavilions at the ends of the winding palace hedge paths.
   const sites=[[-26,-35],[-14,-68],[0,-42],[14,-68],[26,-35]];
@@ -264,20 +260,7 @@
  // out as the crowd gathers. Under reduced motion or the static fallback they are drawn in
  // fixed poses with no animation, and when the world is paused the shared frozen `t` keeps
  // them still like the rest.
- function morningBirds(mesh,t){
-  const p=state.progress;
-  if(p>=BIRD_THRESHOLD||dusk>0)return;
-  const fade=clamp(1-p/BIRD_THRESHOLD);
-  const still=media.matches||mode==='static';
-  const count=Math.max(0,Math.round(fade*5));
-  const col=color([.1,.11,.14],[.16,.18,.2],p);
-  for(let i=0;i<count;i++){
-   const lane=rand(i+41),u=still?(.15+lane*.6):((t*(.012+lane*.01)+lane)%1);
-   const x=mix(-120,130,u),y=40+lane*26+(still?0:Math.sin(t*.5+i)*2.5),z=-30-i*22;
-   const flap=still?.5:(Math.sin(t*7+i*2)*.5+.5);
-   bird(mesh,x,y,z,2.4+lane*1.6,flap,col);
-  }
- }
+ 
  function effects(t){
   const m=new Mesh(),still=media.matches||mode==='static';
   // Four fountains remain active independently of round completions.
