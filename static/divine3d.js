@@ -589,7 +589,7 @@ varying vec3 v_normal,v_color,v_pos;
 varying float v_kind;
 void main(){
  v_pos=a_pos;v_normal=a_normal;v_color=a_color;v_kind=a_kind;
- if(a_kind>9.0)gl_Position=vec4(a_pos.xy,1.0,1.0);
+ if(a_kind>9.0)gl_Position=vec4(a_pos.xy,.99998,1.0);
  else gl_Position=u_vp*vec4(a_pos,1.0);
 }`;
   // Kinds: 1 masonry, 2 emissive gold/portal, 3 grass, 5 foliage,
