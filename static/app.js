@@ -706,7 +706,7 @@ function runVerdictSequence(names,i=0){
  const name=names[i];buildVerdictScene(name);verdictPhase('enter',name);
  schedule(()=>verdictPhase('judge',name),900);
  schedule(()=>verdictPhase('down',name),1900);
- schedule(()=>verdictPhase('hook',name),2900);
+ schedule(()=>verdictPhase('hook',name),2200);
  schedule(()=>verdictPhase('drag',name),3400);
  schedule(()=>verdictPhase('gone',name),4300);
  schedule(()=>runVerdictSequence(names,i+1),5000);
@@ -714,10 +714,10 @@ function runVerdictSequence(names,i=0){
 // Reduced motion: one still frame with every eliminated gladiator at the closed gate.
 function buildVerdictSummary(names){
  if(!cutsceneActive)return;
- $('#cutscene-stage').innerHTML='<div class="arena-verdict av-summary">'+verdictBackdrop()+'<div class="av-lineup">'+names.map(stickman).join('')+'</div><div class="av-sand"></div></div>';
+ $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict gv-summary">'+verdictBackdrop()+'<div class="av-lineup">'+names.map(stickman).join('')+'</div></div>';
  setVerdictClass('summary');
- $('#cutscene-caption').innerHTML='<strong>ELIMINATED</strong><br>'+names.map(esc).join(' · ');
- window.BrawlAudio?.boo();
+ $('#cutscene-caption').innerHTML='<strong>PRUNED</strong><br>'+names.map(esc).join(' · ');
+ window.BrawlAudio?.shears();
  schedule(startGateCeremony,3000);
 }
 async function startGateCeremony(){
@@ -729,12 +729,12 @@ async function startGateCeremony(){
   document.body.classList.remove('inside-room');
   if(overlay.open)overlay.close();overlay.hidden=true;
   window.CityWorld.setSuspended(false);roomTransition=true;if($('#ceremony-hud'))$('#ceremony-hud').hidden=false;
-  try{await window.CityWorld.crownGate(ceremonyStage,ceremonyLabel,()=>{window.BrawlAudio?.fanfare();window.BrawlAudio?.cheer(true);});}
+  try{await window.CityWorld.crownGate(ceremonyStage,ceremonyLabel,()=>{window.BrawlAudio?.fanfare();});}
   finally{roomTransition=false;if(cutsceneActive&&run===cutsceneRunId){if(ceremonyStage==='final')revealFinalWinners(run);else endCutscene();}}
   return;
  }
  setVerdictClass('');overlay.classList.remove('verdict-mode','final-mode','fc-intro','fc-judge','fc-hook');overlay.classList.add('crown-mode');
- $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=titled(ceremonyLabel,'The gate is crowned');
+ $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=titled(ceremonyLabel,'The pavilion blooms');
  runCrownFallback(ceremonyLabel);
 }
 // Used only when the 3D arena is unavailable: a laurel card stands in for the gate ceremony.
@@ -759,16 +759,11 @@ function finalRoster(cuts){
 function finalTitle(a,b){$('#cutscene-caption').innerHTML='<strong>'+a+'</strong><br>'+esc(b);}
 function startFinalSequence(cuts){
  if(!cutsceneActive)return;
- const {winners,lineup}=finalRoster(cuts);finalWinners=winners;
- const people=lineup.map(({rank,name})=>'<div class="fc-person '+(rank?'fc-survivor':'fc-loser')+'" data-rank="'+rank+'"><div class="fc-body"><span class="fc-head"></span><span class="fc-torso"></span><span class="fc-arm left"></span><span class="fc-arm right"></span><span class="fc-leg left"></span><span class="fc-leg right"></span></div><span class="fc-name">'+esc(name)+'</span></div>').join('');
- const hooks=[0,.25,.5].map((d,i)=>hookSvg(' fc-hook-n fc-hook-'+(i+1),'--hook-delay:'+d+'s')).join('');
- $('#cutscene-stage').innerHTML='<div class="fc-judgment">'+verdictBackdrop()+'<div class="av-sand"></div><div class="fc-people">'+people+'</div>'+hooks+'</div>';
- const overlay=$('#cutscene');overlay.classList.add('final-mode','fc-intro');overlay.classList.remove('fc-judge','fc-hook','fc-winners');
- finalTitle('FORGET THE PAST','THE LAST SIX');
- if(reducedMotion()){overlay.classList.add('fc-hook');schedule(startGateCeremony,1400);return;}
- schedule(()=>{overlay.classList.add('fc-judge');finalTitle('THE EMPEROR DECIDES','SIX ENTERED');window.BrawlAudio?.horn();},1650);
- schedule(()=>{overlay.classList.add('fc-hook');finalTitle('THREE ARE HOOKED','THREE REMAIN');window.BrawlAudio?.boo();window.BrawlAudio?.hook();},3500);
- schedule(startGateCeremony,5300);
+ finalWinners=finalRoster(cuts).winners;
+ // The three non-podium finalists receive the identical individual pruning
+ // ceremony before the surviving three rise on their podium.
+ if(reducedMotion())buildVerdictSummary(cuts);
+ else runVerdictSequence(cuts);
 }
 function revealFinalWinners(run){
  if(!cutsceneActive||run!==cutsceneRunId)return;
@@ -812,8 +807,8 @@ function playCutscene(names,roundLabel='',stage=''){
   const verdict=stage==='round1'||stage==='round2',label=String(roundLabel||'');
   ceremonyLabel=roundLabel||'Final';ceremonyStage=stage||'final';
   overlay.classList.toggle('verdict-mode',verdict);overlay.classList.toggle('final-mode',stage==='final');
-  $('#cutscene .eyebrow').textContent=verdict?'THE CROWD HAS SPOKEN':stage==='final'?"THE EMPEROR'S VERDICT":'ROUND COMPLETE';
-  $('#cutscene-label').textContent=verdict?titled(label,'Thumbs down'):stage==='final'?titled(label,'The final verdict'):titled(String(ceremonyLabel),'The gate is crowned');
+  $('#cutscene .eyebrow').textContent=verdict?'THE GARDENER HAS SPOKEN':stage==='final'?"THE EMPEROR'S VERDICT":'ROUND COMPLETE';
+  $('#cutscene-label').textContent=verdict?titled(label,'PRUNED'):stage==='final'?titled(label,'The final pruning'):titled(String(ceremonyLabel),'The pavilion blooms');
   overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
   // Native top layer keeps the cutscene above both scoring and tie-result dialogs.
   overlay.showModal();
