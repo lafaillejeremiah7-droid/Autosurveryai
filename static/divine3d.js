@@ -104,12 +104,12 @@
  // formal royal grounds. Structural meshes are cached: dynamic action remains
  // only the 10 living competitors, vortex, floating petals and enormous hand.
  function hedge(m,x,y,z,w,d,h=2.1){
-  m.box(x,y+h/2,z,w,h,d,[.09,.23,.13]);
-  m.box(x,y+h-.17,z,w+.15,.45,d+.15,[.15,.39,.20]);
+  m.box(x,y+h/2,z,w,h,d,[.09,.23,.13],5);
+  m.box(x,y+h-.17,z,w+.15,.45,d+.15,[.15,.39,.20],5);
   const n=Math.ceil((w>d?w:d)/2.1);
   for(let i=0;i<n;i++){
    const alongX=w>d,t=(i+.5)/n-.5,px=x+(alongX?t*w:0),pz=z+(alongX?0:t*d);
-   m.gem(px,y+h+.14,pz,.31,[.23,.47,.24],0,.55);
+   m.gem(px,y+h+.14,pz,.31,[.23,.47,.24],5,.55);
   }
  }
  function rose(m,x,y,z,tier=3,palette=0){
@@ -121,7 +121,7 @@
   m.gem(x,y+height,z,.19,[.99,.90,.58],2,1.0);
   for(let i=0;i<5;i++){
    const a=i*TAU/5;
-   m.gem(x+Math.cos(a)*.20,y+height+.055,z+Math.sin(a)*.20,.19,col,0,.85);
+   m.gem(x+Math.cos(a)*.20,y+height+.055,z+Math.sin(a)*.20,.19,col,6,.85);
   }
  }
  function lamp(m,x,z,scale=1){
@@ -132,13 +132,13 @@
  }
  function arch(m,x,z,wide=5.0){
   const stone=[.81,.78,.66],trim=[.83,.67,.37];
-  m.box(x-wide/2,3.0,z,.62,6,.72,stone);
-  m.box(x+wide/2,3.0,z,.62,6,.72,stone);
-  m.box(x,6.1,z,wide+.8,.65,.95,stone);
+  m.box(x-wide/2,3.0,z,.62,6,.72,stone,1);
+  m.box(x+wide/2,3.0,z,.62,6,.72,stone,1);
+  m.box(x,6.1,z,wide+.8,.65,.95,stone,1);
   m.box(x,6.58,z,wide+.9,.24,1.04,trim);
   for(let k=0;k<8;k++){
    const a=k*Math.PI/7,r=wide*.55;
-   m.gem(x-r*Math.cos(a),6+Math.sin(a)*2.0,z+.22,.40,[.17,.43,.21],0,1.3);
+   m.gem(x-r*Math.cos(a),6+Math.sin(a)*2.0,z+.22,.40,[.17,.43,.21],5,1.3);
   }
   for(let k=0;k<5;k++)rose(m,x+(k-2)*wide/5,6.43,z+.35,3,k);
  }
@@ -147,8 +147,8 @@
   m.cylinder([x,0,z],[x,height*.6,z],.36,[.35,.26,.16],.24,7);
   for(let j=0;j<3;j++){
    const y=height*(.43+j*.21),r=(1.6-j*.26);
-   m.sphere([x,y,z],r,.85+j*.06,r,dark,0,5,9);
-   m.gem(x,y+.66,z,r*.71,light,0,.54);
+   m.sphere([x,y,z],r,.85+j*.06,r,dark,5,5,9);
+   m.gem(x,y+.66,z,r*.71,light,5,.54);
   }
   m.gem(x,height+.55,z,.35,[.88,.72,.37],2,1.4);
  }
@@ -183,14 +183,17 @@
   m.gem(x,12.5,z,.58,[1,.85,.51],2,1.7);
  }
  function createField(){
-  const m=new Mesh(),grass=[.11,.29,.19],floor=[.20,.36,.24],
+  const m=new Mesh();
+  // Painted sky triangle at the far depth plane, drawn with the garden mesh.
+  m.tri([-1,-1,0],[3,-1,0],[-1,3,0],[.32,.48,.59],9.5);
+  const grass=[.11,.29,.19],floor=[.20,.36,.24],
       stone=[.77,.72,.62],gold=[.77,.60,.31];
-  m.box(0,-1.05,0,70,2.1,73,[.08,.21,.15]);
-  m.box(0,.012,0,64,.06,69,grass);
+  m.box(0,-1.05,0,70,2.1,73,[.08,.21,.15],3);
+  m.box(0,.012,0,64,.06,69,grass,3);
   // Checker lawn, flower island borders and textured grass tile pattern.
   for(let x=-30;x<=30;x+=5)for(let z=-30;z<=30;z+=5){
    const dark=(Math.round(x+z)/5)%2===0;
-   m.box(x,.057,z,4.85,.04,4.85,dark?[.14,.34,.19]:[.15,.37,.21]);
+   m.box(x,.057,z,4.85,.04,4.85,dark?[.14,.34,.19]:[.15,.37,.21],3);
    const seed=(x+31)*571+(z+31)*43;
    for(let i=0;i<3;i++){
     const px=x+(pseudoRand(seed+i*3)-.5)*3.7,pz=z+(pseudoRand(seed+i*5+17)-.5)*3.8;
@@ -198,20 +201,20 @@
    }
   }
   // Grand forecourt: straight stone paths with gold-inlaid rims and stepped dais.
-  m.box(0,.105,-.4,35,.12,28,floor);
+  m.box(0,.105,-.4,35,.12,28,floor,3);
   for(const x of [-17.0,17.0])m.box(x,.19,-.4,.27,.17,29,gold);
-  m.box(0,.20,.30,35,.20,3.45,stone);
+  m.box(0,.20,.30,35,.20,3.45,stone,1);
   m.box(0,.315,.30,35,.04,.16,gold);
-  for(const x of [-14.75,14.75])m.box(x,.20,-.4,1.05,.19,28,stone);
+  for(const x of [-14.75,14.75])m.box(x,.20,-.4,1.05,.19,28,stone,1);
   for(let n=0;n<18;n++)m.box(-17.0+n*2,.329,.30,.035,.023,3.2,[.89,.83,.65]);
   // Wide stepped entrance leading forward toward the viewer.
-  for(let k=0;k<5;k++)m.box(0,.24-k*.035,16+k*1.9,31-k*.7,.23,1.65,stone);
+  for(let k=0;k<5;k++)m.box(0,.24-k*.035,16+k*1.9,31-k*.7,.23,1.65,stone,1);
   // Ten identical player plinths; stage-specific vegetation grows above.
   for(let i=0;i<10;i++){
    const [x,,z]=positions[i];
-   m.cylinder([x,.12,z],[x,.43,z],1.80,[.67,.61,.49],1.91,12);
+   m.cylinder([x,.12,z],[x,.43,z],1.80,[.67,.61,.49],1.91,12,1);
    m.cylinder([x,.44,z],[x,.56,z],1.96,gold,1.96,12);
-   m.cylinder([x,.57,z],[x,.70,z],1.80,stone,1.80,12);
+   m.cylinder([x,.57,z],[x,.70,z],1.80,stone,1.80,12,1);
    for(let j=0;j<6;j++){
     const a=j*TAU/6;
     m.gem(x+Math.cos(a)*1.57,.78,z+Math.sin(a)*1.57,.11,[.95,.73,.35],2,.9);
@@ -269,14 +272,14 @@
    m.tri([x,3,z],[x+10,3,z],[x+5,h,z-4],[.40,.49,.47]);
   }
   // Palace terrace background, parapets and tall stone towers.
-  m.box(0,5.8,-33.8,52,11.6,3.0,[.65,.64,.56]);
+  m.box(0,5.8,-33.8,52,11.6,3.0,[.65,.64,.56],1);
   m.box(0,12.3,-34.2,54,1.1,4.0,[.30,.39,.34]);
   for(let x=-25;x<=25;x+=5){
-   m.box(x,9.0,-31.8,.63,5.7,.55,[.91,.88,.75]);
+   m.box(x,9.0,-31.8,.63,5.7,.55,[.91,.88,.75],1);
    m.gem(x,13.1,-34,.59,gold,2,.9);
   }
   for(const x of [-25,25]){
-   m.box(x,12,-34,4.2,24,4.1,stone);
+   m.box(x,12,-34,4.2,24,4.1,stone,1);
    m.gem(x,25,-34,3.5,gold,0,1.55);
   }
   return m;
@@ -286,9 +289,9 @@
   const x=root[0],z=root[2],p=[x,y,z],
       tip=[x+len*direction,y+len*.40,z+len*.22*direction],
       side=[x+len*.38*direction,y+len*.12,z+width];
-  m.tri(p,tip,side,col);m.tri(p,side,tip,col);
+  m.tri(p,tip,side,col,5);m.tri(p,side,tip,col,5);
   const back=[side[0],side[1],z-width];
-  m.tri(p,back,tip,col);m.tri(p,tip,back,col);
+  m.tri(p,back,tip,col,5);m.tri(p,tip,back,col,5);
  }
  function bloom(m,center,scale,petals,col,royal=false){
   const [x,y,z]=center;
@@ -299,7 +302,7 @@
     const a=j*TAU/ring+layer*.26;
     const tone=col.map((c,i)=>clamp(c+(layer===0?.13:layer===2?-.12:0)));
     m.gem(x+Math.cos(a)*r,y+layer*.07+.08*Math.sin(a*2),z+Math.sin(a)*r,
-      scale*(royal?.39:.44),tone,layer===0?2:0,.72);
+      scale*(royal?.39:.44),tone,layer===0?2:6,.72);
    }
   }
   if(royal){
@@ -421,8 +424,8 @@
  }
  function hand(m,position,elapsed,step,age){
   const [x,y,z]=position,at=(a,b,c)=>[x+a,y+b,z+c];
-  const ivory=[.78,.79,.82],shade=[.66,.67,.73],highlight=[.88,.89,.90],
-   stone=[.75,.76,.78],metal=[.34,.38,.43],edge=[.78,.83,.86],dark=[.13,.16,.20];
+  const ivory=[.77,.72,.63],shade=[.57,.57,.56],highlight=[.92,.86,.73],
+   stone=[.75,.76,.78],metal=[.29,.34,.36],edge=[.79,.85,.83],dark=[.17,.20,.22];
   // Soft-shaded sculpted arm and palm, veined knuckles and jointed fingers.
   // The forearm extends ABOVE the gate; the shader hides that portion.
   m.softTube([at(0,12,0),at(0,8.5,0),at(0,5.2,-.16),at(0,2.3,.02)],
@@ -451,6 +454,10 @@
    const u=i*.58;m.softTube([at(u,1.4,.77),at(u*.93,.55,.96),at(u*.9,-.7,1.09)],
     [.035,.048,.027],highlight,7,5);
   }
+  // Engraved gold cuff and embossed palm seal, for a painted PS2 fantasy boss.
+  for(const yy of [5.45,7.35])m.ring(at(0,yy,-.05),1.40,.095,[.81,.65,.35],'xz',2);
+  m.gem(...at(0,.10,1.03),.43,[.82,.61,.28],2,1.4);
+  for(const sx of [-1,1])m.gem(...at(sx*.54,.30,.94),.15,[.83,.67,.42],2,1.1);
   // Proper paired shears. One steel pivot, two ring handles, twin broad blades
   // that progressively close on the target flower at exactly 0.95 s.
   const dramatic=step>=3&&step<5;
@@ -571,16 +578,114 @@
  function init(canvas){
   const gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'low-power'});
   if(!gl)return null;
-  const vertex='precision mediump float;attribute vec3 a_pos,a_normal,a_color;attribute float a_kind;uniform mat4 u_vp;varying vec3 v_normal,v_color,v_pos;varying float v_kind;void main(){v_pos=a_pos;v_normal=a_normal;v_color=a_color;v_kind=a_kind;gl_Position=u_vp*vec4(a_pos,1.);}';
-  // Retro-console lighting: Gouraud-looking skin, restrained specular steel,
- // bright white-blue portal, subtle procedural garden texture and distance fog.
- const fragment='precision mediump float;varying vec3 v_normal,v_color,v_pos;varying float v_kind;uniform vec3 u_eye;void main(){if(v_kind>6.5&&v_kind<8.5&&v_pos.y>44.0)discard;vec3 n=normalize(v_normal),lightDir=normalize(vec3(-.45,.87,.4)),eyeDir=normalize(u_eye-v_pos);float diffuse=max(dot(n,lightDir),0.);float wrap=max(dot(n,lightDir)*.55+.45,0.);float spec=pow(max(dot(reflect(-lightDir,n),eyeDir),0.),18.);float material=fract(sin(dot(floor(v_pos.xz*2.1),vec2(127.1,311.7)))*43758.54);vec3 col=v_color*(.43+diffuse*.53);if(v_kind>6.5&&v_kind<7.5){col=v_color*(.61+wrap*.38)+vec3(.13,.13,.15)*spec;}else if(v_kind>7.5){col=v_color*(.42+diffuse*.55)+vec3(.23,.28,.33)*spec;}else if(v_kind>1.5&&v_kind<3.0){col=v_color*(1.20+.08*wrap);}else{col*=.91+material*.12;}float fog=clamp((length(v_pos-u_eye)-45.)/120.,0.,.55);col=mix(col,vec3(.55,.63,.67),fog);gl_FragColor=vec4(col,1.);}';
+  // Painted retro textures and light bands; no network texture files or
+  // high-end GPU extensions. The floating hand and roses remain actual 3D.
+  const vertex=`
+precision mediump float;
+attribute vec3 a_pos,a_normal,a_color;
+attribute float a_kind;
+uniform mat4 u_vp;
+varying vec3 v_normal,v_color,v_pos;
+varying float v_kind;
+void main(){
+ v_pos=a_pos;v_normal=a_normal;v_color=a_color;v_kind=a_kind;
+ if(a_kind>9.0)gl_Position=vec4(a_pos.xy,1.0,1.0);
+ else gl_Position=u_vp*vec4(a_pos,1.0);
+}`;
+  // Kinds: 1 masonry, 2 emissive gold/portal, 3 grass, 5 foliage,
+  // 6 petals, 7 aged ivory, 8 steel, 9.5 painted sky.
+  const fragment=`
+precision mediump float;
+varying vec3 v_normal,v_color,v_pos;
+varying float v_kind;
+uniform vec3 u_eye,u_hand,u_crown;
+float hash2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.545);}
+float painted(vec2 p){
+ vec2 g=floor(p);
+ return hash2(g)*.6+hash2(floor(p*.5)+vec2(3.,7.))*.4;
+}
+void main(){
+ if(v_kind>9.0){
+  vec2 uv=v_pos.xy*.5+.5;
+  float t=smoothstep(.04,.94,uv.y);
+  vec3 sky=mix(vec3(.76,.68,.60),vec3(.20,.31,.47),t);
+  float clouds=painted(uv*vec2(18.,13.))*.66+painted(uv*vec2(43.,25.))*.34;
+  float veil=smoothstep(.48,.8,clouds)*(1.-t)*.25;
+  sky=mix(sky,vec3(.94,.82,.67),veil);
+  float sun=exp(-length((uv-vec2(.72,.64))*vec2(1.,1.4))*23.);
+  sky+=vec3(.24,.15,.055)*sun;
+  gl_FragColor=vec4(floor(sky*63.+.5)/63.,1.);return;
+ }
+ if(v_kind>6.5&&v_kind<8.5&&v_pos.y>44.0)discard;
+ vec3 n=normalize(v_normal);
+ vec3 sunDir=normalize(vec3(-.48,.83,.32));
+ float nd=max(dot(n,sunDir),0.);
+ float light=floor((.48+nd*.56)*7.+.5)/7.;
+ vec3 warm=vec3(1.10,1.015,.87),cool=vec3(.68,.81,.98);
+ vec3 col=v_color*mix(cool,warm,clamp(nd*.70+.22,0.,1.))*light;
+ vec2 uv=v_pos.xz;
+ float noise=painted(uv*2.4);
+ if(v_kind>.5&&v_kind<1.5){
+  // Stone blocks: mottled paint, courses of mortar, greenish age.
+  uv=abs(n.y)>.60?v_pos.xz:v_pos.xy+v_pos.yz*.35;
+  noise=painted(uv*3.5);
+  vec2 p=uv*vec2(.43,.73);
+  p.x+=floor(p.y)*.5;
+  vec2 f=fract(p);
+  float mortar=(1.-step(.045,f.x))+(1.-step(.065,f.y));
+  col*=.77+noise*.32;
+  col*=1.-min(mortar,1.)*.28;
+  float moss=smoothstep(.72,.95,painted(uv*1.1+vec2(8.)));
+  col=mix(col,col*vec3(.65,.82,.60),moss*.17);
+ }else if(v_kind>2.5&&v_kind<3.5){
+  float blade=painted(uv*vec2(7.,11.));
+  col*=.74+blade*.22+painted(uv*1.6)*.24;
+ }else if(v_kind>4.5&&v_kind<5.5){
+  float leaf=painted(v_pos.xz*5.5+v_pos.y*.8);
+  col*=.70+leaf*.53;
+ }else if(v_kind>5.5&&v_kind<6.5){
+  col*=.91+painted(v_pos.xy*13.)*.18;
+ }else if(v_kind>6.5&&v_kind<7.5){
+  float patina=painted(v_pos.xy*1.8+v_pos.z*.37);
+  float veins=1.-smoothstep(.06,.14,abs(sin(v_pos.x*1.9+v_pos.y*.7+patina*2.)));
+  col=v_color*(.46+nd*.52)*vec3(1.06,1.01,.94);
+  col*=.82+patina*.29;
+  col*=1.-veins*.105;
+ }else if(v_kind>7.5&&v_kind<8.5){
+  vec3 eyeDir=normalize(u_eye-v_pos);
+  float spec=pow(max(dot(reflect(-sunDir,n),eyeDir),0.),24.);
+  col=v_color*(.40+nd*.64)+vec3(.43,.49,.53)*spec;
+  col*=.86+painted(v_pos.xy*4.)*.15;
+ }else if(v_kind>1.5&&v_kind<2.5){
+  col=v_color*(1.13+.08*nd);
+ }else{
+  col*=.84+noise*.24;
+ }
+ // Grounded contact shadows and the enormous hand's moving penumbra.
+ if(v_pos.y<.9&&n.y>.55){
+  float dx=abs(v_pos.x/5.8-floor(v_pos.x/5.8+.5))*5.8;
+  float dz=min(abs(v_pos.z+5.3),abs(v_pos.z-6.2));
+  float contact=1.-smoothstep(1.,3.7,length(vec2(dx,dz)));
+  float handShadow=1.-smoothstep(2.,12.,length(v_pos.xz-u_hand.xz));
+  handShadow*=1.-clamp((u_hand.y-9.)/80.,0.,1.);
+  col*=1.-contact*.24-handShadow*.28;
+ }
+ if(u_crown.y>.5){
+  float glow=1.-smoothstep(1.,10.,length(v_pos.xz-u_crown.xz));
+  col+=glow*vec3(.30,.17,.035);
+ }
+ float fog=smoothstep(35.,145.,length(v_pos-u_eye))*.60;
+ col=mix(col,vec3(.58,.61,.60),fog);
+ float dither=(hash2(mod(gl_FragCoord.xy,4.))-.5)/85.;
+ col=clamp(floor((col+dither)*63.+.5)/63.,0.,1.);
+ gl_FragColor=vec4(col,1.);
+}`;
   const program=gl.createProgram();
   gl.attachShader(program,compile(gl,gl.VERTEX_SHADER,vertex));gl.attachShader(program,compile(gl,gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);
   if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
   const buffer=gl.createBuffer(),attrs=[];
   for(const [name,size,offset] of [['a_pos',3,0],['a_normal',3,12],['a_color',3,24],['a_kind',1,36]])attrs.push([gl.getAttribLocation(program,name),size,offset]);
-  return {gl,program,buffer,attrs,uniform:gl.getUniformLocation(program,'u_vp'),eyeUniform:gl.getUniformLocation(program,'u_eye')};
+  return {gl,program,buffer,attrs,uniform:gl.getUniformLocation(program,'u_vp'),eyeUniform:gl.getUniformLocation(program,'u_eye'),handUniform:gl.getUniformLocation(program,'u_hand'),crownUniform:gl.getUniformLocation(program,'u_crown')};
  }
  let active=null;
  let coronation=null;
@@ -620,10 +725,13 @@
   canvas.addEventListener?.('webglcontextrestored',instance.onRestored);
   const frame=()=>{
    if(instance.stopped||instance.contextLost||active!==instance)return;
-   const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,1.5);
+   const rect=canvas.getBoundingClientRect();
+   // Render at a PS2-like cinematic resolution, then let CSS scale the image.
+   const retroScale=Math.min(1,960/Math.max(1,rect.width),540/Math.max(1,rect.height));
+   const dpr=Math.min(window.devicePixelRatio||1,1.15)*retroScale;
    const w=Math.max(1,Math.floor(rect.width*dpr)),h=Math.max(1,Math.floor(rect.height*dpr));
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
-   const {gl,program,buffer,attrs,uniform,eyeUniform}=instance;
+   const {gl,program,buffer,attrs,uniform,eyeUniform,handUniform,crownUniform}=instance;
    gl.viewport(0,0,w,h);gl.clearColor(.48,.58,.66,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
    const now=performance.now(),age=(now-(stepAgeStart(instance)))/1000,elapsed=(now-instance.start)/1000;
@@ -634,6 +742,9 @@
    instance.lastHand=handPosition(instance.models,instance.cuts,instance.step,age,instance.actionFrom,elapsed);
    instance.triangles=mesh.triangles;instance.floats=mesh.data.length;
    gl.useProgram(program);gl.uniformMatrix4fv(uniform,false,vp);gl.uniform3fv(eyeUniform,shot.eye);
+   gl.uniform3fv(handUniform,instance.lastHand);
+   const crownIndex=coronation?instance.models.findIndex(p=>p.id===coronation.id):-1;
+   gl.uniform3fv(crownUniform,crownIndex<0?[0,0,0]:[positions[crownIndex][0],1,positions[crownIndex][2]]);
    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(mesh.data),gl.DYNAMIC_DRAW);
    for(const [loc,size,offset] of attrs)if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,40,offset);}
    gl.drawArrays(gl.TRIANGLES,0,mesh.data.length/10);

@@ -73,8 +73,8 @@
  const fov=66*Math.PI/180;
  // Sky colors shared by the sky shader, the fog and the static fallback gradient.
  const skyStops=d=>({
-  top:color([.16,.42,.70],[.10,.08,.22],d),
-  bottom:d<=.7?color([.86,.83,.70],[.98,.55,.30],d/.7):color([.98,.55,.30],[.45,.22,.25],(d-.7)/.3)});
+  top:color([.22,.35,.51],[.10,.08,.22],d),
+  bottom:d<=.7?color([.80,.75,.64],[.98,.55,.30],d/.7):color([.98,.55,.30],[.45,.22,.25],(d-.7)/.3)});
  const fogColor=(d,p)=>color(skyStops(d).bottom,[.80,.70,.52],p*.3);
  function shader(type,code){
   const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);
@@ -84,9 +84,63 @@
  // No uniform is shared between the vertex and fragment stages: their default float
  // precisions differ (highp vs mediump), and GLSL ES 1.00 fails the link on a mismatch.
  const VERTEX_SRC='attribute vec3 a_pos,a_normal,a_color;attribute float a_kind;uniform mat4 u_vp;uniform float u_wtime,u_wheat,u_surge;uniform vec2 u_center;varying vec3 v_pos,v_normal,v_color;varying float v_kind;void main(){float wave=0.;if(a_kind>1.5&&a_kind<2.5){float ang=atan(a_pos.z-u_center.y,a_pos.x-u_center.x);float bob=max(0.,sin(u_wtime*5.+a_pos.x*.35+a_pos.z*.27));float mex=pow(max(0.,cos(ang-u_wtime*.9)),24.);wave=bob*.12*(.3+u_wheat)+mex*.9*u_wheat+u_surge*bob*.5;}vec3 p=a_pos+vec3(0.,wave,0.);v_pos=p;v_normal=a_normal;v_color=a_color;v_kind=a_kind;gl_Position=u_vp*vec4(p,1.);}';
- const FRAGMENT_SRC='precision mediump float;varying vec3 v_pos,v_normal,v_color;varying float v_kind;uniform vec3 u_eye,u_fog;uniform float u_heat,u_dusk,u_time;void main(){vec3 n=normalize(v_normal);float light=max(dot(n,normalize(vec3(-.4,.85,.45))),0.0);vec3 c=v_color*(mix(.46,.30,u_dusk)+light*.64*mix(vec3(1.),vec3(1.,.7,.48),u_dusk));if(v_kind>.5&&v_kind<1.5&&abs(n.y)<.5){float course=step(.92,fract(v_pos.y*1.1));float joint=step(.95,fract((v_pos.x+v_pos.z)*.7+floor(v_pos.y*1.1)*.5));c*=(1.-course*.12)*(1.-joint*.08);}if(v_kind>2.5)c=v_color*(1.2+sin(u_time*2.0+v_pos.x)*.06);float fog=clamp(1.0-exp(-length(v_pos-u_eye)*(.003+u_heat*.0015)),0.0,.88);c=mix(c,u_fog,fog*(v_kind>2.5?.45:1.0));float alpha=1.0;if(v_kind>3.5){vec2 uv=v_normal.xy;float r=length(uv);if(v_kind<4.5){alpha=(1.0-smoothstep(.05,1.0,r))*.38;c=mix(v_color,u_fog,.24);}else{float sway=sin(u_time*4.+uv.y*5.+v_pos.x)*.13*(uv.y+1.);float width=(1.-uv.y)*.4+.05;float core=clamp(1.-abs(uv.x+sway)/width,0.,1.);alpha=core*(1.0-smoothstep(.3,1.0,uv.y))*smoothstep(-1.,-.6,uv.y);c=mix(vec3(1.,.12,.015),vec3(1.,.84,.22),pow(core,2.)*(1.-uv.y)*.65);}if(alpha<.01)discard;}gl_FragColor=vec4(c,alpha);}';
+ // Painted stone, stippled hedges and vegetation, baked-feeling light
+ // steps and the subtle quantization characteristic of PS2-era materials.
+ const FRAGMENT_SRC=`
+precision mediump float;
+varying vec3 v_pos,v_normal,v_color;
+varying float v_kind;
+uniform vec3 u_eye,u_fog;
+uniform float u_heat,u_dusk,u_time;
+float grit(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
+void main(){
+ vec3 n=normalize(v_normal);
+ float sun=max(dot(n,normalize(vec3(-.4,.85,.45))),0.);
+ float band=floor((.43+sun*.59)*7.+.5)/7.;
+ vec3 daylight=mix(vec3(.74,.84,1.03),vec3(1.08,1.02,.88),sun*.72+.18);
+ vec3 c=v_color*daylight*band*mix(vec3(1.),vec3(1.,.73,.52),u_dusk*.75);
+ float noise=grit(floor(v_pos.xz*3.5))*.63+grit(floor(v_pos.xz*1.6))*.37;
+ if(v_kind<.5){
+  c*=.78+noise*.36;
+  c+=vec3(.014,.020,.004)*step(.93,grit(floor(v_pos.xz*12.)));
+ }
+ if(v_kind>.5&&v_kind<1.5){
+  vec2 uv=abs(n.y)>.56?v_pos.xz:v_pos.xy;
+  vec2 course=uv*vec2(.5,.85);
+  course.x+=floor(course.y)*.5;
+  vec2 f=fract(course);
+  float mortar=1.-step(.045,f.x)*step(.072,f.y);
+  c*=.79+grit(floor(uv*4.5))*.28;
+  c*=1.-mortar*.22;
+ }
+ if(v_kind>1.5&&v_kind<2.5)c*=.82+grit(floor(v_pos.xy*7.+v_pos.z))*.34;
+ if(v_kind>2.5&&v_kind<3.5)c=v_color*(1.19+sin(u_time*2.+v_pos.x)*.05);
+ float fog=clamp(1.-exp(-length(v_pos-u_eye)*(.003+u_heat*.0015)),0.,.86);
+ c=mix(c,u_fog,fog*(v_kind>2.5?.45:1.));
+ float alpha=1.;
+ if(v_kind>3.5){
+  vec2 uv=v_normal.xy;
+  float rr=length(uv);
+  if(v_kind<4.5){
+   alpha=(1.-smoothstep(.05,1.,rr))*.38;
+   c=mix(v_color,u_fog,.24);
+  }else{
+   float sway=sin(u_time*4.+uv.y*5.+v_pos.x)*.13*(uv.y+1.);
+   float width=(1.-uv.y)*.4+.05;
+   float core=clamp(1.-abs(uv.x+sway)/width,0.,1.);
+   alpha=core*(1.-smoothstep(.3,1.,uv.y))*smoothstep(-1.,-.6,uv.y);
+   c=mix(vec3(1.,.12,.015),vec3(1.,.84,.22),pow(core,2.)*(1.-uv.y)*.65);
+  }
+  if(alpha<.01)discard;
+ }
+ if(v_kind<3.5){
+  float dither=(grit(mod(gl_FragCoord.xy,4.))-.5)/90.;
+  c=floor(clamp(c+dither,0.,1.)*63.+.5)/63.;
+ }
+ gl_FragColor=vec4(c,alpha);
+}`;
  const SKY_VERTEX_SRC='attribute vec2 a_pos;varying vec2 v_uv;void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}';
- const SKY_FRAGMENT_SRC='precision mediump float;varying vec2 v_uv;uniform float u_heat,u_dusk,u_time;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}void main(){vec2 uv=v_uv;vec3 top=mix(vec3(.16,.42,.70),vec3(.10,.08,.22),u_dusk);vec3 bottom=u_dusk<=.7?mix(vec3(.86,.83,.70),vec3(.98,.55,.30),u_dusk/.7):mix(vec3(.98,.55,.30),vec3(.45,.22,.25),(u_dusk-.7)/.3);vec3 c=mix(bottom,top,smoothstep(.15,1.,uv.y));float cloud=noise(uv*vec2(5,10)+vec2(u_time*.009,0));cloud+=noise(uv*vec2(13,21)+vec2(u_time*.014,2))*.4;float cover=smoothstep(.7,1.2,cloud);c=mix(c,mix(vec3(.97,.95,.90),vec3(.92,.62,.52),u_dusk),cover*.25);float sun=exp(-length((uv-vec2(.72,mix(.80,.16,u_dusk)))*vec2(1.,1.7))*40.);c+=mix(vec3(1.,.92,.7),vec3(1.,.45,.2),u_dusk)*sun;c+=vec3(.80,.70,.52)*u_heat*.12*(1.-uv.y);if(u_dusk>.9)c+=vec3(step(.997,hash(floor(uv*240.))))*(u_dusk-.9)*10.*smoothstep(.4,1.,uv.y);gl_FragColor=vec4(c,1.);}';
+ const SKY_FRAGMENT_SRC='precision mediump float;varying vec2 v_uv;uniform float u_heat,u_dusk,u_time;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}void main(){vec2 uv=v_uv;vec3 top=mix(vec3(.22,.35,.51),vec3(.10,.08,.22),u_dusk);vec3 bottom=u_dusk<=.7?mix(vec3(.80,.75,.64),vec3(.98,.55,.30),u_dusk/.7):mix(vec3(.98,.55,.30),vec3(.45,.22,.25),(u_dusk-.7)/.3);vec3 c=mix(bottom,top,smoothstep(.15,1.,uv.y));float cloud=noise(uv*vec2(5,10)+vec2(u_time*.009,0));cloud+=noise(uv*vec2(13,21)+vec2(u_time*.014,2))*.4;float cover=smoothstep(.7,1.2,cloud);c=mix(c,mix(vec3(.97,.95,.90),vec3(.92,.62,.52),u_dusk),cover*.25);float sun=exp(-length((uv-vec2(.72,mix(.80,.16,u_dusk)))*vec2(1.,1.7))*40.);c+=mix(vec3(1.,.92,.7),vec3(1.,.45,.2),u_dusk)*sun;c+=vec3(.80,.70,.52)*u_heat*.12*(1.-uv.y);if(u_dusk>.9)c+=vec3(step(.997,hash(floor(uv*240.))))*(u_dusk-.9)*10.*smoothstep(.4,1.,uv.y);gl_FragColor=vec4(c,1.);}';
  function initGL(){
   gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'low-power'});
   if(!gl)return false;
