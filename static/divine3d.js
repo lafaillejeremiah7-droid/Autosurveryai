@@ -488,10 +488,10 @@
   return from.map((v,i)=>lerp(v,target[i],t));
  }
  function shotCamera(models,cuts,step,age,previous){
-  const wide={eye:[0,39,42],target:[0,21,-12],fov:57*Math.PI/180};
+  const wide={eye:[0,17,47],target:[0,24,-12],fov:68*Math.PI/180};
   const garden={eye:[0,17.5,27],target:[0,3.6,-.4],fov:54*Math.PI/180};
   if(step<0){
-   const t=ease(clamp((age-2.20)/1.65));
+   const t=ease(clamp((age-3.10)/1.55));
    return {eye:wide.eye.map((v,i)=>lerp(v,garden.eye[i],t)),
     target:wide.target.map((v,i)=>lerp(v,garden.target[i],t)),
     fov:lerp(wide.fov,garden.fov,t),phase:t<.95?'arrival':'judgement'};
