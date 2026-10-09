@@ -97,7 +97,7 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  assert($('#result-content').innerHTML.includes('data-action="advance-stage"'),'resolved tie offers Continue');
  // The final uses the same 3D garden, with five cuts and a single champion.
  load(fx.settled);
- const expected=fx.settled.view.final.rows.filter(r=>r.rank!==1).sort((a,b)=>a.rank-b.rank).map(r=>r.id);
+ const expected=fx.settled.view.final.rows.filter(r=>r.rank!==1).sort((a,b)=>b.rank-a.rank).map(r=>r.id);
  assert.equal(expected.length,5);
  const fin=click({action:'submit-match',stage:'final',match:'7'});await flushMicro();
  assert.equal(run('cutsceneActive'),true);

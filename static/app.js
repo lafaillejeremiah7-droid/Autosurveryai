@@ -308,7 +308,7 @@ function divineModels(stage){
  return plantGardenModel(stage).map(p=>({ ...p,priorPruned:earlier?!earlier.has(p.id):p.pruned }));
 }
 function divineCuts(stage){
- return (view[stage]?.rows||[]).filter(p=>stage==='final'?p.rank!==1:p.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99)).map(p=>p.id);
+ return (view[stage]?.rows||[]).filter(p=>stage==='final'?p.rank!==1:p.status==='CUT').sort((a,b)=>stage==='final'?(b.rank||0)-(a.rank||0):(a.rank||99)-(b.rank||99)).map(p=>p.id);
 }
 function renderDivineScene(stage,cuts,latest=-1){
  const models=divineModels(stage);
@@ -346,16 +346,33 @@ function renderDivineScene(stage,cuts,latest=-1){
  const live=window.Divine3D?.mount?.(canvas,models,cuts,latest,host.querySelectorAll?.('.divine-plant'))||false;
  host.classList.toggle('divine-webgl',live);
 }
+function divineCutDuration(stage,i){
+ return stage==='final'&&i===4?6200:stage==='final'&&i===3?4800:1750;
+}
+function divineCutContact(stage,i){
+ return stage==='final'&&i===4?4300:stage==='final'&&i===3?3000:950;
+}
 function strikeDivinePlant(stage,cuts,i){
  if(!cutsceneActive)return;
  if(i>=cuts.length){
-  $('#cutscene-caption').innerHTML=stage==='final'?'<strong>THE LAST FLOWER REMAINS</strong><br>THE CHAMPION AWAITS':'<strong>THE TWO HAVE BEEN PRUNED</strong><br>THE NEXT TRIAL AWAITS';
-  schedule(()=>{if(stage==='final'){window.Divine3D?.stop?.();revealFinalWinners(cutsceneRunId);}else{const overlay=$('#cutscene');overlay.classList.add('divine-leaving');schedule(endCutscene,650);}},850);
+  if(stage==='final'){
+   const winner=view.final.rows.find(p=>p.rank===1);
+   window.Divine3D?.celebrate?.(winner?.id);
+   $('#cutscene-caption').innerHTML='<strong>THE CHAMPION AWAKENS</strong><br>'+esc(winner?.name||'THE LAST BLOOM');
+   const label=Array.from($('#cutscene-stage').querySelectorAll?.('.divine-plant')||[]).find(el=>el.dataset.player===winner?.id);
+   label?.classList.add('divine-champion');
+   const badge=label?.querySelector('.divine-cut-label');if(badge)badge.textContent='CHAMPION’S CROWN';
+   schedule(()=>{window.Divine3D?.stop?.();revealFinalWinners(cutsceneRunId);},4500);
+  }else{
+   $('#cutscene-caption').innerHTML='<strong>THE TWO HAVE BEEN PRUNED</strong><br>THE NEXT TRIAL AWAITS';
+   schedule(()=>{const overlay=$('#cutscene');overlay.classList.add('divine-leaving');schedule(endCutscene,650);},850);
+  }
   return;
  }
  renderDivineScene(stage,cuts,i);
  const p=view[stage].rows.find(r=>r.id===cuts[i]);
- $('#cutscene-caption').innerHTML='<strong>THE HAND CHOOSES.</strong><br>'+esc(p?.name||'');
+ const finale=stage==='final'&&i>=3;
+ $('#cutscene-caption').innerHTML=finale?'<strong>'+ (i===3?'THREE ROSES REMAIN':'TWO ROSES REMAIN')+'</strong><br>THE SHEARS HESITATE':'<strong>THE HAND CHOOSES.</strong><br>'+esc(p?.name||'');
  // Contact happens 950ms after the movement starts; the name, blade closure,
  // collapse and metallic audio belong to that same moment, not the scene start.
  schedule(()=>{
@@ -366,8 +383,8 @@ function strikeDivinePlant(stage,cuts,i){
   const badge=plant?.querySelector('.divine-cut-label');
   if(badge)badge.textContent='PRUNED';
   $('#cutscene-caption').innerHTML='<strong>SNIP! · PRUNED</strong><br>'+esc(p?.name||'');
- },950);
- schedule(()=>strikeDivinePlant(stage,cuts,i+1),1750);
+ },divineCutContact(stage,i));
+ schedule(()=>strikeDivinePlant(stage,cuts,i+1),divineCutDuration(stage,i));
 }
 function beginDivineJudgement(stage,cuts){
  renderDivineScene(stage,cuts);

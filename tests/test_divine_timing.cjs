@@ -92,7 +92,7 @@ assert(goalTier.some(p=>p.tier>0),'show actual growth stages');
  advance(5000);
  assert.deepEqual(sounds,[],'final also starts with the hand choosing a target');
  advance(11750);
- assert.deepEqual(sounds,[5950,7700,9450,11200]);
+ assert.deepEqual(sounds,[5950,7700,9450]);
  run('endCutscene()');await final;
  console.log('PASS divine judgement: 10 plants, 5,000ms thinking, two engine-selected snips, completed fade, prior cuts and safe skip.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

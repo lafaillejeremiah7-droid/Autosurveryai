@@ -337,7 +337,9 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   const [x,,z]=positions[index],tier=clamp(Math.floor(Number(model.tier)||0),0,6);
   const cutIndex=cutIds.indexOf(model.id),
    prior=!!model.priorPruned||cutIndex>=0&&cutIndex<step,cutting=cutIndex===step;
-  const fall=prior?1:cutting?ease(clamp((age-.93)/.72)):0;
+  const dramatic=step>=3&&cutIds.length===5;
+  const contact=dramatic?(step===4?4.30:3.0):.95;
+  const fall=prior?1:cutting?ease(clamp((age-(contact-.02))/.72)):0;
   const sway=prior?0:Math.sin(elapsed*1.4+index*1.31)*.055;
   const height=[.48,1.18,1.98,2.78,3.65,4.63,5.58][tier]*(prior?.64:1);
   const leafColor=prior?[.25,.27,.22]:tier>3?[.23,.56,.29]:[.21,.48,.24];
@@ -393,9 +395,9 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
     }
    }
   }
-  if(cutting&&age>.94&&age<1.68){
+  if(cutting&&age>contact-.01&&age<contact+.73){
    for(let j=0;j<12;j++){
-    const a=j*TAU/12,spread=clamp((age-.94)/.75);
+    const a=j*TAU/12,spread=clamp((age-contact)/.75);
     m.gem(x+Math.cos(a)*spread*1.8,height+Math.sin(j)*.3,
      z+Math.sin(a)*spread*1.8,.12,[1,.86,.51],2,1.45);
    }
@@ -472,7 +474,9 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   }
   // Proper paired shears. One steel pivot, two ring handles, twin broad blades
   // that progressively close on the target flower at exactly 0.95 s.
-  const pivot=at(.72,-2.69,2.22),close=ease(clamp((age-.62)/.33));
+  const dramatic=step>=3&&step<5;
+  const touch=dramatic?(step===4?4.30:3.0):.95;
+  const pivot=at(.72,-2.69,2.22),close=step<0?0:ease(clamp((age-(touch-(dramatic?1.9:.33)))/(dramatic?1.9:.33)));
   const width=(1-close)*1.25;
   const left=at(.72-width,-5.55,2.38),right=at(.72+width,-5.55,2.38);
   const edgePoint=(v,i)=>[v[0]+i,v[1]+.13,v[2]+.18];
@@ -503,7 +507,7 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   const bloomY=.75+[.48,1.18,1.98,2.78,3.65,4.63,5.58][Math.min(6,tier)];
   // At closure both shear tips converge at local [.72,-5.55,2.38].
   const target=[x-.72*HAND_SCALE,bloomY+5.55*HAND_SCALE,z-2.38*HAND_SCALE];
-  const from=previous||emerged,t=ease(clamp(age/.72));
+  const from=previous||emerged,t=ease(clamp(age/(cutIds.length===5&&step>=3?(step===4?3.7:2.45):.72)));
   return from.map((v,i)=>lerp(v,target[i],t));
  }
  function shotCamera(models,cuts,step,age,previous){
@@ -536,6 +540,25 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
    m.gem(...p,.10,pseudoRand(j)>.5?[.97,.68,.73]:[1,.84,.49],2,.32);
   }
   portal(m,step,age,elapsed);
+  if(coronation){
+   const index=models.findIndex(p=>p.id===coronation.id);
+   if(index>=0){
+    const [x,,z]=positions[index],height=1.1+Math.min(6,Number(models[index].tier)||0)*.8;
+    const t=clamp((elapsed-coronation.started)/2.8),beam=ease(t);
+    m.softTube([[x,1.1,z],[x,4+height*beam,z],[x,12+height*beam,z]],
+      [.05+beam*.2,.45+beam*.65,.08+beam*.1],[1,.88,.37],2,14);
+    for(let k=0;k<12;k++){
+     const angle=k*TAU/12+elapsed*.85,rad=1.35+beam*.65;
+     m.gem(x+Math.cos(angle)*rad,1.3+height+Math.sin(elapsed*1.3+k)*.22,
+       z+Math.sin(angle)*rad,.14+beam*.20,[1,.82,.33],2,1.6);
+    }
+    for(let k=0;k<8;k++){
+     const angle=k*TAU/8;const px=x+Math.cos(angle)*(1.4+beam*.3),pz=z+Math.sin(angle)*(1.4+beam*.3);
+     m.gem(px,1.4+height+beam*(2.2+(k%2)*.9),pz,.25,[1,.89,.42],2,1.8);
+    }
+    m.ring([x,1.6+height+beam*2,z],1.5+beam*.7,.12+beam*.10,[1,.88,.36],'xz',2);
+   }
+  }
   const [hx,hy,hz]=handPosition(models,cutIds,step,age,previous);
   const start=m.data.length;
   if(step>=0||age>=PORTAL_LEAD){
@@ -569,6 +592,7 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   return {gl,program,buffer,attrs,uniform:gl.getUniformLocation(program,'u_vp'),eyeUniform:gl.getUniformLocation(program,'u_eye')};
  }
  let active=null;
+ let coronation=null;
  function stop(){
   if(!active)return;
   active.stopped=true;
@@ -586,7 +610,7 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   const instance={...renderer,canvas,models,cuts,step,labels:Array.from(labels||[]),
     start:performance.now(),actionAt:performance.now(),raf:0,stopped:false,
     triangles:0,floats:0,actionFrom:null,cameraFrom:null,lastHand:null,lastCamera:null,phase:'arrival'};
-  active=instance;
+  active=instance;coronation=null;
   const frame=()=>{
    if(instance.stopped||active!==instance)return;
    const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,1.5);
@@ -614,6 +638,11 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   return true;
  }
  function stepAgeStart(instance){return instance.step<0?instance.start:instance.actionAt;}
+ function celebrate(id){
+  if(!active||active.stopped||!active.models.some(p=>p.id===id))return false;
+  coronation={id,started:(performance.now()-active.start)/1000};
+  return true;
+ }
  function setAction(step,models,cuts){
   if(!active||active.stopped||step<0||step===active.step)return false;
   const from=active.lastHand?.slice()||[0,34,-12],camera=active.lastCamera;
@@ -623,7 +652,7 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
   return true;
  }
  window.Divine3D={
-  mount,stop,setAction,
+  mount,stop,setAction,celebrate,
   // Nonmutating inspection for regression checks.
   _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,phase:active.phase,canvas:active.canvas,hand:active.lastHand,webgl:true}:null;},
   _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice()),
@@ -653,7 +682,7 @@ const presets={
  // Already-pruned plants keep their goal total and do not grow in later rounds.
  round1:{tier:[0,2,3,4,6,1,2,5,3,4],goals:[0,2,5,9,24,1,3,16,7,11],prior:[],cuts:[0,5]},
  round2:{tier:[0,3,5,6,6,1,2,6,4,6],goals:[0,7,18,26,30,1,3,27,10,23],prior:[0,5],cuts:[6,1]},
- final:{tier:[0,3,5,6,6,1,2,6,5,6],goals:[0,7,22,34,35,1,3,31,23,38],prior:[0,5,6,1],cuts:[2,8,7,3,4]}
+ final:{tier:[0,3,5,6,6,1,2,6,5,6],goals:[0,7,22,34,35,1,3,31,23,38],prior:[0,5,6,1],cuts:[2,8,7,3,4],champion:9}
 };
 window.DivinePreviewData={presets,growth,names};
 const $=id=>document.getElementById(id),scene=$('scene'),stage=$('round');let timers=[],currentStage='round1',step=-1,target=-1;
@@ -662,7 +691,8 @@ function plates(){
  const p=presets[currentStage],past=p.cuts.slice(0,Math.max(step,0));
  $('plates').innerHTML=names.map((name,i)=>{
  const cut=p.prior.includes(i)||past.includes(i),selected=target===i;
- return '<div class="plate'+(cut?' cut':selected?' target':'')+'"><strong>'+name+'</strong><small>'+p.goals[i]+' goals</small><em>'+growth[p.tier[i]]+(cut?' · PRUNED':selected?' · SELECTED':'')+'</em></div>';
+ const crown=step>=p.cuts.length&&currentStage==='final'&&i===p.champion;
+ return '<div class="plate'+(cut?' cut':selected?' target':'')+'"'+(crown?' style="border-color:#f9d560;box-shadow:0 0 17px #e8b644;background:#443419"':'')+'><strong>'+name+'</strong><small>'+p.goals[i]+' goals</small><em>'+(crown?'CHAMPION’S CROWN':growth[p.tier[i]])+(cut?' · PRUNED':selected?' · SELECTED':'')+'</em></div>';
  }).join('');
 }
 const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
@@ -674,14 +704,29 @@ function replay(){
  const debug=()=>{const s=window.Divine3D._debug();if(s)$('info').textContent='Actual WebGL · '+s.phase+' · '+s.triangles.toLocaleString()+' triangles';};
  debug();
  later(()=>{$('phase').textContent='FIVE-SECOND JUDGMENT';$('caption').textContent='SILENCE. THE HAND CONSIDERS.'},3250);
- presets[currentStage].cuts.forEach((idx,i)=>later(()=>{
- step=i;target=idx;plates();$('phase').textContent='PRUNING '+(i+1)+' / '+cuts.length;
- $('caption').textContent='THE HAND CHOOSES '+names[idx];
- window.Divine3D.setAction(i,models(),cuts);
- later(()=>{target=-1;plates();$('caption').textContent=names[idx]+' — PRUNED';},950);
- },5000+i*1750));
- later(()=>{step=cuts.length;target=-1;plates();$('phase').textContent='VERDICT COMPLETE';
- $('caption').textContent=cuts.length===5?'THE LAST BLOOM REMAINS.':'TWO ARE PRUNED. THE NEXT STAGE AWAITS.'},5000+cuts.length*1750+150);
+ let elapsedCutTime=5000;
+ presets[currentStage].cuts.forEach((idx,i)=>{
+  const contact=currentStage==='final'&&i===4?4300:currentStage==='final'&&i===3?3000:950;
+  const duration=currentStage==='final'&&i===4?6200:currentStage==='final'&&i===3?4800:1750;
+  const thisStart=elapsedCutTime;
+  later(()=>{
+   step=i;target=idx;plates();
+   $('phase').textContent=currentStage==='final'&&i>=3?(i===3?'FINAL THREE · THIRD PLACE':'FINAL TWO · SECOND PLACE'):'PRUNING '+(i+1)+' / '+cuts.length;
+   $('caption').textContent=currentStage==='final'&&i>=3?'THE SHEARS HESITATE ABOVE THE REMAINING ROSES.':'THE HAND CHOOSES '+names[idx];
+   window.Divine3D.setAction(i,models(),cuts);
+   later(()=>{target=-1;plates();$('caption').textContent=names[idx]+' — PRUNED';},contact);
+  },thisStart);
+  elapsedCutTime+=duration;
+ });
+ later(()=>{
+  step=cuts.length;target=-1;plates();
+  $('phase').textContent=currentStage==='final'?'CHAMPION AWAKENING':'VERDICT COMPLETE';
+  if(currentStage==='final'){
+   const winner=presets.final.champion;
+   window.Divine3D.celebrate('p'+(winner+1));
+   $('caption').textContent=names[winner]+' — CHAMPION’S CROWN';
+  }else $('caption').textContent='TWO ARE PRUNED. THE NEXT STAGE AWAITS.';
+ },elapsedCutTime+150);
  let raf=0;function poll(){if(!window.Divine3D._debug()){cancelAnimationFrame(raf);return}debug();raf=requestAnimationFrame(poll)}poll();
 }
 $('again').onclick=replay;stage.onchange=replay;
