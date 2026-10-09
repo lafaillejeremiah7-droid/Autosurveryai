@@ -138,6 +138,8 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
   assert(!out.includes('Name your fate'),`navigable tab ${t[0]} does not render the Name-your-fate screen`);
   assert(!/data-wheel-mode/.test(out),`navigable tab ${t[0]} has no Name-wheel mode tabs`);
  }
+ const pointsTable=vm.runInContext('finalPage()',context).split('<summary>View points per game</summary>')[1].split('</details>')[0];
+ assert.equal((pointsTable.match(/<th>/g)||[]).length,vm.runInContext('view.final.schedule.length',context)+1,'final points table headers match the eight-game schedule');
  // Be Better per-game split model: teams are auto-generated cosmetic 5v5 splits
  // (no wheel assignment, no fixed per-player team).
  const r1=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
@@ -337,7 +339,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  // Build a pristine fixture: earlier sections mutated fixture.state in place (resetStage).
  const undoFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
- vm.runInContext(`state=${JSON.stringify(undoFix.state)};view=${JSON.stringify(undoFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};`,context);
+ vm.runInContext(`state=${JSON.stringify(undoFix.state)};view=${JSON.stringify(undoFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};`,context);
  vm.runInContext('token="T";revision=1;undoSnapshot=null;',context);
  const priorState=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
  assert.equal(priorState.round1.players.p1.goals[0],2,'pristine fixture has Be Better scores before the destructive action');
@@ -369,7 +371,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  //     the snapshot must hold the lineup/goals exactly as they were before the reroll.
  const rerollFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from engine import IDS,new_state,evaluate,round1_lineups;s=new_state();s['names']={p:'Player '+str(i+1) for i,p in enumerate(IDS)};round1_lineups(s);s['round1']['players']['p1']['goals'][1]=4;print(json.dumps({'state':s,'view':evaluate(s),'revision':7}))"],{cwd:root,encoding:'utf8'}));
- vm.runInContext(`state=${JSON.stringify(rerollFix.state)};view=${JSON.stringify(rerollFix.view)};revision=7;token="T";undoSnapshot=null;sitoutBusy=false;spinning=false;render=()=>{};flush=async()=>{};renderUndo=()=>{};`,context);
+ vm.runInContext(`state=${JSON.stringify(rerollFix.state)};view=${JSON.stringify(rerollFix.view)};revision=7;token="T";undoSnapshot=null;lineupBusy=false;render=()=>{};flush=async()=>{};renderUndo=()=>{};`,context);
  const preReroll=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
  assert.equal(preReroll.round1.lineups.length>0,true,'pre-reroll fixture has a round1 lineup');
  assert.equal(preReroll.round1.players.p1.goals[1],4,'pre-reroll fixture carries a known goal');
@@ -407,7 +409,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();s['settings']['win_points']=3;s['settings']['goal_points']=4.5;s['settings']['multiplier']=6;print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
  // (H) CLEAR NAMES blanks all 10 names but leaves scoring untouched; sets an undo
  //     snapshot deep-equal to the pre-action state; undo restores it.
- vm.runInContext(`state=${JSON.stringify(setFix.state)};view=${JSON.stringify(setFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
+ vm.runInContext(`state=${JSON.stringify(setFix.state)};view=${JSON.stringify(setFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
  const beforeNames=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
  assert(vm.runInContext('Object.values(state.names).some(n=>n.trim())',context),'fixture starts with some names set');
  await click({action:'clear-names'});
@@ -425,7 +427,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  context.fetch=()=>new Promise(()=>{});
  // (I) CLEAR SCORING resets win_points=1, goal_points=1.5, multiplier=2 but leaves
  //     names untouched; sets an undo snapshot; undo restores it.
- vm.runInContext(`state=${JSON.stringify(setFix.state)};view=${JSON.stringify(setFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
+ vm.runInContext(`state=${JSON.stringify(setFix.state)};view=${JSON.stringify(setFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
  const beforeScoring=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
  await click({action:'clear-scoring'});
  assert.equal(vm.runInContext('state.settings.win_points',context),1,'clear-scoring reset win_points to 1');
@@ -457,7 +459,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  //     games' goals, names, and settings stay unchanged; and it sets a deep-equal undo snapshot.
  const r1ClearFix=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
- vm.runInContext(`state=${JSON.stringify(r1ClearFix.state)};view=${JSON.stringify(r1ClearFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;round1Game=2;`,context);
+ vm.runInContext(`state=${JSON.stringify(r1ClearFix.state)};view=${JSON.stringify(r1ClearFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};token="T";revision=1;undoSnapshot=null;round1Game=2;`,context);
  const beforeR1Clear=JSON.parse(vm.runInContext('JSON.stringify(state)',context));
  const ids10=JSON.parse(vm.runInContext('JSON.stringify(ids)',context));
  assert(ids10.length===10,'all ten players participate in every Be Better game');
@@ -498,7 +500,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
   "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import IDS,evaluate;s=fixture();e0=dict.fromkeys(IDS);e0['p1']=7;e1=dict.fromkeys(IDS);e1['p2']=9;s['round1']['extras']=[e0,e1];print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
  // (M) extras('round1') renders a per-extra-game remove control with matching data-index
  //     for EACH extra game, plus a single clear-all control when extras is non-empty.
- vm.runInContext(`state=${JSON.stringify(exFix.state)};view=${JSON.stringify(exFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};resetWheelResult=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
+ vm.runInContext(`state=${JSON.stringify(exFix.state)};view=${JSON.stringify(exFix.view)};render=()=>{};flush=async()=>{};save=async()=>{};renderUndo=()=>{};token="T";revision=1;undoSnapshot=null;`,context);
  const exHTML=vm.runInContext("extras('round1')",context);
  assert(exHTML.includes('data-action="remove-extra" data-stage="round1" data-index="0"'),'extras renders a remove control for extra game 1');
  assert(exHTML.includes('data-action="remove-extra" data-stage="round1" data-index="1"'),'extras renders a remove control for extra game 2');

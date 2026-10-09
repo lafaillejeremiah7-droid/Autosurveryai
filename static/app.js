@@ -1,7 +1,7 @@
 'use strict';
 let state,view,revision,token,tab='settings',timer,dirty=false,saving=false,editVersion=0,saveFailed=false;
-let sitoutBusy=false,sitoutAnimating=false;
-let finalGame=0,round2Game=0,round1Game=0,wheelAngle=0,spinning=false,lastMonitor=null,saveTask=null;
+let lineupBusy=false;
+let finalGame=0,round2Game=0,round1Game=0,lastMonitor=null,saveTask=null;
 let resultStage=null,resultMatch=null,resultFinal=false;
 const ids=Array.from({length:10},(_,i)=>`p${i+1}`);
 const $=s=>document.querySelector(s);
@@ -120,7 +120,7 @@ function enterGoal(path,n){
 }
 function refreshGoalControls(){
  for(const el of document.querySelectorAll('input[data-path]')){const rule=goalRule(el.dataset.path);if(rule)el.max=Math.max(rule.max,value(el.dataset.path)||0);}
- for(const b of document.querySelectorAll('button[data-step]')){const rule=goalRule(b.dataset.target);if(!rule)continue;const key=b.dataset.target.split('.')[0],n=value(b.dataset.target)||0;b.disabled=!!view[key].stale||sitoutBusy||spinning||(Number(b.dataset.step)>0?n>=rule.max:n<=0);}
+ for(const b of document.querySelectorAll('button[data-step]')){const rule=goalRule(b.dataset.target);if(!rule)continue;const key=b.dataset.target.split('.')[0],n=value(b.dataset.target)||0;b.disabled=!!view[key].stale||lineupBusy||(Number(b.dataset.step)>0?n>=rule.max:n<=0);}
  for(const el of document.querySelectorAll('[data-score-stage]')){const totals=teamGoals(el.dataset.scoreStage,Number(el.dataset.scoreGame));el.textContent=`Team A ${totals.A} : ${totals.B} Team B`;}
 }
 function matchScoreboard(key,g){const totals=teamGoals(key,g);return `<div class="notice match-score"><strong data-score-stage="${key}" data-score-game="${g}">Team A ${totals.A} : ${totals.B} Team B</strong><span>First to 3 ends the match: remaining blank player goals become 0 automatically.</span></div>`;}
@@ -168,7 +168,7 @@ function renderRoom(){
  if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+lockAttrs(s.key)+' '+(s.status==='current'?'aria-current="step"':'')+'><small>'+roman[i]+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
  window.CityWorld?.setTournament?.(stages);
  $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' gate"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER GATE ↗')+'</span><span class="room-label"><small>GATE '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
- window.BrawlMonuments?.render(view,state);
+ window.BrawlMonuments?.render(view);
  window.CityWorld?.refreshRooms();
  window.CityWorld?.setSettings(state.settings);
  updateCountdown();
@@ -233,7 +233,7 @@ document.addEventListener('submit',e=>{
 
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
  let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Forget The Past). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
- stage.extras.forEach((extra,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
+ stage.extras.forEach((_,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
  const actions=`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>${stage.extras.length?`<button class="danger" data-action="clear-extras" data-stage="${key}">Clear all extra games</button>`:''}`;
  return panel('Extra games',html,actions);
 }
@@ -376,8 +376,8 @@ function round(key){
  const g=round1Game,match=v.games[g].teams,rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=`<div class="match-tabs" aria-label="Be Better match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
- const rerollOff=sitoutBusy||spinning||scored;
- const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':spinning?'Wait for the wheel to finish.':sitoutBusy?'Wait for the current draw to finish.':'';
+ const rerollOff=lineupBusy||scored;
+ const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':lineupBusy?'Wait for the current draw to finish.':'';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r1-game">Clear this game</button></div></div><div class="teams-grid">`;
  for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">Teams are reshuffled per game and share a 3-goal allowance. Individual totals decide advancement. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
@@ -390,19 +390,19 @@ function round2Page(){
  let html=title('ROUND 02','Enough','Five 4v4 games with changing teams. Reshuffle before a game starts to reduce teammate bias; the top six individuals advance.','8 → 6 PLAYERS')+notice(v.issues);
  if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to generate new 4v4 matchups.'])+clearRoundPanel('round2');
  if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Be Better. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
- if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(sitoutBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
+ if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(lineupBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
  html+='<div class="score-help">FIVE 4v4 GAMES · CHANGING TEAMS · ALL EIGHT PLAY EVERY GAME · INDIVIDUAL GOALS DECIDE ADVANCEMENT</div>';
- html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||sitoutBusy;const why=i>=v.draw.revealed?`Finish Game ${v.draw.completed+1} first.`:'Wait for the current save.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
+ html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||lineupBusy;const why=i>=v.draw.revealed?`Finish Game ${v.draw.completed+1} first.`:'Wait for the current save.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
  const match=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('round2',g);
  const scored=Object.values(state.round2.players).some(p=>p.goals[g]!==null);
- const canReshuffle=!v.stale&&!sitoutBusy&&!spinning&&g===v.draw.completed&&!scored;
+ const canReshuffle=!v.stale&&!lineupBusy&&g===v.draw.completed&&!scored;
  const reshuffleWhy=g<v.draw.completed?'This match is already complete.':g!==v.draw.completed?'Finish the previous match first.':scored?'This game has scores. Clear them before reshuffling.':'';
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Balanced 4v4 teams may change every game. Enter all eight scores, including 0 for no goals.</p>${!canReshuffle&&reshuffleWhy?`<p class="hint reason">${esc(reshuffleWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="accent" data-action="r2-reroll" data-match="${g}" ${canReshuffle?'':`disabled title="${esc(reshuffleWhy)}" aria-disabled="true"`}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r2-game" ${v.stale||sitoutBusy?'disabled':''}>Clear this game</button></div></div>`;
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Balanced 4v4 teams may change every game. Enter all eight scores, including 0 for no goals.</p>${!canReshuffle&&reshuffleWhy?`<p class="hint reason">${esc(reshuffleWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="accent" data-action="r2-reroll" data-match="${g}" ${canReshuffle?'':`disabled title="${esc(reshuffleWhy)}" aria-disabled="true"`}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r2-game" ${v.stale||lineupBusy?'disabled':''}>Clear this game</button></div></div>`;
  html+='<div class="teams-grid">';
- for(const t of ['A','B'])html+=`<section class="team-score team-${t.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / BALANCED 4v4</small><h2>Team ${t}</h2></div></div>${match[t].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
+ for(const t of ['A','B'])html+=`<section class="team-score team-${t.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / BALANCED 4v4</small><h2>Team ${t}</h2></div></div>${match[t].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`).join('')}</section>`;
  html+='</div><p class="hint">Players rotate between the two 4v4 teams across games; you can reshuffle an unscored upcoming game. All eight players compete in all five matches. Each team may score at most 3 per match; team wins do not affect individual advancement.</p>';
- const doneOff=sitoutBusy||v.stale||g!==v.draw.completed||!v.games[g].ready;
+ const doneOff=lineupBusy||v.stale||g!==v.draw.completed||!v.games[g].ready;
  const why=g<v.draw.completed?'This match is already done.':g>v.draw.completed?`Finish Match ${v.draw.completed+1} first.`:'Enter all eight scores, including zeros.';
  html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===5?'All 5 matches marked done':`Match ${g+1} of 5`}</h2><p>${v.draw.completed===5?'Resolve any cut ties to unlock the final.':'Save eight scores to unlock the next game.'}</p></div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(why)}"`:''}>${g===4?'Match 5 of 5 done — finish round':`Match ${g+1} of 5 done — next game`}</button></div>`;
  html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${playedLabel(r.played,5)}</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
@@ -420,22 +420,22 @@ function finalPage(){const v=view.final,g=finalGame;
  html+=`<div class="match-tabs" aria-label="Final match selector">${v.games.map((m,i)=>`<button data-game="${i}" aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}${i<2?' ×'+fmt(state.settings.multiplier):''}</button>`).join('')}</div>`;
  const schedule=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('final',g);
- const fClearOff=v.stale||sitoutBusy,fClearWhy=v.stale?'Clear Forget The Past first — the roster changed since these scores.':'Wait for the current draw to finish.';
+ const fClearOff=v.stale||lineupBusy,fClearWhy=v.stale?'Clear Forget The Past first — the roster changed since these scores.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Enter each player’s goals, then mark the winning team.</p>${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
  for(const team of ['A','B']){
   const won=schedule[team].every(p=>state.final.players[p].results[g]==='W'),lost=schedule[team].every(p=>state.final.players[p].results[g]==='L');
-  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear Forget The Past first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||sitoutBusy)}</div>`).join('')}</section>`;
+  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear Forget The Past first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`).join('')}</section>`;
  }
  html+='</div><p class="hint">Marking the winner adds one win to each teammate and records a loss for each opponent. Enter 0 for a played game with no goals. Win and goal points calculate as you enter either value. Played counts complete goal/result pairs; prizes wait for all eight games.</p>';
  html+=panel('Live standings',table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],v.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td><td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  html+=matchSubmit('final',g);
  html+=`<details><summary>View all eight team rotations</summary><p class="hint">Eight different team splits are played. Everyone plays eight matches, with changing teammates and opponents. Slots and match order stay fixed. Games 1 and 2 carry double weight at the default multiplier.</p>${table(['GAME','TEAM A','TEAM B','STATUS'],v.schedule.map(m=>`<tr><td>${m.game}${m.game<=2?' ×'+fmt(state.settings.multiplier):''}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${v.games[m.game-1].ready?'✓ COMPLETE':'PENDING'}</td></tr>`))}</details>`;
- html+=`<details><summary>View points per game</summary>${table(['PLAYER',...Array.from({length:10},(_,i)=>`G${i+1}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
+ html+=`<details><summary>View points per game</summary>${table(['PLAYER',...v.schedule.map(m=>`G${m.game}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
  return html+extras('final')+clearRoundPanel('final');
 }
 async function rerollRound1Game(game){
- if(sitoutBusy||spinning)return;
- sitoutBusy=true;
+ if(lineupBusy)return;
+ lineupBusy=true;
  // Snapshot the pre-reroll state so Undo can restore the prior split. The server
  // echo overwrites state below, so capture before the PUT and keep the snapshot.
  const snap={state:clone(state),label:'Undo: Reshuffle Be Better Game '+(game+1)};
@@ -444,12 +444,12 @@ async function rerollRound1Game(game){
   const res=await fetch('/api/round1-lineup',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'reroll',game:game+1,revision})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
   ({state,view,revision}=data);undoSnapshot=snap;$('#save-status').textContent='Teams reshuffled';error('');
- }catch(err){error(err.message);}finally{sitoutBusy=false;render();}
+ }catch(err){error(err.message);}finally{lineupBusy=false;render();}
 }
 async function progressRound2(action,game){
- if(sitoutBusy||spinning)return false;
+ if(lineupBusy)return false;
  const snap=action==='reroll'?{state:clone(state),label:'Undo: Reshuffle Enough Game '+game}:null;
- sitoutBusy=true;
+ lineupBusy=true;
  try{
   await flush();
   const res=await fetch('/api/round2-draw',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action,game,revision})});
@@ -458,23 +458,9 @@ async function progressRound2(action,game){
   if(snap)undoSnapshot=snap;
   tab='round2';$('#save-status').textContent=action==='start'?'Five matchups generated':action==='reroll'?'Teams reshuffled':'Match completed';error('');
   return true;
- }finally{sitoutBusy=false;render();}
+ }finally{lineupBusy=false;render();}
 }
 
-function drawWheel(names=[],angle=wheelAngle){
- const canvas=$('#wheel-canvas');if(!canvas)return;
- const ctx=canvas.getContext('2d');if(!ctx)return;
- const size=canvas.width,c=size/2,r=c-12,palette=['#d73076','#eadcbb','#672e50','#ada5b5','#ed84b3','#3c334d'];
- ctx.clearRect(0,0,size,size);ctx.save();ctx.translate(c,c);ctx.rotate(angle);const n=names.length||1;
- // All entries keep equal odds; bound the number of visible slices for huge lists.
- const slices=Math.min(n,360),step=Math.PI*2/slices;
- for(let i=0;i<slices;i++){
-  ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,i*step,(i+1)*step);ctx.closePath();ctx.fillStyle=names.length?palette[i%palette.length]:'#332937';ctx.fill();
-  if(n<=60){ctx.save();ctx.rotate((i+.5)*step);ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle=i%palette.length===1||i%palette.length===3||i%palette.length===4?'#271c2d':'#fff6fa';ctx.font=`bold ${n>24?15:n>12?19:25}px Arial`;let label=names[i]||'ADD YOUR NAMES';while(ctx.measureText(label).width>r*.66&&label.length>2)label=label.slice(0,-2);if(label!==(names[i]||'ADD YOUR NAMES'))label+='…';ctx.fillText(label,r-27,0);ctx.restore();}
- }
- ctx.beginPath();ctx.arc(0,0,r,0,2*Math.PI);ctx.strokeStyle='#806076';ctx.lineWidth=8;ctx.stroke();ctx.restore();
- if(n>60){ctx.fillStyle='#18111bc9';ctx.beginPath();ctx.arc(c,c,r*.63,0,2*Math.PI);ctx.fill();ctx.fillStyle='#ffe7f1';ctx.textAlign='center';ctx.font='bold 28px Arial';ctx.fillText(`${n.toLocaleString()} entries`,c,c-120);}
-}
 function render(){
  if(!state)return;renderRoom();renderUndo();renderSaveControls();
  if(!$('#screen-dialog').open)return;
@@ -485,15 +471,15 @@ function render(){
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>${roman[i]}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=`BH / GATE ${roman[tabs.findIndex(t=>t[0]===tab)]} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
  $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. Enough uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Be Better, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
- window.BrawlMonuments?.renderScreen(view,state);
+ window.BrawlMonuments?.renderScreen(view);
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
  $('#screen-scroll').scrollTop=scrollTop;
  
  restoreInputFocus('#content',focus);
 }
-async function openScreen(key,source){
- if(!state||spinning||sitoutBusy||roomTransition||cutsceneActive)return;
+async function openScreen(key){
+ if(!state||lineupBusy||roomTransition||cutsceneActive)return;
  roomTransition=true;
  try{
   await flush();
@@ -514,7 +500,7 @@ async function openScreen(key,source){
 }
 async function closeScreen(){
  if(roomTransition||cutsceneActive)return;
- if(spinning||sitoutBusy){error('Wait for the current operation to finish.');return;}
+ if(lineupBusy){error('Wait for the current operation to finish.');return;}
  const dialog=$('#screen-dialog');if(!dialog.open)return;
  roomTransition=true;
  try{
@@ -530,7 +516,7 @@ function renderSaveControls(){
  const controls=$('#save-controls');if(!controls)return;
  const slot=$('#result-dialog').open?$('#result-save-slot'):$('#screen-dialog').open?$('#screen-save-slot'):$('#room-save-slot');
  if(slot&&controls.parentElement!==slot)slot.appendChild(controls);
- const undo=$('#undo-action');if(undo)undo.disabled=spinning||sitoutBusy;
+ const undo=$('#undo-action');if(undo)undo.disabled=lineupBusy;
 }
 function error(message){$('#error').hidden=!message;$('#error').textContent=message||'';
  // Native dialogs are in the top layer: put errors inside the TOPMOST open one.
@@ -578,12 +564,12 @@ function renderUndo(){
  else btn.hidden=true;
 }
 async function performUndo(){
- if(!undoSnapshot||spinning||sitoutBusy)return;
+ if(!undoSnapshot||lineupBusy)return;
  // Keep the snapshot until the restore has actually persisted. If flush() or the PUT
  // throws, leave undoSnapshot in place and re-render the Undo button so the user can
  // retry instead of losing the restored state.
  const snap=undoSnapshot,prior=snap.state;
- // Undo may restore a saved sit-out draw that differs from the server's current draw
+ // Undo may restore saved lineups that differs from the server's current draw
  // (e.g. undoing a Clear that blanked the draw). The normal save path rejects an edited
  // draw, so persist through the restore flag like a backup restore does.
  try{
@@ -591,22 +577,21 @@ async function performUndo(){
   const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:prior,revision,restore:true})});
   const data=await res.json();if(!res.ok)throw new Error(data.error);
   undoSnapshot=null;
-  state=data.state;view=data.view;revision=data.revision;countdownDraft=null;resetWheelResult();error('');render();renderResult();$('#save-status').textContent='Undo applied';
+  state=data.state;view=data.view;revision=data.revision;countdownDraft=null;error('');render();renderResult();$('#save-status').textContent='Undo applied';
  }catch(err){undoSnapshot=snap;renderUndo();throw err;}
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
 // Human-readable labels for the per-round clear-round controls and their cascade.
 const clearRoundLabel={round1:'Clear Be Better',round2:'Clear Enough',final:'Clear Forget The Past'};
 const clearRoundCopy={round1:'Clear Be Better (also clears Enough &amp; Forget The Past)',round2:'Clear Enough (also clears Forget The Past)',final:'Clear Forget The Past'};
-function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:k==='round2'?5:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
+function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
-function resetWheelResult(){wheelAngle=0;}
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);const match=el.dataset.path.match(/^(round1|round2|final)\.players\.p\d+\.goals\.(\d+)$/);if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));}refreshGoalControls();changed();});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
- if(b.dataset.open){await openScreen(b.dataset.open,b);return;}
+ if(b.dataset.open){await openScreen(b.dataset.open);return;}
  if(b.dataset.tab){await openScreen(b.dataset.tab);return;}
- if(b.dataset.r2Game!==undefined){if(sitoutBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
+ if(b.dataset.r2Game!==undefined){if(lineupBusy||Number(b.dataset.r2Game)>=view.round2.draw.revealed)return;await flush();round2Game=Number(b.dataset.r2Game);render();return;}
  if(b.dataset.r1Game!==undefined){await flush();round1Game=Number(b.dataset.r1Game);render();return;}
  if(b.dataset.game!==undefined){await flush();finalGame=Number(b.dataset.game);render();return;}
  if(b.dataset.step){const current=value(b.dataset.target);if(!enterGoal(b.dataset.target,Math.max(0,(current??0)+Number(b.dataset.step))))return;refreshGoalControls();changed();await save();return;}
@@ -633,7 +618,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:k==='round2'?{goals:Array(5).fill(null)}:{goals:Array(5).fill(null)}]))};resetWheelResult();});await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[18,8,4],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))};});await save();}
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
@@ -647,7 +632,7 @@ $('#cutscene').onclick=()=>endCutscene();
 $('#cutscene').addEventListener('cancel',e=>{e.preventDefault();endCutscene();});
 $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
-$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(spinning||sitoutBusy)throw new Error('Wait for the current operation to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;undoSnapshot=null;countdownDraft=null;round1Game=0;round2Game=Math.min(view.round2.draw.completed,4);finalGame=0;resetWheelResult();error('');render();renderResult();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
+$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(lineupBusy)throw new Error('Wait for the current operation to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;undoSnapshot=null;countdownDraft=null;round1Game=0;round2Game=Math.min(view.round2.draw.completed,4);finalGame=0;error('');render();renderResult();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});
 function updateCountdown(){
  if(state)window.CityWorld?.setSettings(state.settings);
@@ -667,7 +652,7 @@ async function setStartTime(){
 function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});updateCountdown();}clock();setInterval(clock,1000);
 // Shared guard: true while the elimination cutscene owns the screen.
 let cutsceneActive=false;
-const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume arena':'Pause arena';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);}if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start')setStartTime();};
+const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume arena':'Pause arena';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);}};
 
 // Elimination cutscene: the emperor's verdict and the hook. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
@@ -685,10 +670,6 @@ function eliminatedNames(key){
 // Five seconds per eliminated gladiator. Only engine-cut players are judged.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
 let ceremonyLabel="",ceremonyStage="",cutsceneRunId=0,cutsceneReturnResult=false;
-function cutsceneRoster(names){
- const roster=Object.values(state?.names||{}).filter(n=>n&&n.trim());
- return [...new Set([...roster,...names])];
-}
 const titled=(label,suffix)=>(label?label+': ':'')+suffix;
 const schedule=(fn,ms)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},ms));
 const verdictPhases=['enter','judge','down','hook','drag','gone','summary'];
@@ -770,7 +751,7 @@ function runCrownFallback(label){
 let finalWinners=null;
 function finalRoster(cuts){
  const rows=Array.isArray(view?.final?.rows)?view.final.rows:[];
- const winners=[1,2,3].map((rank,i)=>({rank,name:rows.find(x=>x.rank===rank)?.name||('PLACE '+rank)}));
+ const winners=[1,2,3].map(rank=>({rank,name:rows.find(x=>x.rank===rank)?.name||('PLACE '+rank)}));
  const lost=cuts.slice(0,3).map(name=>({rank:0,name}));
  const lineup=[lost[0],winners[1],lost[1],winners[0],lost[2],winners[2]].filter(Boolean);
  return {winners,lineup};

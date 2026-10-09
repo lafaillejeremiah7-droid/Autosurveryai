@@ -26,7 +26,7 @@ let browser,page;
  page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(60000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.goto(url);
- const saved=async()=>{await page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);assert(!await page.locator('#retry-save').isVisible());};
+ const saved=async()=>{await page.waitForFunction(()=>!dirty&&!saving&&!saveFailed&&!lineupBusy);assert(!await page.locator('#retry-save').isVisible());};
  const restore=async state=>{
   await page.evaluate(async state=>{
    const data=await (await fetch('/api/state')).json();
@@ -44,7 +44,7 @@ let browser,page;
  await page.locator('#restore').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))});
  await page.waitForFunction(()=>document.querySelector('#save-status').textContent==='Backup restored and saved');
  assert(await page.evaluate(()=>undoSnapshot===null&&countdownDraft===null),'backup retained stale Undo or countdown draft');
- // All monitors at desktop and phone widths, with no page-level horizontal overflow.
+ // All gate controls at desktop and phone widths, with no page-level horizontal overflow.
  for(const [width,height,label] of [[1440,1000,'desktop'],[390,844,'phone']]){
   await page.setViewportSize({width,height});
   const scene=await page.locator('#walkway-view').evaluate(el=>{
@@ -82,7 +82,7 @@ let browser,page;
  assert(await page.locator('#screen-dialog #undo-action').isVisible());
  await page.locator('#undo-action').click();
  await page.waitForFunction(()=>document.querySelector('#save-status').textContent==='Undo applied');
- assert(await page.locator('text=This roster changed since Enough was scored.').isVisible());
+ assert(await page.locator('text=The survivor list changed. Clear this round and the final to generate new 4v4 matchups.').isVisible());
  // Partial extra games remain unresolved. Keep the form editable after resolution.
  const tie=copy(fixture);tie.round1.players.p5.goals[0]=1;tie.round1.players.p7.goals[1]=2;tie.round1.players.p8.goals[2]=2;
  await restore(tie);await open('round1');await page.locator('[data-r1-game="4"]').click();
@@ -92,6 +92,7 @@ let browser,page;
  await extra('p5').fill('3');await saved();
  assert((await page.locator('#result-content').innerText()).includes('EXTRA GAMES NEEDED'));
  await extra('p9').fill('0');await saved();
+ await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open);
  assert((await page.locator('#result-content').innerText()).includes('ROUND SETTLED'));
  assert(await extra('p9').isVisible(),'resolved extra inputs disappeared');
  await page.waitForFunction(()=>!cutsceneActive);
@@ -111,7 +112,8 @@ let browser,page;
  assert.equal(await extra('p9').inputValue(),'3');
  await snap('extra-games-recovery');
  await page.locator('[data-action="close-result"]').click();
- assert(await page.locator('#screen-dialog #undo-action').count());
+ const saveHost=await page.locator('#screen-dialog').evaluate(e=>e.open)?'#screen-dialog':'#room-save-slot';
+ assert.equal(await page.locator(saveHost+' #undo-action').count(),1,'save controls return to the active screen after the ceremony');
  // Fresh Enough: record all five rebalanced 4v4 matches via real controls, checking the saved draw.
  const fresh=copy(fixture);
  for(const key of ['round2','final']){
@@ -119,10 +121,10 @@ let browser,page;
   for(const p of Object.keys(fresh.names)){fresh[key].players[p].goals=Array(key==='round2'?5:8).fill(null);if(key==='final')fresh[key].players[p].results=Array(8).fill('');}
  }
  fresh.round2.draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};
- await restore(fresh);await open('round2');await page.locator('[data-action="r2-start"]').click();
+ await restore(fresh);await open('round2');await page.locator('[data-action="r2-start"]').click();await saved();
  let firstTeams=null,anyChanged=false;
  for(let g=0;g<5;g++){
-  const current=await page.evaluate(()=>view.round2.schedule[round2Game]);
+  let current=await page.evaluate(()=>view.round2.schedule[round2Game]);
   if(firstTeams){if(JSON.stringify([...current.A].sort())!==JSON.stringify([...firstTeams.A].sort())&&JSON.stringify([...current.A].sort())!==JSON.stringify([...firstTeams.B].sort()))anyChanged=true;}else firstTeams=current;
   if(g===1){
    assert.equal(await page.locator('[data-action="r2-reroll"]').isEnabled(),true);
@@ -130,6 +132,7 @@ let browser,page;
    await page.locator('[data-action="r2-reroll"]').click();await saved();
    const after=await page.evaluate(()=>view.round2.schedule[round2Game]);
    assert.notDeepEqual([...after.A].sort(),[...before.A].sort());
+   current=after;
   }
   const scorers=['A','B'].flatMap(t=>{const eligible=current[t].filter(p=>!['p4','p9'].includes(p));const limit=t==='A'?3:2;return Array.from({length:Math.min(limit,eligible.length)},(_,i)=>eligible[(g+i)%eligible.length]);});
   for(const p of [...current.A,...current.B]){

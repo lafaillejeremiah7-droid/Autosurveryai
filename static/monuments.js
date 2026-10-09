@@ -1,13 +1,8 @@
 (function(root){
  'use strict';
- function model(view,state){
+ function model(view){
   const r1=view.round1,r2=view.round2,final=view.final;
   const first=!!r1.complete,second=first&&!!r2.complete;
-  const towers=Object.entries(state.names).map(([id,name],i)=>{
-   const cut1=first&&r1.rows.some(r=>r.id===id&&r.status==='CUT');
-   const cut2=second&&r2.rows.some(r=>r.id===id&&r.status==='CUT');
-   return {id,name:name||'Player '+(i+1),cut:cut1||cut2,stage:cut1?'Be Better':cut2?'Enough':null,status:cut1?'CUT · TO LIVE':cut2?'CUT · TO DIE':second?'FINALIST':first?'SURVIVOR':'IN PLAY'};
-  });
   const eligible=second&&!final.stale,rows=eligible?final.rows:[],complete=eligible&&!!final.complete;
   const slots=[2,1,3].map(place=>{
    const group=rows.filter(r=>r.rank<=place&&place<r.rank+rows.filter(p=>p.rank===r.rank).length);
@@ -15,7 +10,7 @@
    const person=!tied&&group.length===1?group[0]:null;
    return {place,tied,person:person?.id||null,names:group.map(r=>r.name),points:person?.total??(group.length&&group.every(r=>r.total===group[0].total)?group[0].total:null),prize:complete&&person?person.prize:null};
   });
-  return {towers,slots,complete,eligible,hasScores:rows.some(r=>r.game_points?.some(p=>p!==null)),tie:slots.some(s=>s.tied)};
+  return {slots,complete,eligible,tie:slots.some(s=>s.tied)};
  }
  if(typeof module==='object'&&module.exports){module.exports={model};return;}
  const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -37,11 +32,11 @@
   snapshots.set(key,next);
  }
  root.BrawlMonuments={model,
-  render(view,state){
-   const m=model(view,state);
+  render(view){
+   const m=model(view);
    // Avoid resetting movement on unrelated saves or the one-second countdown tick.
    if(JSON.stringify(m)!==JSON.stringify(lastModel)){podium($('#city-podium'),m);root.CityWorld?.setMonuments(m);lastModel=m;}
   },
-  renderScreen(view,state){podium($('#screen-podium'),model(view,state));}
+  renderScreen(view){podium($('#screen-podium'),model(view));}
  };
 })(typeof window==='object'?window:globalThis);

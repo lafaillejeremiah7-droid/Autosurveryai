@@ -1,0 +1,20 @@
+# Local tournament saves and downloaded backups
+/tournament.json
+/tournament.json.*
+/brawl-hockey-backup*.json
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Optional browser tooling and test output
+node_modules/
+playwright-report/
+test-results/
+
+# Editor and OS metadata
+.DS_Store
+.idea/
+.vscode/

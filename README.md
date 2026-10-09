@@ -10,7 +10,7 @@ Install Python 3.10 or newer if it is not already installed, download this repos
 python app.py
 ```
 
-On macOS/Linux, use `python3 app.py`. On Windows, you can also double-click `start.bat`.
+On macOS/Linux, use `python3 app.py`. On Windows, use `py app.py` if the `python` command is unavailable.
 
 The dashboard opens at **http://127.0.0.1:8765**. Leave the terminal running while using it. Press Ctrl+C to stop. If the port is occupied, run `python app.py --port 8766`.
 
@@ -42,7 +42,7 @@ The live podium appears in the arena, in Forget The Past, and on the Leaderboard
 
 ## Be Better per-game teams
 
-Players are entered directly in **Players & rules**. There is no standalone name wheel, team-draw wheel, **Open team wheel** button, per-player Team dropdown, or **Reset spin** control.
+Enter the ten players directly in **Players & rules**.
 
 Each of the five Be Better games gets its own **fresh random 5v5 split**, generated automatically on the server with cryptographic randomness. Advancement is decided by each player's **total goals** (and goals-per-match average) across all five games. Teams define which players share each game's three-goal limit; qualification is still ranked across all ten players.
 
@@ -127,7 +127,7 @@ If players remain tied after an extra game, add another extra game and score onl
 
 ## Saving and recovery
 
-- Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser. Save status, **Retry save**, and **Undo** stay accessible inside whichever monitor or results window is open.
+- Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser. Save status, **Retry save**, and **Undo** stay accessible inside whichever round or results window is open.
 - Initial and migrated Be Better lineups are saved at startup, so restarting before the first score cannot reshuffle them.
 - **Existing eight-match sit-out rotation saves are not silently reinterpreted.** Their Round 2 scores, final scores, and prior settings are copied to `legacy_round2_rotation` in the downloadable backup. The five-game 4v4 Round 2 and dependent final restart with blank scores and new team assignments. Player names, Be Better results, and settings are retained.
 - Version 5 saves with already scored fixed-team Round 2 matches upgrade without losing scored games or final results. Completed/scored matches keep their original teams, while future unscored games receive balanced lineups.
@@ -153,13 +153,14 @@ If Node.js is available, verify the dashboard, audio, cutscene, timeline, 3D are
 node tests/test_ui.cjs
 node tests/test_sound.cjs
 node tests/test_verdict_cutscene.cjs
+node tests/test_round_cutscenes.cjs
 node tests/test_city_timeline.cjs
 node tests/test_arena_static.cjs
 node tests/test_theme_copy.cjs
 ```
 
-For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five monitors at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all five rotating 4v4 games. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
+For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five screens at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all five rotating 4v4 games. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
 
-The tests cover advancement, top-eight-of-ten Be Better ranking by total goals, the per-game 5v5 splits (valid 5/5 partitions, idempotent generation, advancement independent of valid A/B grouping, and the reshuffle guard that refuses a scored game), per-game readiness requiring all ten scores, blank versus zero, exact averages, multiple extra games, the 8th/9th boundary-bubble fold, final multipliers, podium ties, prize allocation, invalid input, roster changes, HTTP saves, persistence, revision conflicts, all ten unique splits, pair balance, team-consistent results, game-ten scoring, legacy-save migration (including old fixed-team Be Better saves that drop their per-player team and assignment fields), large wheel lists, wheel persistence, independent live goal/win points, five-match fixed Round 2 validation, overall cut ties, invalid sit-out entries, and preservation of archived stage scores, the complete eight-match draw flow, repeat-click guards, draw persistence, and match-done UI controls.
+The tests cover the current five-game Be Better, five-game Enough, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and podium ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
 
 Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the gate ceremony, tie settlement, native-dialog visibility, and skip behavior.

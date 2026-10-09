@@ -1,7 +1,7 @@
 // Verdict cutscene timing and markup. No browser needed. Run: node tests/test_verdict_cutscene.cjs
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('static/app.js','utf8');
-const code=source.slice(source.indexOf('function cutsceneRoster'),source.indexOf('// ONE dismiss path'));
+const code=source.slice(source.indexOf('const titled='),source.indexOf('// ONE dismiss path'));
 assert(code.length>1000,'slice markers present');
 let now=0,id=0;const jobs=new Map(),phases=[],sounds=[],stageWrites=[],ended=[],gates=[];
 const classList=()=>{const set=new Set();return {set,add(...c){for(const x of c){set.add(x);if(x.startsWith('verdict-')||x.startsWith('fc-'))phases.push({phase:x,time:now});}},remove(...c){c.forEach(x=>set.delete(x));},contains:c=>set.has(c),toggle(c,on){if(on===undefined?!set.has(c):on)set.add(c);else set.delete(c);}};};

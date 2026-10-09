@@ -150,7 +150,6 @@
   const fallback=document.createElement('canvas');fallback.id=canvas.id;fallback.setAttribute('aria-hidden','true');canvas.replaceWith(fallback);ctx=fallback.getContext('2d');
  }
  const surface=mode==='static'?document.getElementById('city-canvas'):canvas;
- document.body.classList.add('city-ready');
  const isMoving=()=>!paused&&!media.matches&&!suspended&&!inside&&mode==='webgl';
  // Front face vertical layout of a gate, all heights from y=0 at the gate (s = gate size).
  function faceLayout(s){

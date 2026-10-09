@@ -327,21 +327,6 @@ def order_groups(ids, scores, extras):
         return result
     return [sub for group in groups for sub in split(group,0)]
 
-def goal_fold(p, reg_total, reg_played, extras):
-    """Effective (total, played, average) folding entered extra-game goals in.
-
-    total = regulation goals + sum of that player's non-null extra-game goals;
-    played = regulation matches + count of extra games the player scored in;
-    average = Fraction(total, played) (0 when no matches). Fraction keeps the
-    comparison exact so no float rounding manufactures a tie.
-    """
-    total=reg_total[p]; played=reg_played[p]
-    for e in extras:
-        v=e.get(p)
-        if v is None: continue
-        total+=v; played+=1
-    return total, played, (Fraction(total,played) if played else Fraction(0))
-
 def rank_bubble(ids, reg_scores, extras, cut, straddle_only, resolve):
     """Rank players, folding extra games only for the tied cut-line bubble.
 
