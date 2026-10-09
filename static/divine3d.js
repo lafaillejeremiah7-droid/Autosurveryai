@@ -845,6 +845,14 @@ void main(){
    portalLead:PORTAL_LEAD,handPosition:handPosition(models,cuts,step,age),
    shearTipY:handPosition(models,cuts,step,age)[1]-5.55*HAND_SCALE,
    cameraPhase:shotCamera(models,cuts,step,age).phase,
+   // Sever + finger/blade/contact coincidence, exposed for a browserless
+   // regression check. `contact`/`touch` are the shared blade-meet instant for
+   // the active cutting step; `close` is the single ease that drives BOTH the
+   // shear blades and the hand fingers, so fingerClose===bladeClose always and
+   // both reach 1 exactly at contact, where the rose becomes `severed`.
+   ...(()=>{const dramatic=step>=3&&step<5,contact=dramatic?(step===4?4.30:3.0):.95,
+     close=step<0?0:ease(clamp((age-(contact-(dramatic?1.9:.33)))/(dramatic?1.9:.33)));
+    return {contact,touch:contact,severed:step>=0&&age>=contact,fingerClose:close,bladeClose:close};})(),
    gardenTriangles:baseField.triangles,plantStages:7,details:['marble paths','hedge maze','fountains','gazebos','rose arches','topiary','lamps','flower beds','palace']}),
   _growthMeshes:()=>Array.from({length:7},(_,tier)=>{
    const sample=new Mesh();

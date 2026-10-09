@@ -103,6 +103,36 @@ assert.equal(three._geometry(model,['p3','p7'],-1,.55).shearTipY>geo.portalPlane
 const duringCut=three._geometry(model,['p3','p7'],0,0);
 assert.equal(duringCut.portalOpen,1,'portal remains open while the shears cut');
 assert.equal(duringCut.handScale,geo.handScale,'the same huge hand remains during elimination');
+// Sever + finger/blade/contact coincidence (FEAT-003 regression). For an
+// ordinary cut the blades meet at contact=0.95s: just before, the rose is not
+// yet severed and finger/blade closure is still partial; at and after contact
+// the rose is severed and the fingers have driven the blades fully shut, with
+// finger-closure and blade-closure derived from the SAME ease (so they match).
+const EPS=1e-9;
+const beforeCut=three._geometry(model,['p3','p7'],0,0.90);
+assert.equal(beforeCut.contact,0.95,'ordinary cut contact instant is 0.95s');
+assert.equal(beforeCut.touch,beforeCut.contact,'blade touch and plant contact share the same instant');
+assert.equal(beforeCut.severed,false,'rose is NOT yet severed just before blade contact');
+assert(beforeCut.fingerClose<1,'fingers are still closing just before contact');
+assert(beforeCut.bladeClose<1,'blades are still closing just before contact');
+assert(Math.abs(beforeCut.fingerClose-beforeCut.bladeClose)<EPS,'finger-closure equals blade-closure (same ease) before contact');
+const atCut=three._geometry(model,['p3','p7'],0,0.95);
+assert.equal(atCut.severed,true,'rose IS severed at the blade-contact instant');
+assert(Math.abs(atCut.fingerClose-1)<EPS&&Math.abs(atCut.bladeClose-1)<EPS,'finger and blade closure both reach 1 exactly at contact');
+assert(Math.abs(atCut.fingerClose-atCut.bladeClose)<EPS,'finger-closure equals blade-closure at contact');
+const afterCut=three._geometry(model,['p3','p7'],0,1.50);
+assert.equal(afterCut.severed,true,'rose stays severed after blade contact');
+assert(Math.abs(afterCut.fingerClose-1)<EPS&&Math.abs(afterCut.bladeClose-1)<EPS,'finger and blade grip stay fully closed after contact');
+// Final one-by-one cuts share the slower dramatic contact (step3=3.0s) and the
+// same coincidence of sever, finger-closure and blade-closure.
+const finalCuts=['p1','p2','p3','p4','p5'];
+const finalBefore=three._geometry(model,finalCuts,3,2.9);
+assert.equal(finalBefore.contact,3.0,'final step-3 cut lands its blades at 3.0s');
+assert.equal(finalBefore.severed,false,'final rose is not severed before its slower contact');
+assert(finalBefore.fingerClose<1&&finalBefore.bladeClose<1,'final finger/blade still closing before contact');
+const finalAt=three._geometry(model,finalCuts,3,3.0);
+assert.equal(finalAt.severed,true,'final rose severed at its 3.0s contact');
+assert(Math.abs(finalAt.fingerClose-1)<EPS&&Math.abs(finalAt.bladeClose-1)<EPS&&Math.abs(finalAt.fingerClose-finalAt.bladeClose)<EPS,'final finger and blade closure meet 1 together at contact');
 now=1520;frame();assert.equal(draws,2,'animation redraws WebGL geometry each frame');
 assert.equal(three.setAction(0,model,['p3','p7']),true,'cut updates the same WebGL scene');
 assert.equal(three._debug().canvas,firstCanvas,'no canvas replacement during elimination');
