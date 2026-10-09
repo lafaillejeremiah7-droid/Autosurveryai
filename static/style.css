@@ -531,3 +531,18 @@ body{background:#10271e}
 @keyframes divine-fade-out{from{opacity:1}to{opacity:0}}
 @media(max-width:740px){.divine-advance{flex-direction:column;align-items:start}.divine-advance button{width:100%}#cutscene.divine-mode .cutscene-stage{height:min(650px,66vh);aspect-ratio:auto}.divine-plants{inset:35% 1% 8%}.divine-judge{width:42%}.divine-stems{height:69%}.divine-oracle{letter-spacing:1px;font-size:8px}}
 @media(prefers-reduced-motion:reduce){#cutscene.divine-mode,#cutscene.divine-mode.divine-leaving,.divine-scene *{animation:none!important;transition:none!important}.divine-plant.severing .divine-stems{filter:grayscale(1) brightness(.37)}}
+
+/* The established WebGL garden geometry is also used by Divine Selection.
+   Vector foliage / hand exist only as a graceful no-WebGL fallback. */
+#cutscene-stage .divine-canvas{display:none;position:absolute;inset:0;width:100%;height:100%;z-index:2}
+#cutscene-stage.divine-webgl .divine-canvas{display:block}
+#cutscene-stage.divine-webgl .divine-stars,#cutscene-stage.divine-webgl .divine-halo,
+#cutscene-stage.divine-webgl .divine-judge,#cutscene-stage.divine-webgl .divine-flash{display:none}
+#cutscene-stage.divine-webgl .divine-oracle{z-index:6}
+#cutscene-stage.divine-webgl .divine-plants{display:block;inset:0;position:absolute;z-index:5;pointer-events:none}
+#cutscene-stage.divine-webgl .divine-plant{position:absolute;width:18%;height:auto;min-height:0;transform:translate(-50%,-10%);padding:2px 3px 4px;background:linear-gradient(90deg,transparent,#10291ab8,transparent);border:0;box-shadow:none}
+#cutscene-stage.divine-webgl .divine-stems{display:none}
+#cutscene-stage.divine-webgl .divine-name{font-size:clamp(9px,1.2vw,17px)}
+#cutscene-stage.divine-webgl .divine-plant small{font-size:clamp(8px,.8vw,11px)}
+#cutscene-stage.divine-webgl .divine-plant.severed .divine-name,
+#cutscene-stage.divine-webgl .divine-plant.prior-pruned .divine-name{opacity:.4}

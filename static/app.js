@@ -307,7 +307,7 @@ function divineModels(stage){
  return plantGardenModel(stage).map(p=>({ ...p,priorPruned:p.pruned }));
 }
 function divineCuts(stage){
- return (view[stage]?.rows||[]).filter(p=>p.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99)).map(p=>p.id);
+ return (view[stage]?.rows||[]).filter(p=>stage==='final'?p.rank!==1:p.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99)).map(p=>p.id);
 }
 function renderDivineScene(stage,cuts,latest=-1){
  const models=divineModels(stage);
@@ -318,14 +318,17 @@ function renderDivineScene(stage,cuts,latest=-1){
   const cls=p.priorPruned?'prior-pruned':severed?'severed':severing?'severing':'';
   return `<div class="divine-plant ${cls}" data-player="${p.id}" data-goals="${p.goals}"><div class="divine-stems">${plantSvg(p.tier)}</div><strong class="divine-name">${esc(p.name)}</strong><small>${p.goals} ${p.goals===1?'GOAL':'GOALS'}</small><b class="divine-cut-label">${p.priorPruned||severed||severing?'PRUNED':''}</b></div>`;
  }).join('');
- const html=`<div class="divine-scene ${latest>=0?'is-cutting':'is-thinking'}" data-stage="${stage}" style="--strike-x:${strikeX}%;--strike-y:${strikeY}%"><div class="divine-stars"></div><div class="divine-halo"></div><div class="divine-judge">${divineHandSvg()}</div><div class="divine-oracle">${latest<0?'THE HAND DELIBERATES':'THE VERDICT IS ABSOLUTE'}</div><div class="divine-plants">${flowers}</div><div class="divine-flash"></div><div class="divine-progress">${latest<0?'JUDGEMENT IN 5 SECONDS':`PRUNING ${latest+1} OF ${cuts.length}`}</div></div>`;
- $('#cutscene-stage').innerHTML=html;
+ const html=`<div class="divine-scene ${latest>=0?'is-cutting':'is-thinking'}" data-stage="${stage}" style="--strike-x:${strikeX}%;--strike-y:${strikeY}%"><canvas class="divine-canvas" aria-label="3D golden hand holding shears above ten player plants"></canvas><div class="divine-stars"></div><div class="divine-halo"></div><div class="divine-judge">${divineHandSvg()}</div><div class="divine-oracle">${latest<0?'THE HAND DELIBERATES':'THE VERDICT IS ABSOLUTE'}</div><div class="divine-plants">${flowers}</div><div class="divine-flash"></div><div class="divine-progress">${latest<0?'JUDGEMENT IN 5 SECONDS':`PRUNING ${latest+1} OF ${cuts.length}`}</div></div>`;
+ const host=$('#cutscene-stage');host.innerHTML=html;
+ const canvas=host.querySelector?.('.divine-canvas');
+ const live=window.Divine3D?.mount?.(canvas,models,cuts,latest,host.querySelectorAll?.('.divine-plant'))||false;
+ host.classList.toggle('divine-webgl',live);
 }
 function strikeDivinePlant(stage,cuts,i){
  if(!cutsceneActive)return;
  if(i>=cuts.length){
-  $('#cutscene-caption').innerHTML='<strong>THE TWO HAVE BEEN PRUNED</strong><br>THE NEXT TRIAL AWAITS';
-  schedule(()=>{const overlay=$('#cutscene');overlay.classList.add('divine-leaving');schedule(endCutscene,650);},850);
+  $('#cutscene-caption').innerHTML=stage==='final'?'<strong>THE LAST FLOWER REMAINS</strong><br>THE CHAMPION AWAITS':'<strong>THE TWO HAVE BEEN PRUNED</strong><br>THE NEXT TRIAL AWAITS';
+  schedule(()=>{if(stage==='final'){window.Divine3D?.stop?.();revealFinalWinners(cutsceneRunId);}else{const overlay=$('#cutscene');overlay.classList.add('divine-leaving');schedule(endCutscene,650);}},850);
   return;
  }
  renderDivineScene(stage,cuts,i);
@@ -342,7 +345,7 @@ function beginDivineJudgement(stage,cuts){
 function playDivineCutscene(stage){
  return new Promise(resolve=>{
   const cuts=divineCuts(stage);
-  if(!['round1','round2'].includes(stage)||!view[stage]?.complete||cuts.length!==2||cutsceneActive){resolve();return;}
+  if(!['round1','round2','final'].includes(stage)||!view[stage]?.complete||cuts.length!==(stage==='final'?5:2)||cutsceneActive){resolve();return;}
   const overlay=$('#cutscene');if(!overlay){resolve();return;}
   cutsceneRunId++;cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];cutsceneReturnResult=false;
   window.BrawlAudio?.unlock?.();cutsceneResolve=resolve;cutsceneActive=true;
@@ -477,8 +480,8 @@ async function openMatchResult(key,match){
  // Rounds 1 and 2 reveal judgement only when Continue is clicked. The final
  // retains its distinct five-player champion ceremony after the last match.
  if(resultFinal&&v.complete&&key==='final'){
-  const names=eliminatedNames(key);
-  if(names.length)await playCutscene(names,meta.label,key);
+  finalWinners=finalRoster();
+  await playDivineCutscene('final');
  }
  showResultDialog();
 }
@@ -934,6 +937,7 @@ function endCutscene(){
  cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
+ window.Divine3D?.stop?.();
  const overlay=$('#cutscene');
  if(overlay){if(overlay.open)overlay.close();overlay.hidden=true;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','true');overlay.classList.remove(...cutsceneClasses);}
  cutsceneActive=false;
