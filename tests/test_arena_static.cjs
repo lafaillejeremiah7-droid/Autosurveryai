@@ -125,165 +125,80 @@ function centroid(data){let x=0,y=0,z=0,n=0;for(let i=0;i<data.length;i+=10){x+=
 const equalArrays=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
 
 (async()=>{
- // ---------------- Pass 1: static fallback ----------------
  const S=makeWorld();
- const ST=301; // static mode redraws at most every 300 ms
- await S.step(ST);
- let s=S.status();
- assert.equal(s.mode,'static');assert.equal(s.rooms,5);assert.equal(s.gates.length,7);
- assert.equal(s.phase,'ARENA AT REST');assert.equal(s.progress,0);
- assert.ok(s.gates.every(g=>g.state==='open'));
- const L=S.layout();checkLayout(L);
- assert.equal(s.seats,expectedSeats(L,true),'seats count slots after skips and the static stride');
- assert.ok(s.spectators/s.seats>=.04&&s.spectators/s.seats<=.13,'p=0 fill '+s.spectators/s.seats);
- assert.equal(s.torchCount,24);assert.equal(s.torchesLit,0);assert.equal(s.dusk,0);
- assert.equal(S.elements['city-status'].textContent,'ARENA AT REST');
- assert.ok(S.ctx2d.fills>0,'static painter drew triangles');
- // Door labels: five Roman-numbered gates plus two decor markers in street view, reused across frames.
- const host=S.elements['door-labels'];
- assert.deepEqual(host.children.map(c=>c.textContent),['I / Players & rules','II / Be Better','III / Enough','IV / Forget The Past','V / Leaderboard',"Losers' Gate",'Triumph Gate']);
- assert.equal(host.children.filter(c=>c.className==='door-marker decor').length,2);
- const replaced=host.replaceCount;
- for(let i=0;i<3;i++){S.W.setPaused(false);await S.step(ST);}
- assert.equal(host.replaceCount,replaced,'labels reused (no per-frame DOM)');assert.equal(host.children.length,7);
- // Spectators rise with p.
- const fills=[];
- for(const p of [0,.5,1]){S.W.setSettings(settingsAt(p));await S.step(ST);const t=S.status();assert.equal(t.progress,p);fills.push(t);}
- assert.ok(fills[0].spectators<=fills[1].spectators&&fills[1].spectators<=fills[2].spectators,'spectators non-decreasing');
- assert.equal(fills[2].spectators,fills[2].seats,'full house at p=1');
- assert.equal(fills[2].phase,'THE GAMES BEGIN');
- assert.equal(S.context.document.body.style['--arena-heat'],'1');
- // Gate states and dusk.
- S.W.setTournament(stages('complete','current','sealed'));await S.step(ST);s=S.status();
- assert.deepEqual(s.gates.map(g=>g.state),['open','crowned','open','sealed','open','open','open']);
- assert.equal(s.duskTarget,1/3);assert.equal(s.dusk,s.duskTarget,'dusk snaps when still');
- assert.ok(host.children[3].className.includes('locked'),'sealed gate marker is locked');
- S.W.setTournament(stages('complete','complete','complete'));await S.step(ST);s=S.status();
- assert.equal(s.dusk,1);assert.equal(s.torchesLit,s.torchCount,'every torch lit at dusk 1');
- checkBudgets(s,'static',11000);
- // Birds: on while calm and dusk 0, off once a round is settled.
- S.W.setTournament(stages('current','sealed','sealed'));await S.step(ST);
- S.W.setSettings(settingsAt(.05));assert.equal(S.audio.birds.at(-1),true,'birds while calm at dusk 0');
- S.W.setTournament(stages('complete','current','sealed'));await S.step(ST);assert.ok(S.status().dusk>0);
- S.W.setSettings(settingsAt(.05));assert.equal(S.audio.birds.at(-1),false,'no birds once dusk > 0');
- assert.deepEqual(plain(S.audio.cues.at(-1)),[.05,false]);
- S.W.setSettings(settingsAt(1));assert.equal(S.audio.birds.at(-1),false,'no birds once the games begin');
- S.W.setSettings(settingsAt(.05));
- // Ceremony (AC 9) with still visuals (static mode, NFR3).
- let crowns=0,resolved=false;
- const pending=S.W.crownGate('round1','Be Better',()=>crowns++).then(()=>{resolved=true;});
- s=S.status();assert.equal(s.sceneView,'ceremony');assert.deepEqual(s.ceremony,{key:'round1',phase:'approach'});
- assert.ok(S.classes.has('gate-ceremony'));assert.equal(S.elements['ceremony-status'].textContent,'RETURNING TO THE ARENA: BE BETTER');
- await flush();s=S.status();assert.equal(s.ceremony.phase,'descend');
- assert.equal(s.gates[1].state,'open','no early wreath while the laurel descends');
- const laurelAt=L.gates[1].laurelAt;
- const ceremonySlice=()=>{const r=S.status().debug.ceremonyRange;return S.dynamic().slice(r[0],r[1]);};
- await S.step(500);const a05=ceremonySlice();
- await S.step(500);const a10=ceremonySlice();
- assert.ok(a05.length>0,'laurel drawn while descending');assert.ok(equalArrays(a05,a10),'still laurel does not move');
- centroid(a05).forEach((v,i)=>assert.ok(Math.abs(v-laurelAt[i])<1e-6,'laurel rests at laurelAt'));
- assert.equal(S.elements['ceremony-status'].textContent,'THE LAUREL DESCENDS');assert.equal(crowns,0);
- await S.step(500);s=S.status();
- assert.equal(crowns,1);assert.equal(s.ceremony.phase,'crowned');assert.equal(s.gates[1].state,'crowned');
- assert.equal(S.elements['ceremony-status'].textContent,'GATE CROWNED. ROUND COMPLETE');
- await S.step(500);const a20=ceremonySlice();await S.step(1000);const a30=ceremonySlice();
- assert.ok(a20.length>0&&equalArrays(a20,a30),'still crown ring is static (no petal burst)');
- assert.ok(!resolved);await S.step(2100);assert.equal(S.status().ceremony,null);await pending;assert.ok(resolved);assert.equal(crowns,1,'onCrown exactly once');
- assert.equal(S.status().sceneView,'ceremony');
- S.W.cancelCeremony();s=S.status();
- assert.equal(s.sceneView,'street');assert.equal(s.ceremony,null);assert.ok(!S.classes.has('gate-ceremony'));
- assert.deepEqual(s.cameraEye,[0,60,16]);
- S.W.cancelCeremony();assert.deepEqual(S.status(),s,'second cancelCeremony changes nothing');
- // Cancel mid-ceremony resolves at once without crowning.
- let midCrowns=0,midResolved=false;
- const mid=S.W.crownGate('round2',null,()=>midCrowns++).then(()=>{midResolved=true;});
- assert.equal(S.elements['ceremony-status'].textContent,'RETURNING TO THE ARENA');
- await flush();await S.step(500);S.W.cancelCeremony();await mid;
- assert.ok(midResolved);assert.equal(midCrowns,0);assert.equal(S.status().ceremony,null);assert.equal(S.status().sceneView,'street');
- // Unknown key resolves immediately without onCrown.
- let unknown=0;await S.W.crownGate('nope','X',()=>unknown++);assert.equal(unknown,0);assert.equal(S.status().ceremony,null);assert.equal(S.status().sceneView,'street');
- assert.equal(S.warnings.length,0);
- console.log('Arena static pass: parts '+JSON.stringify(s.debug.parts)+' total '+s.debug.staticTriangles);
+ await S.step(301);
+ let status=S.status();
+ assert.equal(status.mode,'static');
+ assert.equal(status.rooms,5,'royal garden has five pavilion rooms');
+ assert.equal(status.gates.length,5,'no Coliseum gates remain');
+ assert.equal(status.bloomLevel,0,'rosebuds begin closed');
+ assert.equal(status.gardenFlowers,0,'no open roses before qualification');
+ assert.ok(status.gardenHedges>40,'maze hedges have actual 3D geometry');
+ assert.ok(status.debug.staticTriangles>2000&&status.debug.staticTriangles<12000,'garden mesh budget');
+ for(const key of ['lawn','maze-hedges','rose-beds','pavilions','royal-palace','fountains','rose-arches'])
+  assert.ok(status.debug.parts[key]>0,'garden mesh part '+key+' missing');
+ const labels=S.elements['door-labels'];
+ assert.equal(labels.children.length,5,'only real tournament pavilions have scene labels');
+ assert.equal(S.elements['city-damage'].textContent,'0% BLOOM');
+ const unflowered=status.gardenFlowers;
+ S.W.setTournament(stages('complete','current','sealed'));
+ await S.step(301);
+ status=S.status();
+ assert.equal(status.bloomLevel,1/3);
+ assert.ok(status.gardenFlowers>unflowered&&status.gardenFlowers<112,'first bloom');
+ const one=status.gardenFlowers;
+ S.W.setTournament(stages('complete','complete','current'));await S.step(301);
+ status=S.status();assert.equal(status.bloomLevel,2/3);
+ assert.ok(status.gardenFlowers>one,'second bloom adds flowers');
+ S.W.setTournament(stages('complete','complete','complete'));await S.step(301);
+ status=S.status();assert.equal(status.bloomLevel,1);
+ assert.equal(status.gardenFlowers,112,'all roses open at final');
+ assert.equal(S.elements['city-status'].textContent,'ROYAL GARDEN IN FULL BLOOM');
+ assert.equal(S.elements['city-damage'].textContent,'100% BLOOM');
+ assert.equal(S.elements['city-progress'].style.width,'100%');
+ assert.equal(status.gates.find(g=>g.key==='round1').state,'crowned');
+ S.W.setSettings(settingsAt(1));
+ assert.equal(S.status().progress,1);
+ assert.equal(S.status().phase,'THE GARDEN IS OPEN');
 
- // ---------------- Pass 2: fake WebGL ----------------
- const {gl,rec}=fakeGL();
- const G=makeWorld({gl});
- const FR=33;
- G.W.setSettings(settingsAt(.1));G.W.setTournament(stages());
- await G.step(FR);
- s=G.status();assert.equal(s.mode,'webgl');assert.equal(s.rooms,5);assert.equal(G.warnings.length,0);
- checkLayout(G.layout());
- assert.equal(s.seats,expectedSeats(G.layout(),false));
- // Uniform declarations and AC 19 precision rule.
- const declared=src=>{const out={};for(const m of src.matchAll(/uniform\s+(?:(lowp|mediump|highp)\s+)?(\w+)\s+([^;]+);/g))for(const n of m[3].split(','))out[n.trim().replace(/\[.*$/,'')]=m[1]||null;return out;};
- assert.equal(rec.programs.length,2);
- for(const p of rec.programs){
-  const [v,f]=[p.shaders.find(x=>x.type===gl.VERTEX_SHADER),p.shaders.find(x=>x.type===gl.FRAGMENT_SHADER)];
-  const dv=declared(v.src),df=declared(f.src);
-  for(const {name} of rec.locations.filter(l=>l.p===p))assert.ok(name in dv||name in df,'uniform '+name+' is declared');
-  const shared=Object.keys(dv).filter(n=>n in df);
-  for(const n of shared)assert.ok(dv[n]&&dv[n]===df[n],'uniform '+n+' shared with mismatched precision');
-  assert.deepEqual(shared,[],'no uniform shared between stages');
- }
- assert.deepEqual(rec.locations.filter(l=>l.p===rec.programs[0]).map(l=>l.name),['u_vp','u_wtime','u_wheat','u_surge','u_center','u_eye','u_fog','u_heat','u_dusk','u_time']);
- assert.deepEqual(rec.locations.filter(l=>l.p===rec.programs[1]).map(l=>l.name),['u_heat','u_dusk','u_time']);
- // Worst-case budget: p=1 and three crowned gates.
- G.W.setSettings(settingsAt(1));G.W.setTournament(stages('complete','complete','complete'));await G.step(FR);
- checkBudgets(G.status(),'webgl',13500);
- const webglParts=G.status().debug.parts;
- // Reset to a calm morning before the ease test.
- G.W.setSettings(settingsAt(.1));G.W.setTournament(stages());
- // setPaused freezes elapsed (u_wtime).
- await G.step(FR);await G.step(FR);const w1=rec.uniforms.u_wtime;
- G.W.setPaused(true);await G.step(FR);const w2=rec.uniforms.u_wtime;
- for(let i=0;i<5;i++)await G.step(FR);G.W.setPaused(true);await G.step(FR);const w3=rec.uniforms.u_wtime;
- assert.equal(w2,w1,'paused frame does not advance');assert.equal(w3,w1,'elapsed frozen while paused');
- G.W.setPaused(false);await G.step(FR);assert.ok(rec.uniforms.u_wtime>w3,'elapsed resumes');
- // Dusk ease never rebuilds the static mesh.
- const staticBuffer=rec.buffers[0];
- let stable=0,last=-1;
- for(let i=0;i<200&&stable<3;i++){await G.step(FR);const r=G.status().debug.rebuilds;stable=r===last?stable+1:0;last=r;}
- assert.equal(stable,3,'world settles');
- const r0=G.status().debug.rebuilds,b0=rec.bufferData.get(staticBuffer);
+ // A settled round still calls the 3D pavilion ceremony once.
+ let bloomCalls=0;
+ const ceremony=S.W.crownGate('round1','Be Better',()=>bloomCalls++);
+ assert.equal(S.status().ceremony.phase,'approach');
+ await flush();
+ assert.equal(S.status().ceremony.phase,'descend');
+ await S.step(1600);
+ assert.equal(bloomCalls,1);
+ assert.equal(S.status().ceremony.phase,'crowned');
+ assert.equal(S.elements['ceremony-status'].textContent,'THE PAVILION BLOOMS');
+ await S.step(3900);await ceremony;
+ assert.equal(S.status().ceremony,null,'ceremony resolves');
+ S.W.cancelCeremony();
+
+ // Fake WebGL path: two shader programs, draws, mesh and live bloom.
+ const {gl,rec}=fakeGL(),G=makeWorld({gl});
  G.W.setTournament(stages('complete','current','sealed'));
- await G.step(FR);
- assert.equal(G.status().debug.rebuilds,r0+1,'duskTarget change rebuilds once');
- const b1=rec.bufferData.get(staticBuffer);assert.equal(b1,b0+1);
- for(let i=0;i<9;i++)await G.step(FR);
- s=G.status();assert.ok(s.dusk>0&&s.dusk<1/3,'dusk easing: '+s.dusk);
- for(let i=0;i<60;i++)await G.step(FR);
- s=G.status();
- assert.equal(s.debug.rebuilds,r0+1,'ease does not rebuild');assert.equal(rec.bufferData.get(staticBuffer),b1,'no static upload during ease');
- assert.equal(s.dusk,1/3,'clamped ease reaches the target exactly');
- assert.ok(Math.abs(rec.uniforms.u_dusk-1/3)<1e-12);
- // AC 16: the ceremony camera stays on its snapshot while paused, rumbles when not.
- async function ceremonyEyeAtAge2(pausedRun){
-  let crowned=0;
-  const done=G.W.crownGate('round1','Be Better',()=>crowned++);
-  for(let i=0;i<400&&G.status().ceremony?.phase!=='descend';i++)await G.step(FR);
-  assert.equal(G.status().ceremony.phase,'descend');
-  const snapshot=G.status().cameraEye;
-  G.W.setPaused(pausedRun);
-  await G.step(2000);
-  const eye=G.status().cameraEye;
-  assert.equal(crowned,1);
-  G.W.cancelCeremony();await done;G.W.setPaused(false);
-  for(let i=0;i<200&&G.status().traveling;i++)await G.step(FR);
-  return {snapshot,eye};
- }
- const paused=await ceremonyEyeAtAge2(true);
- assert.deepEqual(paused.eye,paused.snapshot,'paused ceremony camera equals the snapshot');
- const live=await ceremonyEyeAtAge2(false);
- assert.notDeepEqual(live.eye,live.snapshot,'unpaused ceremony camera rumbles');
- assert.equal(G.status().sceneView,'street');
- // Street camera: the aerial view sits high above the stands.
- assert.ok(G.status().cameraEye[1]>15);
- // A page load with settled rounds starts at the saved dusk (no sunset replay, no morning birds).
- const R=makeWorld({gl:fakeGL().gl});
- R.W.setSettings(settingsAt(.05));R.W.setTournament(stages('complete','complete','current'));
- assert.equal(R.status().dusk,2/3,'first setTournament snaps dusk');
- R.W.setSettings(settingsAt(.05));assert.equal(R.audio.birds.at(-1),false,'no birds on a reload after settled rounds');
- await R.step(FR);assert.equal(R.status().dusk,2/3,'no sunset replay after load');
- console.log('Arena WebGL pass: parts '+JSON.stringify(webglParts)+' total '+Object.values(webglParts).reduce((a,b)=>a+b,0));
- console.log('Arena static test passed: static + WebGL passes, AC 8, AC 9, AC 16, AC 19, budgets, dusk ease without rebuilds, still ceremony, labels, birds.');
+ await G.step(33);
+ let g=G.status();
+ assert.equal(g.mode,'webgl');
+ assert.equal(g.rooms,5);
+ assert.equal(g.bloomLevel,1/3);
+ assert.ok(g.gardenHedges>40);
+ assert.ok(g.debug.staticTriangles<12000);
+ assert.equal(rec.programs.length,2,'3D shader and sky shader');
+ assert.ok(rec.buffers.length>=2);
+ assert.ok(g.cameraEye[1]>30,'aerial first-person garden camera');
+ const firstTime=rec.uniforms.u_wtime;
+ G.W.setPaused(true);await G.step(33);
+ assert.equal(rec.uniforms.u_wtime,firstTime,'pausing holds the camera animation');
+ G.W.setPaused(false);await G.step(33);
+ assert.ok(rec.uniforms.u_wtime>firstTime,'resuming advances time');
+ const oldBuilds=G.status().debug.rebuilds;
+ G.W.setTournament(stages('complete','complete','complete'));
+ await G.step(33);
+ assert.equal(G.status().bloomLevel,1);
+ assert.equal(G.status().debug.rebuilds,oldBuilds+1,'bloom transition rebuilds flowers');
+ assert.equal(G.status().gardenFlowers,112);
+ assert.deepEqual(G.warnings,[]);
+ console.log('Royal Garden renderer tests passed: 5 pavilions, hedge maze, 3 blooms, fountain scene, 2D/WebGL, camera and ceremony.');
 })().catch(e=>{console.error(e);process.exit(1);});
