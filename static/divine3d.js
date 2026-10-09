@@ -604,12 +604,17 @@ float painted(vec2 p){
  vec2 g=floor(p);
  return hash2(g)*.6+hash2(floor(p*.5)+vec2(3.,7.))*.4;
 }
+float cloudNoise(vec2 p){
+ vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+ return mix(mix(hash2(i),hash2(i+vec2(1.,0.)),f.x),
+            mix(hash2(i+vec2(0.,1.)),hash2(i+vec2(1.,1.)),f.x),f.y);
+}
 void main(){
  if(v_kind>9.0){
   vec2 uv=v_pos.xy*.5+.5;
   float t=smoothstep(.04,.94,uv.y);
   vec3 sky=mix(vec3(.76,.68,.60),vec3(.20,.31,.47),t);
-  float clouds=painted(uv*vec2(18.,13.))*.66+painted(uv*vec2(43.,25.))*.34;
+  float clouds=cloudNoise(uv*vec2(13.,7.))*.66+cloudNoise(uv*vec2(34.,17.))*.34;
   float veil=smoothstep(.48,.8,clouds)*(1.-t)*.25;
   sky=mix(sky,vec3(.94,.82,.67),veil);
   float sun=exp(-length((uv-vec2(.72,.64))*vec2(1.,1.4))*23.);
