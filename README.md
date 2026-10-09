@@ -28,7 +28,7 @@ The round titles describe the mental development each competitor is challenged t
 
 The sequence moves from **self-awareness → adaptability → mental fortitude**. Round 3 is the final psychological test; the podium is its outcome, not a fourth competitive round.
 
-The round names follow a nature-and-philosophy arc: **Know Thy Nature** (understand your roots and weaknesses), **Adapt or Wither** (natural selection rewards adaptation), and **The Last Bloom** (a single surviving champion). All ten competitors have an equal chance to earn the one **$40 winner-take-all prize**; second through tenth receive **$0**. Existing tournaments and restored backups automatically adopt the fixed payout without losing scores or round results.
+The round names follow a nature-and-philosophy arc: **Know Thy Nature** (understand your roots and weaknesses), **Adapt or Wither** (natural selection rewards adaptation), and **The Last Bloom** (a single surviving champion). All ten competitors compete for the one **$40 winner-take-all prize**; second through tenth receive **$0**. Existing tournaments and restored backups automatically adopt the fixed payout without losing scores or round results.
 
 ## The Royal Garden
 
@@ -175,6 +175,6 @@ node tests/test_theme_copy.cjs
 
 For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five screens at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all five rotating 4v4 games. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
 
-The tests cover the current five-game Know Thy Nature, five-game Adapt or Wither, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and podium ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
+The tests cover the current five-game Know Thy Nature, five-game Adapt or Wither, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and first-place ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
 
 Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the pavilion bloom ceremony, tie settlement, native-dialog visibility, and skip behavior.
