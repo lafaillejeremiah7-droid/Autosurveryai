@@ -1,11 +1,13 @@
 """Regression cases for corrections made after the first full tournament run."""
+import csv
+import io
 import json
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from engine import IDS, TIE, evaluate, validate
 from app import Store, make_server
 from test_tournament import fixture, cut_tie_state, final_tie_state
@@ -131,5 +133,36 @@ class Regressions(unittest.TestCase):
                 self.assertEqual(caught.exception.code,404);caught.exception.close()
             finally:
                 server.shutdown();server.server_close()
+
+    def test_standings_csv_guards_leading_whitespace_formula_injection(self):
+        # A spreadsheet strips leading whitespace/newlines before evaluating a
+        # cell, so a name whose first non-whitespace char is a formula operator
+        # must be emitted with a protective leading single quote even when the
+        # raw first character is a space, tab, carriage return, or newline.
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'state.json';store=Store(path)
+            server=make_server(store,0)
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            url=f'http://127.0.0.1:{server.server_port}'
+            try:
+                state=fixture()
+                injected={'p1':' =1+1','p2':'\n=cmd()','p3':'=HYPERLINK(1)','p4':'\t+2','p5':'\r-3','p6':'@SUM(1)','p7':'Player 7'}
+                state['names'].update(injected)
+                info=json.load(urlopen(url+'/api/state'));token=info['token']
+                body=json.dumps({'revision':info['revision'],'state':state,'restore':True}).encode()
+                headers={'Content-Type':'application/json','X-Session-Token':token}
+                json.load(urlopen(Request(url+'/api/state',data=body,headers=headers,method='PUT')))
+                csv_text=urlopen(url+'/api/standings.csv').read().decode('utf-8-sig')
+                rows=list(csv.reader(io.StringIO(csv_text)))
+                cells={row[0] for row in rows[1:]}
+                for pid,name in injected.items():
+                    if name.lstrip() and name.lstrip()[0] in '=+-@|\t\r\n':
+                        with self.subTest(name=repr(name)):
+                            self.assertIn("'"+name,cells)
+                            self.assertNotIn(name,cells)
+                # An ordinary name must not be over-escaped with a leading quote.
+                self.assertIn('Player 7',cells);self.assertNotIn("'Player 7",cells)
+            finally:
+                server.shutdown();server.server_close();thread.join()
 
 if __name__=='__main__':unittest.main()

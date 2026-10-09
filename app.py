@@ -66,7 +66,7 @@ def make_server(store,port=8765):
                     out=io.StringIO();writer=csv.writer(out);writer.writerow(['Player','Know Thy Nature','Adapt or Wither','The Last Bloom rank','Total points','Prize','Final status'])
                     for p,name in store.state['names'].items():
                         r=fin.get(p,{})
-                        safe="'"+name if name.startswith(('=','+','-','@','\t','\r')) else name
+                        stripped=name.lstrip();safe="'"+name if stripped and stripped[0] in '=+-@|\t\r\n' else name
                         writer.writerow([safe,r1.get(p,{}).get('status',''),r2.get(p,{}).get('status',''),r.get('rank',''),r.get('total',''),r.get('prize',''),r.get('status','')])
                     return self.send(200,out.getvalue().encode('utf-8-sig'),'text/csv; charset=utf-8','brawl-hockey-standings.csv')
             files={'/divine-preview':('divine_actual_scene_standalone.html','text/html; charset=utf-8'),'/monuments.js':('monuments.js','text/javascript; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/city.js':('city.js','text/javascript; charset=utf-8'),'/divine3d.js':('divine3d.js','text/javascript; charset=utf-8'),'/city-timeline.js':('city-timeline.js','text/javascript; charset=utf-8'),'/city.css':('city.css','text/css; charset=utf-8')}
