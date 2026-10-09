@@ -44,5 +44,5 @@ assert.equal(at(.5).phase,'GARDEN STIRRING');assert.equal(at(.55).phase,'GARDEN 
 assert.equal(at(.79).phase,'GARDEN OPENING SOON');assert.equal(at(.8).phase,'THE GARDEN OPENS');assert.equal(at(1).phase,'THE GARDEN IS OPEN');
 
 const phases=new Set([...table.map(t=>t[3]),'GARDEN WAITING']);
-assert.deepEqual([...phases].sort(),['GARDEN WAITING','THE GARDEN OPENS','GARDEN AWAKENING','GARDEN OPENING SOON','ROSEBUDS WAITING','GARDEN STIRRING','THE GARDEN IS OPEN']);
+assert.deepEqual([...phases].sort(),['GARDEN WAITING','THE GARDEN OPENS','GARDEN AWAKENING','GARDEN OPENING SOON','ROSEBUDS WAITING','GARDEN STIRRING','THE GARDEN IS OPEN'].sort());
 console.log('City timeline passed: Royal Garden phases, thresholds .12/.3/.55/.8, rest/arrival states and unchanged progress values.');

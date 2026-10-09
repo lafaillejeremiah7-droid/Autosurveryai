@@ -140,6 +140,15 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  }
  const pointsTable=vm.runInContext('finalPage()',context).split('<summary>View points per game</summary>')[1].split('</details>')[0];
  assert.equal((pointsTable.match(/<th>/g)||[]).length,vm.runInContext('view.final.schedule.length',context)+1,'final points table headers match the eight-game schedule');
+ // Scene progress follows valid completed matches even before a round settles.
+ vm.runInContext('view=JSON.parse(JSON.stringify(fixture.view));view.round1.complete=false;view.round1.games.forEach((g,i)=>g.ready=i===0);',context);
+ let bloomStages=vm.runInContext('gateStages()',context);
+ assert.equal(bloomStages.find(s=>s.key==='round1').progress,1/5);
+ assert.equal(bloomStages.find(s=>s.key==='round2').progress,0,'locked downstream scores cannot bloom');
+ assert.equal(bloomStages.find(s=>s.key==='final').progress,0);
+ vm.runInContext('view.round1.stale=true;',context);
+ assert.equal(vm.runInContext('gateStages()',context).find(s=>s.key==='round1').progress,0,'stale scores cannot bloom');
+ vm.runInContext('view=fixture.view;',context);
  // Know Thy Nature per-game split model: teams are auto-generated cosmetic 5v5 splits
  // (no wheel assignment, no fixed per-player team).
  const r1=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',

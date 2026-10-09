@@ -144,7 +144,7 @@
   const m=new Mesh(),still=mode==='static';partTris={};rebuilds++;
   const part=(name,fn)=>{const before=m.data.length;fn();partTris[name]=(m.data.length-before)/30;};
   const stone=[.78,.77,.65],gravel=[.83,.77,.60],hedge=[.14,.36,.18],hedgeTip=[.21,.49,.25],gold=[.83,.67,.36];
-  const bloom=Math.round(bloomLevel*3);
+  const openRoses=Math.round(bloomLevel*112);
   const roseColors=[[.99,.42,.53],[.97,.73,.48],[.92,.67,.87],[.97,.93,.76]];
   gardenFlowers=0;gardenHedges=0;
   part('lawn',()=>{
@@ -183,14 +183,14 @@
     if(Math.abs(x)<10)continue;m.box(x,1.2,z,4,2.4,5,[.12,.34,.18]);}
   });
   part('rose-beds',()=>{
-   // Each round complete opens a fresh section of roses. At zero completions
-   // only rosebuds and stems exist; after Final, every section is in bloom.
+   // Each completed match opens more roses. A stable permutation scatters the
+   // flowers around the maze and preserves their positions across reloads.
    for(let i=0;i<112;i++){
     const lane=i%8,rank=Math.floor(i/8),side=lane<4?-1:1;
     const x=side*(5+(lane%4)*8)+Math.sin(i*13.1)*1.4,z=-19-rank*7.3;
     const y=.2+(i%4)*.05,col=roseColors[i%roseColors.length];
     m.box(x,.3,z,.13,.6,.13,[.12,.42,.17]);
-    const open= (i%3)<bloom;
+    const open=(i*37)%112<openRoses;
     if(open){
      m.gem(x,.95,z,.62,col,3,.55);gardenFlowers++;
      for(let k=0;k<5;k++){const angle=k*TAU/5;m.gem(x+Math.sin(angle)*.4,.76,z+Math.cos(angle)*.4,.28,
@@ -245,7 +245,7 @@
     const z=-19-n*15,x=n%2?-2:2;
     for(const off of [-4.7,4.7])m.box(x+off,2.5,z,.45,5,.45,[.71,.72,.62]);
     m.box(x,5.1,z,10,.5,.65,[.23,.44,.23]);
-    m.gem(x,6.1,z,.8,bloom>n%3?roseColors[n%4]:[.22,.46,.23],3,1.1);
+    m.gem(x,6.1,z,.8,bloomLevel>(n%3)/3?roseColors[n%4]:[.22,.46,.23],3,1.1);
    }
   });
   staticMesh=m;staticArray=new Float32Array(m.data);
@@ -483,8 +483,9 @@
    monuments=value;needsLayout=true;dirty=true;
   },
   setTournament(stages){
-   const signature=JSON.stringify(stages.map(s=>[s.key,s.status]));
-   if(signature===JSON.stringify(tournament.map(s=>[s.key,s.status])))return;
+   const progress=s=>s.status==='sealed'?0:s.status==='complete'?1:Number.isFinite(s.progress)?clamp(s.progress):0;
+   const signature=items=>JSON.stringify(items.map(s=>[s.key,s.status,progress(s)]));
+   if(signature(stages)===signature(tournament))return;
    for(const stage of stages){
     const previous=tournament.find(s=>s.key===stage.key);
     if(stage.status==='sealed')delete unlocks[stage.key];
@@ -492,8 +493,12 @@
    }
    const first=!tournament.length;
    tournament=stages.map(s=>({...s}));
-   // Three settled rounds produce three distinct flushes of roses.
-   bloomLevel=['round1','round2','final'].filter(k=>tournament.some(t=>t.key===k&&t.status==='complete')).length/3;
+   // Each round contributes a third, including valid matches within that round.
+   // Keep 100% for a settled final, so an unresolved title tie is never full bloom.
+   bloomLevel=['round1','round2','final'].reduce((sum,key)=>{
+    const stage=tournament.find(s=>s.key===key);return sum+(stage?progress(stage):0);
+   },0)/3;
+   if(!tournament.some(s=>s.key==='final'&&s.status==='complete'))bloomLevel=Math.min(.99,bloomLevel);
    duskTarget=.08;
    updateBloomHud();
    if(first)dusk=duskTarget;

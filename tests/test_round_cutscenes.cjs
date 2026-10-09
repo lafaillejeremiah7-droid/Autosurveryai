@@ -115,7 +115,7 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  const expected=fRows.filter(r=>r.rank!==1).sort((x,y)=>x.rank-y.rank).map(r=>r.name);
  const champion=fRows.find(r=>r.rank===1).name;
  const finalNames=run("eliminatedNames('final')");
- assert.equal(finalNames.length,5);assert.deepEqual(finalNames,expected);
+ assert.equal(finalNames.length,5);assert.deepEqual(Array.from(finalNames),expected);
  assert(!finalNames.includes(champion),'champion not pruned');
  for(const [ranks,want] of [
   [[1,2,3,4,4,6],['D','E','F','G','H']],
@@ -125,7 +125,7 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  ]){
   context.synthetic=ranks.map((rank,i)=>({name:'CDEFGHIJ'[i],rank}));
   const got=run("view={final:{rows:synthetic}};eliminatedNames('final')");
-  assert.deepEqual(got,want,'every player ranked below first is eliminated');
+  assert.deepEqual(Array.from(got),want,'every player ranked below first is eliminated');
  }
  load(fx.settled);
  const fin=click({action:'submit-match',stage:'final',match:'7'});await flushMicro();

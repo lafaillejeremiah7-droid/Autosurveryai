@@ -36,7 +36,7 @@ The landing screen is a live **royal hedge maze garden** rendered in WebGL with 
 
 The opening timer is **The Garden Opens**. Set the tournament's date and time under Players & rules, or use **Set start time** on the home screen. The countdown persists in the saved tournament state and survives page refreshes, backups, and Undo. Ambient birds and local sound effects accompany the opening. **Pause garden** and reduced-motion preferences stop decorative movement without stopping the countdown. **Garden sound off** silences the synthesized audio.
 
-The flowers follow tournament progress independently of the countdown. Before the first cut settles, **all 112 roses are closed buds**. After **Know Thy Nature**, the first 38 roses bloom; after **Adapt or Wither**, a second group opens; after **The Last Bloom** final, all 112 roses are in full bloom. Scoring corrections and Undo recalculate the correct bloom stage instead of permanently advancing it. The Garden Bloom indicator measures this three-stage progression.
+The flowers follow tournament progress independently of the countdown. **Each fully scored, valid match opens more roses**, without waiting for the entire round to finish. Each round contributes one third of the bloom meter: the first completed Know Thy Nature match shows about **7%**, all five show **33%**, and completing Adapt or Wither reaches **67%**. The Last Bloom's eight matches fill the remaining third. Full bloom (**100%, all 112 roses**) waits for the final to settle, including any title tie; an unresolved final stays at most **99%**. Partial matches and locked or stale rounds do not count. Reloading, score corrections, clearing rounds, and Undo recalculate both the meter and flowers from saved results.
 
 ### Elimination: the gardener's pruning verdict
 
@@ -178,3 +178,5 @@ For the optional real-browser checks, install Playwright and its Chromium browse
 The tests cover the current five-game Know Thy Nature, five-game Adapt or Wither, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and first-place ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
 
 Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the pavilion bloom ceremony, tie settlement, native-dialog visibility, and skip behavior.
+
+Run `node tests/test_bloom_browser.cjs` with the same browser setup to verify live bloom after individual matches, reloads, clear/Undo, and reset.

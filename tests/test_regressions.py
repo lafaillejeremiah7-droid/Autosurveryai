@@ -59,8 +59,9 @@ class Regressions(unittest.TestCase):
         s['final']['extras']=[extra({'p1':1,'p2':0,'p3':0}),extra({'p2':3,'p3':1})]
         v=evaluate(s)['final'];rows={r['id']:r for r in v['rows']}
         self.assertTrue(v['complete'])
-        self.assertEqual((rows['p1']['rank'],rows['p1']['prize'],rows['p1']['played']),(1,18,9))
-        self.assertEqual((rows['p2']['rank'],rows['p2']['prize'],rows['p2']['played']),(2,8,10))
+        self.assertEqual((rows['p1']['rank'],rows['p1']['prize'],rows['p1']['played']),(1,30,9))
+        # Once the sole champion is settled, later non-title extras do not count.
+        self.assertEqual((rows['p2']['rank'],rows['p2']['prize'],rows['p2']['played']),(2,0,9))
         for row in v['rows']:self.assertEqual(row['total'],row['win_points']+row['goal_points'])
 
     def test_startup_persists_new_and_migrated_lineups(self):

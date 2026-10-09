@@ -142,7 +142,10 @@ function gateStages(){
   const v=view[key],reason=roomLock(key),status=reason?'sealed':v.complete?'complete':'current';
   const cut=v.rows.filter(r=>r.status==='CUT').map(r=>r.name);
   const detail=reason||(status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches');
-  return {key,label,status,detail};
+  // Use validated match readiness, not score totals: an unfinished match earns no bloom.
+  // Locked or stale rounds must not contribute archived scores from an old roster.
+  const progress=reason||v.stale?0:v.complete?1:v.games.length?v.games.filter(g=>g.ready).length/v.games.length:0;
+  return {key,label,status,detail,progress};
  })];
 }
 function renderRoom(){
