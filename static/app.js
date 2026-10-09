@@ -598,8 +598,8 @@ $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen
 $('#result-dialog').addEventListener('cancel',e=>{e.preventDefault();closeResult();});
 $('#home-link').onclick=e=>{e.preventDefault();if($('#screen-dialog').open)closeScreen().catch(err=>error(err.message));};
 $('#retry-save').onclick=()=>save();
-// FEAT-003: Skip button and click-anywhere both route through the single endCutscene path.
-if($('#round-strike-skip'))$('#round-strike-skip').onclick=()=>endCutscene();
+// Ceremony HUD Skip, cutscene Skip and click-anywhere all route through the single endCutscene path.
+if($('#ceremony-skip'))$('#ceremony-skip').onclick=()=>endCutscene();
 $('#cutscene-skip').onclick=e=>{e.stopPropagation();endCutscene();};
 $('#cutscene').onclick=()=>endCutscene();
 $('#cutscene').addEventListener('cancel',e=>{e.preventDefault();endCutscene();});
@@ -792,14 +792,14 @@ function runPortalSequence(names,i=0){
 }
 async function startRoundBomb(){
  const run=cutsceneRunId,overlay=$('#cutscene');
- if(window.CityWorld?.bombRoom){
+ if(window.CityWorld?.crownGate){
   cutsceneReturnResult=$('#result-dialog').open;
   if(cutsceneReturnResult)$('#result-dialog').close();
   if($('#screen-dialog').open)$('#screen-dialog').close();
   document.body.classList.remove('inside-room');
   if(overlay.open)overlay.close();overlay.hidden=true;
-  window.CityWorld.setSuspended(false);roomTransition=true;if($('#round-strike-hud'))$('#round-strike-hud').hidden=false;
-  try{await window.CityWorld.bombRoom(bombRoundStage,()=>window.BrawlAudio?.explosion(true));}
+  window.CityWorld.setSuspended(false);roomTransition=true;if($('#ceremony-hud'))$('#ceremony-hud').hidden=false;
+  try{await window.CityWorld.crownGate(bombRoundStage,bombRoundLabel,()=>window.BrawlAudio?.explosion(true));}
   finally{roomTransition=false;if(cutsceneActive&&run===cutsceneRunId){if(bombRoundStage==='final')revealFinalWinners(run);else endCutscene();}}
   return;
  }
@@ -852,8 +852,8 @@ function revealFinalWinners(run){
 // ONE dismiss path for Skip / click / Esc / natural completion. Clears timers, hides the
 // overlay, releases the shake guard, and resolves the gate so the standings can show.
 function endCutscene(){
- if($('#round-strike-hud'))$('#round-strike-hud').hidden=true;
- cutsceneRunId++;window.BrawlAudio?.stop();window.CityWorld?.cancelStrike?.();
+ if($('#ceremony-hud'))$('#ceremony-hud').hidden=true;
+ cutsceneRunId++;window.BrawlAudio?.stop();window.CityWorld?.cancelCeremony?.();
  cutsceneTimers.forEach(t=>clearTimeout(t));cutsceneTimers=[];
  if(cutsceneKeyHandler&&document.removeEventListener)document.removeEventListener('keydown',cutsceneKeyHandler,true);
  cutsceneKeyHandler=null;
