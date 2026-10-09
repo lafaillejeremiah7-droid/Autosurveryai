@@ -314,7 +314,7 @@ function renderDivineScene(stage,cuts,latest=-1){
  const i=latest>=0?models.findIndex(p=>p.id===cuts[latest]):-1;
  const strikeX=i<0?50:10+20*(i%5),strikeY=i<0?3:(i<5?17:43);
  const flowers=models.map((p,n)=>{
-  const idx=cuts.indexOf(p.id),severed=idx>=0&&idx<latest,severing=idx===latest;
+  const idx=cuts.indexOf(p.id),severed=idx>=0&&idx<latest,severing=idx>=0&&idx===latest;
   const cls=p.priorPruned?'prior-pruned':severed?'severed':severing?'severing':'';
   return `<div class="divine-plant ${cls}" data-player="${p.id}" data-goals="${p.goals}"><div class="divine-stems">${plantSvg(p.tier)}</div><strong class="divine-name">${esc(p.name)}</strong><small>${p.goals} ${p.goals===1?'GOAL':'GOALS'}</small><b class="divine-cut-label">${p.priorPruned||severed||severing?'PRUNED':''}</b></div>`;
  }).join('');
