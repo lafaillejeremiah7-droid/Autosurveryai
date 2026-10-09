@@ -109,29 +109,35 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  run('endCutscene()');await flushMicro();
  assert.equal($('#result-dialog').open,true);
 
- // (g) Final: exactly the bottom 3 by rank, never a podium place.
+ // (g) Final: one separate pruning scene per finalist who did not win.
  load(fx.settled);
- const fRows=fx.settled.view.final.rows;assert.equal(fRows.length,6,'the final has six players');
- const bottom3=[...fRows].sort((a,b)=>b.rank-a.rank).slice(0,3).map(r=>r.name);
- const podium=fRows.filter(r=>r.rank<=3).map(r=>r.name);
+ const fRows=fx.settled.view.final.rows;assert.equal(fRows.length,6,'six finalists');
+ const expected=fRows.filter(r=>r.rank!==1).sort((x,y)=>x.rank-y.rank).map(r=>r.name);
+ const champion=fRows.find(r=>r.rank===1).name;
  const finalNames=run("eliminatedNames('final')");
- assert.equal(finalNames.length,3);assert.deepEqual([...finalNames].sort(),[...bottom3].sort());
- for(const n of podium)assert(!finalNames.includes(n),'no podium player is eliminated');
- for(const [ranks,expect] of [[[1,2,3,4,4,6],['F','G','H']],[[1,2,3,4,5,5],['F','G','H']],[[1,2,3,4,5,6,7,8],['H','I','J']],[[1,2,3,4],['F']]]){
+ assert.equal(finalNames.length,5);assert.deepEqual(finalNames,expected);
+ assert(!finalNames.includes(champion),'champion not pruned');
+ for(const [ranks,want] of [
+  [[1,2,3,4,4,6],['D','E','F','G','H']],
+  [[1,2,3,4,5,5],['D','E','F','G','H']],
+  [[1,2,3,4,5,6,7,8],['D','E','F','G','H','I','J']],
+  [[1,2,3,4],['D','E','F']]
+ ]){
   context.synthetic=ranks.map((rank,i)=>({name:'CDEFGHIJ'[i],rank}));
   const got=run("view={final:{rows:synthetic}};eliminatedNames('final')");
-  assert.deepEqual([...got].sort(),expect,`final ranks ${ranks} -> bottom ${expect.length}`);
+  assert.deepEqual(got,want,'every player ranked below first is eliminated');
  }
  load(fx.settled);
  const fin=click({action:'submit-match',stage:'final',match:'7'});await flushMicro();
- assert.equal(run('plays.length'),1,'the settled final plays');
- const losers=[...$('#cutscene-stage').innerHTML.matchAll(/class="fc-person fc-loser"[^>]*>.*?<span class="fc-name">([^<]*)<\/span>/g)].map(m=>m[1]);
- assert.deepEqual([...losers].sort(),[...bottom3].sort(),'the final hooks exactly the bottom 3');
- for(const n of podium)assert(!losers.includes(n));
+ assert.equal(run('plays.length'),1,'settled final triggers one cutscene');
+ const scene=$('#cutscene-stage').innerHTML;
+ const shown=[...scene.matchAll(/class="av-name">([^<]*)<\/span>/g)].map(m=>m[1]);
+ assert.deepEqual(shown,[expected[0]],'only first losing finalist initially appears');
+ assert(scene.includes('PRUNING 1 / 5'),'counter starts at 1 of 5');
  run('endCutscene()');await fin;
  load(fx.finalTie);
  await click({action:'submit-match',stage:'final',match:'7'});await flushMicro();
- assert.equal(run('plays.length'),0,'an unresolved final tie plays nothing');
+ assert.equal(run('plays.length'),0,'unresolved first-place tie plays nothing');
 
  // (h) No double-fire: Submit on a round 1 tie, then the extra game settles it in the fullscreen.
  load(fx.r1tie);
@@ -141,11 +147,11 @@ const cutOf=(p,key)=>p.view[key].rows.filter(r=>r.status==='CUT').map(r=>r.name)
  run('changed()');await run('save()');await flushMicro();
  assert.equal(run('plays.length'),1,'the settling save plays once');
  assert.deepEqual(stageNames().sort(),cutOf(fx.r1tieSettled,'round1').sort());
- assert($('#cutscene-label').textContent.includes('Be Better'));
+ assert($('#cutscene-label').textContent.includes('Know Thy Nature'));
  await click({action:'submit-match',stage:'round1',match:'4'});await flushMicro();
  assert.equal(run('plays.length'),1,'Submit while the cutscene runs cannot start a second one');
  run('endCutscene()');await flushMicro();
  assert.equal($('#result-dialog').open,true);assert.equal(run('resultStage'),'round1');
  assert.equal(run('plays.length'),1);
- console.log('Round cutscenes: Enough via Match 5 done, no play on matches 1-4 or ties, on-screen tie settle, no early fire, superseded save, final bottom 3, no double-fire passed.');
+ console.log('Round cutscenes: Enough via Match 5 done, no play on matches 1-4 or ties, on-screen tie settle, no early fire, superseded save, final five individual prunings, no double-fire passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
