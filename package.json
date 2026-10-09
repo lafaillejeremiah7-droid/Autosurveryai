@@ -1,0 +1,13 @@
+{
+  "name": "brawl-hockey-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dev tooling for the Brawl Hockey dashboard: Playwright browser regression suites (the Python runtime itself needs no npm packages).",
+  "scripts": {
+    "test:node": "node tests/test_ui.cjs && node tests/test_sound.cjs && node tests/test_verdict_cutscene.cjs && node tests/test_round_cutscenes.cjs && node tests/test_divine_timing.cjs && node tests/test_divine_webgl.cjs && node tests/test_city_timeline.cjs && node tests/test_arena_static.cjs && node tests/test_theme_copy.cjs",
+    "test:py": "python3 -m unittest discover -s tests"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}

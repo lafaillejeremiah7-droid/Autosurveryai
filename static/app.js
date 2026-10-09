@@ -20,8 +20,35 @@ window.BrawlAudio=(()=>{
  const silent=()=>muted||!ctx||ctx.state!=='running'||document.hidden;
  const track=n=>{active.add(n);n.onended=()=>active.delete(n);return n;};
  // Every start time is on the audio clock (currentTime+delay), so stop() also cancels pending notes.
- function tone(freq,duration,volume,type='sine',end=freq,delay=0){if(silent())return null;const t0=ctx.currentTime+delay,o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t0);o.frequency.exponentialRampToValueAtTime(Math.max(1,end),t0+duration);g.gain.setValueAtTime(volume,t0);g.gain.exponentialRampToValueAtTime(.001,t0+duration);o.connect(g);g.connect(ctx.destination);o.start(t0);o.stop(t0+duration);return track(o);}
- function noise(duration,volume,frequency,delay=0){if(silent())return null;const t0=ctx.currentTime+delay,b=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=b.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,2);const source=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();source.buffer=b;f.type='lowpass';f.frequency.value=frequency;g.gain.value=volume;source.connect(f);f.connect(g);g.connect(ctx.destination);source.start(t0);return track(source);}
+ function tone(freq,duration,volume,type='sine',end=freq,delay=0){
+  if(silent())return null;
+  const t0=ctx.currentTime+delay,o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=type;
+  o.frequency.setValueAtTime(freq,t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(1,end),t0+duration);
+  g.gain.setValueAtTime(volume,t0);
+  g.gain.exponentialRampToValueAtTime(.001,t0+duration);
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.start(t0);
+  o.stop(t0+duration);
+  return track(o);
+ }
+ function noise(duration,volume,frequency,delay=0){
+  if(silent())return null;
+  const t0=ctx.currentTime+delay,b=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=b.getChannelData(0);
+  for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,2);
+  const source=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  source.buffer=b;
+  f.type='lowpass';
+  f.frequency.value=frequency;
+  g.gain.value=volume;
+  source.connect(f);
+  f.connect(g);
+  g.connect(ctx.destination);
+  source.start(t0);
+  return track(source);
+ }
  // Cornu-style brass: two slightly detuned sawtooths through a soft lowpass.
  function brass(freq,dur,vol,delay=0){
   if(silent())return null;
@@ -159,7 +186,12 @@ function renderRoom(){
  const route=$('#gate-route');
  if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+lockAttrs(s.key)+' '+(s.status==='current'?'aria-current="step"':'')+'><small>'+roman[i]+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
  window.CityWorld?.setTournament?.(stages);
- $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' pavilion"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER PAVILION ↗')+'</span><span class="room-label"><small>PAVILION '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
+ $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>
+  '<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' pavilion">'+
+  '<span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER PAVILION ↗')+'</span>'+
+  '<span class="room-label"><small>PAVILION '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small>'+
+  '<strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>'
+ ).join('');
  window.BrawlMonuments?.render(view);
  window.CityWorld?.refreshRooms();
  window.CityWorld?.setSettings(state.settings);
@@ -187,11 +219,63 @@ function overview(){
  html+=`<div class="round-path">${[['round1','01 · Know Thy Nature','Understand your roots · 10 → 8'],['round2','02 · Adapt or Wither','Survive through change · 8 → 6'],['final','03 · The Last Bloom','Only one flower survives · 6 → 1']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  const rowmap=key=>Object.fromEntries(view[key].rows.map(r=>[r.id,r]));const a=rowmap('round1'),b=rowmap('round2'),c=rowmap('final');
- html+=panel('Every player',table(['PLAYER','KNOW THY NATURE','ADAPT OR WITHER','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
- if(final.rows.length)html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],final.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
+ const everyPlayerRows=ids.map(p=>
+  `<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td>`+
+  `<td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td>`+
+  `<td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`
+ );
+ html+=panel(
+  'Every player',
+  table(['PLAYER','KNOW THY NATURE','ADAPT OR WITHER','FINAL RANK','TOTAL POINTS','PRIZE'],everyPlayerRows),
+  `<button data-action="csv">Export CSV</button>`
+ );
+ if(final.rows.length){
+  const finalStandingsRows=final.rows.map(r=>
+   `<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td>`+
+   `<td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td>`+
+   `<td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`
+  );
+  html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],finalStandingsRows));
+ }
  return html;
 }
-function playerSettings(){return title('PAVILION I / CONFIGURATION','Players & rules','Enter ten unique names. Set scoring rules and compete for the fixed $30 champion prize.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Winner-take-all prize','<div class="notice"><strong>$30 · FIRST PLACE ONLY</strong><p>One champion earns the entire $30. All other players receive $0. If first place is tied, resolve it with extra games before the prize is awarded.</p></div>')}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
+function playerSettings(){
+ const nameFields=ids.map((p,i)=>
+  `<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`
+ ).join('');
+ const rosterPanel=panel(
+  'The roster',
+  `<div class="name-grid">${nameFields}</div>`+
+  `<p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p>`+
+  `<button class="danger" data-action="clear-names">Clear player names</button>`
+ );
+ const scoringFields=[
+  ['win_points','Points per win'],
+  ['goal_points','Points per goal'],
+  ['multiplier','Games 1–2 multiplier']
+ ].map(([k,label])=>
+  `<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`
+ ).join('');
+ const scoringPanel=panel(
+  'Final scoring',
+  scoringFields+
+  '<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div>'+
+  '<p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p>'+
+  '<button class="danger" data-action="clear-scoring">Clear scoring</button>'
+ );
+ const prizePanel=panel(
+  'Winner-take-all prize',
+  '<div class="notice"><strong>$30 · FIRST PLACE ONLY</strong><p>One champion earns the entire $30. All other players receive $0. If first place is tied, resolve it with extra games before the prize is awarded.</p></div>'
+ );
+ const startOverPanel=panel(
+  'Start over',
+  '<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>'
+ );
+ return title('PAVILION I / CONFIGURATION','Players & rules','Enter ten unique names. Set scoring rules and compete for the fixed $30 champion prize.')+
+  `<div class="settings-grid">${rosterPanel}<div>${scoringPanel}${prizePanel}</div></div>`+
+  notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+
+  startOverPanel;
+}
 
 let countdownDraft=null,roomTransition=false;
 function localStartValue(iso){
@@ -203,7 +287,13 @@ function localStartValue(iso){
 function countdownSettings(){
  const current=countdownDraft===null?localStartValue(state.settings.start_at):countdownDraft;
  const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
- return '<section class="panel settings-countdown"><div class="panel-head"><h2>Games countdown</h2></div><form id="countdown-form"><label for="starts-at">Tournament starts · '+esc(zone)+'<input id="starts-at" data-path="settings.start_at" type="datetime-local" required min="1970-01-01T00:00" max="9999-12-31T23:59" step="60" value="'+esc(current)+'" aria-describedby="start-help"></label><button type="submit" class="accent">Save countdown</button><button type="button" class="danger" data-action="clear-start" '+(!state.settings.start_at?'disabled':'')+'>Clear countdown</button></form><p id="start-help">Saving a new future start time begins at 0% bloom. Roses open as the countdown runs and reach 100% when it hits zero. Refreshing preserves progress. Clearing the countdown returns the garden to closed buds. Pause garden stops decorative motion; the countdown and bloom keep advancing.</p></section>';
+ return '<section class="panel settings-countdown"><div class="panel-head"><h2>Games countdown</h2></div><form id="countdown-form"><label for="starts-at">Tournament starts · '+
+  esc(zone)+
+  '<input id="starts-at" data-path="settings.start_at" type="datetime-local" required min="1970-01-01T00:00" max="9999-12-31T23:59" step="60" value="'+
+  esc(current)+
+  '" aria-describedby="start-help"></label><button type="submit" class="accent">Save countdown</button><button type="button" class="danger" data-action="clear-start" '+
+  (!state.settings.start_at?'disabled':'')+
+  '>Clear countdown</button></form><p id="start-help">Saving a new future start time begins at 0% bloom. Roses open as the countdown runs and reach 100% when it hits zero. Refreshing preserves progress. Clearing the countdown returns the garden to closed buds. Pause garden stops decorative motion; the countdown and bloom keep advancing.</p></section>';
 }
 function settings(){
  const html=playerSettings(),at=html.indexOf('<div class="settings-grid">');
@@ -225,7 +315,18 @@ document.addEventListener('submit',e=>{
 
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
  let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in The Last Bloom). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
- stage.extras.forEach((_,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
+ stage.extras.forEach((_,i)=>{
+  const cells=v.rows.map(r=>{
+   const field=key==='final'
+    ?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+
+     select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`)
+    :inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`);
+   return `<label>${esc(r.name)}<span class="game-pair">${field}</span></label>`;
+  }).join('');
+  html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3>`+
+   `<button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div>`+
+   `<div class="extra-grid">${cells}</div>`;
+ });
  const actions=`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>${stage.extras.length?`<button class="danger" data-action="clear-extras" data-stage="${key}">Clear all extra games</button>`:''}`;
  return panel('Extra games',html,actions);
 }
@@ -275,8 +376,18 @@ function plantSvg(level){
 }
 function plantGarden(key){
  const model=plantGardenModel(key);
- const cards=model.map((p,i)=>`<li class="plant-card ${p.pruned?'pruned':''} ${p.status==='CHAMPION'?'champion':''}" data-player="${p.id}" data-goals="${p.goals}" data-tier="${p.tier}"><div class="plant-top"><span>PLANT ${String(i+1).padStart(2,'0')}</span><span class="plant-state">${p.status}</span></div>${plantSvg(p.tier)}<strong class="plant-name">${esc(p.name)}</strong><div class="plant-count"><b>${p.goals}</b> total ${p.goals===1?'goal':'goals'}</div><small>${p.roundGoals} this round · ${plantNames[p.tier]}</small></li>`).join('');
- return `<section class="plant-garden" aria-labelledby="${key}-plant-title"><div class="plant-heading"><div><span class="eyebrow">THE LIVING ROSTER / ${key==='round1'?'01':key==='round2'?'02':'03'}</span><h2 id="${key}-plant-title">Ten roots. Ten futures.</h2></div><p>Every competitor starts as a seedling at 0 goals. More goals grow a larger, brighter rose. Growth carries across rounds; eliminated plants remain pruned.</p></div><ol class="plant-grid">${cards}</ol></section>`;
+ const cards=model.map((p,i)=>
+  `<li class="plant-card ${p.pruned?'pruned':''} ${p.status==='CHAMPION'?'champion':''}" data-player="${p.id}" data-goals="${p.goals}" data-tier="${p.tier}">`+
+  `<div class="plant-top"><span>PLANT ${String(i+1).padStart(2,'0')}</span><span class="plant-state">${p.status}</span></div>`+
+  `${plantSvg(p.tier)}<strong class="plant-name">${esc(p.name)}</strong>`+
+  `<div class="plant-count"><b>${p.goals}</b> total ${p.goals===1?'goal':'goals'}</div>`+
+  `<small>${p.roundGoals} this round · ${plantNames[p.tier]}</small></li>`
+ ).join('');
+ return `<section class="plant-garden" aria-labelledby="${key}-plant-title"><div class="plant-heading"><div>`+
+  `<span class="eyebrow">THE LIVING ROSTER / ${key==='round1'?'01':key==='round2'?'02':'03'}</span>`+
+  `<h2 id="${key}-plant-title">Ten roots. Ten futures.</h2></div>`+
+  `<p>Every competitor starts as a seedling at 0 goals. More goals grow a larger, brighter rose. Growth carries across rounds; eliminated plants remain pruned.</p></div>`+
+  `<ol class="plant-grid">${cards}</ol></section>`;
 }
 
 
@@ -325,7 +436,13 @@ function renderDivineScene(stage,cuts,latest=-1){
   const cls=p.priorPruned?'prior-pruned':severed?'severed':severing?'severing':'';
   return `<div class="divine-plant ${cls}" data-player="${p.id}" data-goals="${p.goals}"><div class="divine-stems">${plantSvg(p.tier)}</div><strong class="divine-name">${esc(p.name)}</strong><small>${p.goals} ${p.goals===1?'GOAL':'GOALS'}</small><em class="divine-stage-name">${esc(plantNames[p.tier]||'Rose')}</em><b class="divine-cut-label">${p.priorPruned||severed?'PRUNED':severing?'TARGETED':''}</b></div>`;
  }).join('');
- const html=`<div class="divine-scene ${latest>=0?'is-cutting':'is-thinking'}" data-stage="${stage}" style="--strike-x:${strikeX}%;--strike-y:${strikeY}%"><canvas class="divine-canvas" aria-label="A gigantic luminous hand and silver shears emerging from a portal above ten three-dimensional player plants"></canvas><div class="divine-stars"></div><div class="divine-halo"></div><div class="divine-portal" aria-hidden="true"></div><div class="divine-judge">${divineHandSvg()}</div><div class="divine-oracle">${latest<0?'THE HAND DELIBERATES':'THE VERDICT IS ABSOLUTE'}</div><div class="divine-plants">${flowers}</div><div class="divine-flash"></div><div class="divine-progress">${latest<0?'JUDGEMENT IN 5 SECONDS':`PRUNING ${latest+1} OF ${cuts.length}`}</div></div>`;
+ const html=`<div class="divine-scene ${latest>=0?'is-cutting':'is-thinking'}" data-stage="${stage}" style="--strike-x:${strikeX}%;--strike-y:${strikeY}%">`+
+  `<canvas class="divine-canvas" aria-label="A gigantic luminous hand and silver shears emerging from a portal above ten three-dimensional player plants"></canvas>`+
+  `<div class="divine-stars"></div><div class="divine-halo"></div><div class="divine-portal" aria-hidden="true"></div>`+
+  `<div class="divine-judge">${divineHandSvg()}</div>`+
+  `<div class="divine-oracle">${latest<0?'THE HAND DELIBERATES':'THE VERDICT IS ABSOLUTE'}</div>`+
+  `<div class="divine-plants">${flowers}</div><div class="divine-flash"></div>`+
+  `<div class="divine-progress">${latest<0?'JUDGEMENT IN 5 SECONDS':`PRUNING ${latest+1} OF ${cuts.length}`}</div></div>`;
  const host=$('#cutscene-stage');
  // One continuous WebGL scene: do not destroy the canvas, reset the portal
  // clock, or teleport the camera between targets.
@@ -495,7 +612,14 @@ function resultFullscreen(key){
  const avgOf=r=>key==='final'?(r.played?r.total/r.played:0):(r.average!==undefined?r.average:0);
  const body=table(['RANK','PLAYER',key==='final'?'TOTAL PTS':'TOTAL GOALS',avgHead,'STATUS'],rowsSorted.map(r=>`<tr><td class="calc">${fmt(r.rank)}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.total??r.goals)}</td><td class="calc">${fmt(avgOf(r))}</td><td>${badge(r.status)}</td></tr>`));
  const boundary=key==='final'?'podium':'cut line';
- let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div><h1 id="result-title">${meta.label} — total round ranking</h1><p>${!v.ready?'This round is incomplete. Finish the missing scores or resolve the roster change.':tied?`A tie affects the ${boundary}. Complete extra games before this round can close.`:`Round complete. No ties affect the ${boundary}.`}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
+ const headStatus=!v.ready
+  ?'This round is incomplete. Finish the missing scores or resolve the roster change.'
+  :tied
+   ?`A tie affects the ${boundary}. Complete extra games before this round can close.`
+   :`Round complete. No ties affect the ${boundary}.`;
+ let html=`<header class="result-head"><div><div class="eyebrow">${meta.label.toUpperCase()} / FINAL RANKING</div>`+
+  `<h1 id="result-title">${meta.label} — total round ranking</h1>`+
+  `<p>${headStatus}</p></div><button class="result-close" data-action="close-result">Close ✕</button></header>`;
  html+=`<div class="result-banner ${v.complete?'done':'tie'}">${v.complete?'✓ ROUND SETTLED — no extra games needed.':tied?'⚠ EXTRA GAMES NEEDED — resolve the tied players below.':'ROUND INCOMPLETE — '+v.issues.map(esc).join(' ')}</div>`;
  html+=panel('Total round ranking',body);
  html+=advancementButton(key);
@@ -572,11 +696,31 @@ function round(key){
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
  const rerollOff=lineupBusy||scored;
  const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':lineupBusy?'Wait for the current draw to finish.':'';
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r1-game">Clear this game</button></div></div><div class="teams-grid">`;
- for(const team of ['A','B'])html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>${match[team].map(p=>`<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`).join('')}</section>`;
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Fresh random teams for this game. Enter each player’s goals, including 0 for a game played with no goals.</p>`+
+  `${rerollOff&&rerollWhy?`<p class="hint reason">${esc(rerollWhy)}</p>`:''}</div><div class="match-topline-actions">`+
+  `<button class="danger" data-action="r1-reroll" data-match="${g}" ${rerollOff?`disabled title="${esc(rerollWhy)}" aria-disabled="true"`:''}>Reshuffle teams</button>`+
+  `<button class="danger clear-score" data-action="clear-r1-game">Clear this game</button></div></div><div class="teams-grid">`;
+ for(const team of ['A','B']){
+  const teamPlayers=match[team].map(p=>
+   `<div class="player-score"><div class="player-name">${esc(rowmap[p].name)}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>`+
+   `${counter(`round1.players.${p}.goals.${g}`,`${rowmap[p].name} game ${g+1}`,v.stale)}</div>`
+  ).join('');
+  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / RANDOM SPLIT</small><h2>Team ${team}</h2></div></div>`+
+   `${teamPlayers}</section>`;
+ }
  html+='</div><p class="hint">Teams are reshuffled per game and share a 3-goal allowance. Individual totals decide advancement. Reshuffling is locked once a game has any score. All ten players play every game.</p>';
  html+=matchSubmit('round1',round1Game);
- html+=panel('Player scores',table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('')}<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td><td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`)),`<small>Top 8 of 10 advance</small>`);
+ const r1Rows=v.rows.map(r=>{
+  const goalCells=Array.from({length:5},(_,i)=>`<td>${inp(`round1.players.${r.id}.goals.${i}`,`${r.name} game ${i+1} goals`)}</td>`).join('');
+  return `<tr><td>${esc(r.name)}</td>${goalCells}`+
+   `<td class="calc">${r.goals}</td><td class="calc">${r.played}</td><td class="calc">${r.average.toFixed(3)}</td>`+
+   `<td class="calc">${fmt(r.rank)}</td><td>${badge(r.status)}</td></tr>`;
+ });
+ html+=panel(
+  'Player scores',
+  table(['PLAYER',...Array.from({length:5},(_,i)=>`G${i+1} GOALS`),'TOTAL','PLAYED','AVG / MATCH','RANK','DECISION'],r1Rows),
+  `<small>Top 8 of 10 advance</small>`
+ );
  return html+advancementButton('round1')+extras('round1')+clearRoundPanel('round1');
 }
 function round2Page(){
@@ -587,20 +731,44 @@ function round2Page(){
  if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Know Thy Nature. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(lineupBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
  html+='<div class="score-help">FIVE 4v4 GAMES · CHANGING TEAMS · ALL EIGHT PLAY EVERY GAME · INDIVIDUAL GOALS DECIDE ADVANCEMENT</div>';
- html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||lineupBusy;const why=i>=v.draw.revealed?`Finish Game ${v.draw.completed+1} first.`:'Wait for the current save.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
+ const r2Tabs=v.games.map((m,i)=>{
+  const off=i>=v.draw.revealed||lineupBusy;
+  const why=i>=v.draw.revealed?`Finish Game ${v.draw.completed+1} first.`:'Wait for the current save.';
+  return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;
+ }).join('');
+ html+=`<div class="match-tabs" aria-label="Round 2 match selector">${r2Tabs}</div>`;
  const match=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('round2',g);
  const scored=Object.values(state.round2.players).some(p=>p.goals[g]!==null);
  const canReshuffle=!v.stale&&!lineupBusy&&g===v.draw.completed&&!scored;
  const reshuffleWhy=g<v.draw.completed?'This match is already complete.':g!==v.draw.completed?'Finish the previous match first.':scored?'This game has scores. Clear them before reshuffling.':'';
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Balanced 4v4 teams may change every game. Enter all eight scores, including 0 for no goals.</p>${!canReshuffle&&reshuffleWhy?`<p class="hint reason">${esc(reshuffleWhy)}</p>`:''}</div><div class="match-topline-actions"><button class="accent" data-action="r2-reroll" data-match="${g}" ${canReshuffle?'':`disabled title="${esc(reshuffleWhy)}" aria-disabled="true"`}>Reshuffle teams</button><button class="danger clear-score" data-action="clear-r2-game" ${v.stale||lineupBusy?'disabled':''}>Clear this game</button></div></div>`;
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 5</span></h2><p>Balanced 4v4 teams may change every game. Enter all eight scores, including 0 for no goals.</p>`+
+  `${!canReshuffle&&reshuffleWhy?`<p class="hint reason">${esc(reshuffleWhy)}</p>`:''}</div><div class="match-topline-actions">`+
+  `<button class="accent" data-action="r2-reroll" data-match="${g}" ${canReshuffle?'':`disabled title="${esc(reshuffleWhy)}" aria-disabled="true"`}>Reshuffle teams</button>`+
+  `<button class="danger clear-score" data-action="clear-r2-game" ${v.stale||lineupBusy?'disabled':''}>Clear this game</button></div></div>`;
  html+='<div class="teams-grid">';
- for(const t of ['A','B'])html+=`<section class="team-score team-${t.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / BALANCED 4v4</small><h2>Team ${t}</h2></div></div>${match[t].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`).join('')}</section>`;
+ for(const t of ['A','B']){
+  const teamPlayers=match[t].map(p=>
+   `<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].average)} GOALS / MATCH · ${playedLabel(rowmap[p].played,5)} PLAYED</small></div>`+
+   `${counter(`round2.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`
+  ).join('');
+  html+=`<section class="team-score team-${t.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1} / BALANCED 4v4</small><h2>Team ${t}</h2></div></div>`+
+   `${teamPlayers}</section>`;
+ }
  html+='</div><p class="hint">Players rotate between the two 4v4 teams across games; you can reshuffle an unscored upcoming game. All eight players compete in all five matches. Each team may score at most 3 per match; team wins do not affect individual advancement.</p>';
  const doneOff=lineupBusy||v.stale||g!==v.draw.completed||!v.games[g].ready;
  const why=g<v.draw.completed?'This match is already done.':g>v.draw.completed?`Finish Match ${v.draw.completed+1} first.`:'Enter all eight scores, including zeros.';
- html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===5?'All 5 matches marked done':`Match ${g+1} of 5`}</h2><p>${v.draw.completed===5?'Resolve any cut ties to unlock the final.':'Save eight scores to unlock the next game.'}</p></div><button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(why)}"`:''}>${g===4?'Match 5 of 5 done — finish round':`Match ${g+1} of 5 done — next game`}</button></div>`;
- html+=panel('Overall standings',table(['RANK','PLAYER','TOTAL GOALS','PLAYED','AVG / MATCH','DECISION'],v.rows.map(r=>`<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${playedLabel(r.played,5)}</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`)));
+ html+=`<div class="panel match-completion"><div><h2>${v.draw.completed===5?'All 5 matches marked done':`Match ${g+1} of 5`}</h2>`+
+  `<p>${v.draw.completed===5?'Resolve any cut ties to unlock the final.':'Save eight scores to unlock the next game.'}</p></div>`+
+  `<button class="accent" data-action="r2-done" data-match="${g+1}" ${doneOff?`disabled title="${esc(why)}"`:''}>${g===4?'Match 5 of 5 done — finish round':`Match ${g+1} of 5 done — next game`}</button></div>`;
+ const r2Rows=v.rows.map(r=>
+  `<tr><td class="calc">${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td>`+
+  `<td class="calc">${playedLabel(r.played,5)}</td><td class="calc">${r.average.toFixed(3)}</td><td>${badge(r.status)}</td></tr>`
+ );
+ html+=panel(
+  'Overall standings',
+  table(['RANK','PLAYER','TOTAL GOALS','PLAYED','AVG / MATCH','DECISION'],r2Rows)
+ );
  html+=`<details><summary>View all five 4v4 matchups</summary><p class="hint">Matchups change to reduce repeated teammates, are stored in the tournament, and remain the same after refreshing.</p>${table(['GAME','TEAM A','TEAM B'],v.schedule.map(m=>`<tr><td>${m.game}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td></tr>`))}</details>`;
  return html+advancementButton('round2')+extras('round2')+clearRoundPanel('round2');
 }
@@ -617,16 +785,43 @@ function finalPage(){const v=view.final,g=finalGame;
  const schedule=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('final',g);
  const fClearOff=v.stale||lineupBusy,fClearWhy=v.stale?'Clear The Last Bloom first — the roster changed since these scores.':'Wait for the current draw to finish.';
- html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Enter each player’s goals, then mark the winning team.</p>${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
+ html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Enter each player’s goals, then mark the winning team.</p>`+
+  `${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div>`+
+  `<button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
  for(const team of ['A','B']){
   const won=schedule[team].every(p=>state.final.players[p].results[g]==='W'),lost=schedule[team].every(p=>state.final.players[p].results[g]==='L');
-  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear The Last Bloom first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`).join('')}</section>`;
+  const teamPlayers=schedule[team].map(p=>
+   `<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>`+
+   `${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`
+  ).join('');
+  const winnerBtnAttr=v.stale?`disabled title="${esc(v.issues[0]||'Clear The Last Bloom first — the roster changed since these scores.')}" aria-disabled="true"`:'';
+  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div>`+
+   `<button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${winnerBtnAttr}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>`+
+   `${teamPlayers}</section>`;
  }
  html+='</div><p class="hint">Marking the winner adds one win to each teammate and records a loss for each opponent. Enter 0 for a played game with no goals. Win and goal points calculate as you enter either value. Played counts complete goal/result pairs; prizes wait for all eight games.</p>';
- html+=panel('Live standings',table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],v.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td><td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
+ const finalStandingRows=v.rows.map(r=>
+  `<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td>`+
+  `<td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td>`+
+  `<td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`
+ );
+ html+=panel(
+  'Live standings',
+  table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],finalStandingRows)
+ );
  html+=matchSubmit('final',g);
- html+=`<details><summary>View all eight team rotations</summary><p class="hint">Eight different team splits are played. Everyone plays eight matches, with changing teammates and opponents. Slots and match order stay fixed. Games 1 and 2 carry double weight at the default multiplier.</p>${table(['GAME','TEAM A','TEAM B','STATUS'],v.schedule.map(m=>`<tr><td>${m.game}${m.game<=2?' ×'+fmt(state.settings.multiplier):''}</td><td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td><td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td><td>${v.games[m.game-1].ready?'✓ COMPLETE':'PENDING'}</td></tr>`))}</details>`;
- html+=`<details><summary>View points per game</summary>${table(['PLAYER',...v.schedule.map(m=>`G${m.game}`)],v.rows.map(r=>`<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`))}</details>`;
+ const rotationRows=v.schedule.map(m=>
+  `<tr><td>${m.game}${m.game<=2?' ×'+fmt(state.settings.multiplier):''}</td>`+
+  `<td>${m.A.map(p=>esc(state.names[p])).join(' · ')}</td>`+
+  `<td>${m.B.map(p=>esc(state.names[p])).join(' · ')}</td>`+
+  `<td>${v.games[m.game-1].ready?'✓ COMPLETE':'PENDING'}</td></tr>`
+ );
+ html+=`<details><summary>View all eight team rotations</summary><p class="hint">Eight different team splits are played. Everyone plays eight matches, with changing teammates and opponents. Slots and match order stay fixed. Games 1 and 2 carry double weight at the default multiplier.</p>`+
+  `${table(['GAME','TEAM A','TEAM B','STATUS'],rotationRows)}</details>`;
+ const pointsRows=v.rows.map(r=>
+  `<tr><td>${esc(r.name)}</td>${r.game_points.map(p=>`<td class="calc">${fmt(p)}</td>`).join('')}</tr>`
+ );
+ html+=`<details><summary>View points per game</summary>${table(['PLAYER',...v.schedule.map(m=>`G${m.game}`)],pointsRows)}</details>`;
  return html+extras('final')+clearRoundPanel('final');
 }
 async function rerollRound1Game(game){
@@ -666,7 +861,13 @@ function render(){
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>${roman[i]}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=`BH / PAVILION ${roman[tabs.findIndex(t=>t[0]===tab)]} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
- $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. Adapt or Wither uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Know Thy Nature, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
+ const legacyNotice=(state.legacy_round2_rotation||state.legacy_round2)
+  ?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. Adapt or Wither uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Know Thy Nature, names, and settings are preserved.</div>'
+  :state.legacy_final
+   ?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>'
+   :'';
+ const tabBody=tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab);
+ $('#content').innerHTML=legacyNotice+tabBody;
  window.BrawlMonuments?.renderScreen(view);
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
@@ -783,7 +984,22 @@ const clearRoundLabel={round1:'Clear Know Thy Nature',round2:'Clear Adapt or Wit
 const clearRoundCopy={round1:'Clear Know Thy Nature (also clears Adapt or Wither &amp; The Last Bloom)',round2:'Clear Adapt or Wither (also clears The Last Bloom)',final:'Clear The Last Bloom'};
 function resetStage(key){resetCeremonyHistory(key);for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
-document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);const match=el.dataset.path.match(/^(round1|round2|final)\.players\.p\d+\.goals\.(\d+)$/);if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));}refreshGoalControls();changed();});
+document.addEventListener('input',e=>{
+ const el=e.target;
+ if(el.id==='starts-at'){countdownDraft=el.value;return;}
+ if(!el.dataset.path||el.tagName==='SELECT')return;
+ const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);
+ if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){
+  if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}
+ }else{
+  if(!el.checkValidity()){error(el.validationMessage);return;}
+  setValue(el.dataset.path,next);
+  const match=el.dataset.path.match(/^(round1|round2|final)\.players\.p\d+\.goals\.(\d+)$/);
+  if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));
+ }
+ refreshGoalControls();
+ changed();
+});
 document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&el.dataset.path){setValue(el.dataset.path,el.value);changed();}if(el.dataset.check){setValue(el.dataset.check,el.checked);changed();}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{if(b.id==='sound-toggle'){window.BrawlAudio.toggle();return;}if(b.dataset.action==='edit-start'){await setStartTime();return;}worldClick(e);
  if(b.dataset.open){if(b.dataset.open==='round2'&&tab==='round1'&&view.round1.complete&&!visitedVerdicts.has('round1'))await advanceTournament('round1');else if(b.dataset.open==='final'&&tab==='round2'&&view.round2.complete&&!visitedVerdicts.has('round2'))await advanceTournament('round2');else await openScreen(b.dataset.open);return;}
@@ -814,9 +1030,40 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear Adapt or Wither Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
  if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear The Last Bloom Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
- if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
- if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{resetCeremonyHistory('round1');countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[30,0,0],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))};});await save();}
+ if(action==='clear-names'){
+  await flush();
+  doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});
+  await save();
+ }
+ if(action==='clear-scoring'){
+  await flush();
+  doDestructive('Undo: Clear scoring',()=>{
+   state.settings.win_points=1;
+   state.settings.goal_points=1.5;
+   state.settings.multiplier=2;
+  });
+  await save();
+ }
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){
+  await flush();
+  doDestructive('Undo: Clear tournament',()=>{
+   resetCeremonyHistory('round1');
+   countdownDraft=null;
+   state={
+    version:6,
+    wheel:{text:'',remove_winner:false},
+    names:Object.fromEntries(ids.map(p=>[p,''])),
+    settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[30,0,0],start_at:'',disaster_started_at:''}
+   };
+   for(const k of ['round1','round2','final'])state[k]={
+    roster:[],
+    extras:[],
+    ...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),
+    players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))
+   };
+  });
+  await save();
+ }
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
@@ -830,13 +1077,52 @@ $('#cutscene').onclick=()=>endCutscene();
 $('#cutscene').addEventListener('cancel',e=>{e.preventDefault();endCutscene();});
 $('#undo-action').onclick=()=>performUndo().catch(e=>error(e.message));
 $('#backup').onclick=async()=>{try{await flush();window.location='/api/backup';}catch(e){error(e.message);}};
-$('#restore').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(lineupBusy)throw new Error('Wait for the current operation to finish.');const parsed=JSON.parse(await file.text());if(!confirm('Replace the current tournament with this backup?'))return;await flush();const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state:parsed,revision,restore:true})});const data=await res.json();if(!res.ok)throw new Error(data.error);state=data.state;view=data.view;revision=data.revision;undoSnapshot=null;resetCeremonyHistory('round1');countdownDraft=null;round1Game=0;round2Game=Math.min(view.round2.draw.completed,4);finalGame=0;error('');render();renderResult();$('#save-status').textContent='Backup restored and saved';}catch(err){error(err.message);}finally{e.target.value='';}};
+$('#restore').onchange=async e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ try{
+  if(lineupBusy)throw new Error('Wait for the current operation to finish.');
+  const parsed=JSON.parse(await file.text());
+  if(!confirm('Replace the current tournament with this backup?'))return;
+  await flush();
+  const res=await fetch('/api/state',{
+   method:'PUT',
+   headers:{'Content-Type':'application/json','X-Session-Token':token},
+   body:JSON.stringify({state:parsed,revision,restore:true})
+  });
+  const data=await res.json();
+  if(!res.ok)throw new Error(data.error);
+  state=data.state;
+  view=data.view;
+  revision=data.revision;
+  undoSnapshot=null;
+  resetCeremonyHistory('round1');
+  countdownDraft=null;
+  round1Game=0;
+  round2Game=Math.min(view.round2.draw.completed,4);
+  finalGame=0;
+  error('');
+  render();
+  renderResult();
+  $('#save-status').textContent='Backup restored and saved';
+ }catch(err){error(err.message);}
+ finally{e.target.value='';}
+};
 window.addEventListener('beforeunload',e=>{if(dirty||saving){e.preventDefault();e.returnValue='';}});
 function updateCountdown(){
  if(state)window.CityWorld?.setSettings(state.settings);
  const target=state?.settings?.start_at, box=$('#countdown');
  if(!box)return;
- if(!target){if($('#schedule-label'))$('#schedule-label').textContent='SET START TIME';const card=$('.games-clock');if(card)card.dataset.phase='unset';['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});$('#countdown-phase').textContent='AWAITING START TIME';$('#games-status').textContent='Set a start time. The garden will open.';if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');return;}
+ if(!target){
+  if($('#schedule-label'))$('#schedule-label').textContent='SET START TIME';
+  const card=$('.games-clock');
+  if(card)card.dataset.phase='unset';
+  ['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});
+  $('#countdown-phase').textContent='AWAITING START TIME';
+  $('#games-status').textContent='Set a start time. The garden will open.';
+  if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');
+  return;
+ }
  const ms=Math.max(0,new Date(target).getTime()-Date.now()), total=Math.ceil(ms/1000);
  const d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),sec=total%60;
  [['days',d],['hours',h],['minutes',m],['seconds',sec]].forEach(([k,v])=>{const e=$('#countdown-'+k);if(e)e.textContent=String(v).padStart(2,'0');});
@@ -874,7 +1160,10 @@ function verdictBackdrop(){
   +'<div class="gv-snip">SNIP!</div><div class="gv-pruned">PRUNED</div>';
 }
 const stickman=name=>'<div class="av-player"><svg class="av-stickman" viewBox="0 0 60 120" aria-hidden="true"><circle class="av-head" cx="30" cy="14" r="10"/><line class="av-body" x1="30" y1="24" x2="30" y2="70"/><line class="av-arm av-arm-l" x1="30" y1="36" x2="12" y2="56"/><line class="av-arm av-arm-r" x1="30" y1="36" x2="48" y2="56"/><line class="av-leg av-leg-l" x1="30" y1="70" x2="16" y2="112"/><line class="av-leg av-leg-r" x1="30" y1="70" x2="44" y2="112"/></svg><span class="av-name">'+esc(name)+'</span></div>';
-const laurelSvg=cls=>'<svg class="'+cls+'" viewBox="0 0 120 80" aria-hidden="true"><path d="M60 74C30 70 14 48 18 14M60 74C90 70 106 48 102 14"/>'+[[20,56,-50],[16,40,-20],[20,24,10],[100,56,50],[104,40,20],[100,24,-10]].map(([x,y,r])=>'<ellipse cx="'+x+'" cy="'+y+'" rx="9" ry="4.5" transform="rotate('+r+' '+x+' '+y+')"/>').join('')+'</svg>';
+const laurelSvg=cls=>'<svg class="'+cls+'" viewBox="0 0 120 80" aria-hidden="true"><path d="M60 74C30 70 14 48 18 14M60 74C90 70 106 48 102 14"/>'+
+ [[20,56,-50],[16,40,-20],[20,24,10],[100,56,50],[104,40,20],[100,24,-10]].map(([x,y,r])=>
+  '<ellipse cx="'+x+'" cy="'+y+'" rx="9" ry="4.5" transform="rotate('+r+' '+x+' '+y+')"/>'
+ ).join('')+'</svg>';
 // Each scene contains exactly one contestant, one shears impact and its own index.
 function buildVerdictScene(name,index=0,total=1){
  const count='<div class="gv-pruning-count">PRUNING '+(index+1)+' / '+total+'</div>';
