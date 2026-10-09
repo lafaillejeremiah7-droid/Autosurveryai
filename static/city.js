@@ -536,9 +536,9 @@
   }else window.BrawlAudio?.ambientBirds?.(false);
   document.body.style.setProperty('--arena-heat',String(state.progress));
   const label=document.getElementById('city-status'),pct=document.getElementById('city-damage'),bar=document.getElementById('city-progress');
-  if(label)label.textContent=state.phase;
-  if(pct)pct.textContent=Math.round(state.progress*100)+'%';
-  if(bar)bar.style.width=(state.progress*100)+'%';
+  if(label)label.textContent=bloomLevel>=1?'ROYAL GARDEN IN FULL BLOOM':bloomLevel>0?'THE ROSES ARE BLOOMING':state.phase;
+  if(pct)pct.textContent=Math.round(bloomLevel*100)+'% BLOOM';
+  if(bar)bar.style.width=(bloomLevel*100)+'%';
  }
  function updateCamera(now,moving){
   if(transition){
@@ -576,12 +576,12 @@
   if(ceremony&&ceremony.at!==null){
    const age=(now-ceremony.at)/1000;
    if(age>=1.4&&ceremony.phase!=='crowned'){ceremony.phase='crowned';geometryDirty=true;ceremony.onCrown?.();}
-   const hud=document.getElementById('ceremony-status');if(hud)hud.textContent=age<1.4?'THE LAUREL DESCENDS':'GATE CROWNED. ROUND COMPLETE';
+   const hud=document.getElementById('ceremony-status');if(hud)hud.textContent=age<1.4?'FLOWERS AWAKEN':'THE PAVILION BLOOMS';
    if(age>=5){const done=ceremony.done;ceremony=null;done?.();}
    dirty=true;
   }
   if(needsLayout)layout();
-  if(geometryDirty||lastBuild!==state.progress+'|'+duskTarget)rebuildArena();
+  if(geometryDirty||lastBuild!==state.progress+'|'+duskTarget+'|'+bloomLevel)rebuildArena();
   if(!moving&&!transition&&!dirty)return;
   updateCamera(now,moving);
   vp=multiply(perspective(fov,width/height,.3,900),lookAt(camera.eye,camera.target));
@@ -636,9 +636,9 @@
    }
    const first=!tournament.length;
    tournament=stages.map(s=>({...s}));
-   // Each settled round lowers the sun a third of the way to dusk.
-   duskTarget=['round1','round2','final'].filter(k=>tournament.some(t=>t.key===k&&t.status==='complete')).length/3;
-   // A page load starts at the saved dusk; only rounds settled live ease the sun down.
+   // Three settled rounds produce three distinct flushes of roses.
+   bloomLevel=['round1','round2','final'].filter(k=>tournament.some(t=>t.key===k&&t.status==='complete')).length/3;
+   duskTarget=.08;
    if(first)dusk=duskTarget;
    geometryDirty=true;dirty=true;
   },
@@ -660,7 +660,7 @@
   },
   home,
   getStatus(){
-   return {mode,progress:state.progress,phase:state.phase,dusk,duskTarget,seats,spectators,torchesLit,torchCount,rooms:rooms.length,
+   return {mode,progress:state.progress,phase:state.phase,dusk,duskTarget,bloomLevel,gardenFlowers,gardenHedges,seats,spectators,torchesLit,torchCount,rooms:rooms.length,
     gates:gates.map(g=>({key:g.key,state:gateState(g.key)})),paused,inside,sceneView,cameraEye:camera.eye.slice(),traveling:!!transition,
     ceremony:ceremony?{key:ceremony.key,phase:ceremony.phase}:null,
     debug:{staticTriangles:staticArray.length/30,dynamicTriangles,rebuilds,parts:{...partTris},ceremonyRange:ceremonyRange.slice()}};
