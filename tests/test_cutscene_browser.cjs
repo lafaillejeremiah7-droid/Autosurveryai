@@ -26,7 +26,7 @@ let browser,page;
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
  for(const [key,last,label] of [['round1',4,'Be Better'],['round2',4,'Enough'],['final',7,'Forget The Past']]){
   await restore(fixtures[key]);
-  await page.evaluate(()=>{window.audioEvents=[];for(const name of ['horn','boo','hook','cheer','slam','fanfare','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
+  await page.evaluate(()=>{window.audioEvents=[];for(const name of ['horn','shears','hook','compost','slam','fanfare','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
   await page.evaluate(key=>openScreen(key),key);
   // Enough finishes through its real 'Match 5 of 5 done' button, not the generic Submit.
   if(key==='round2'){const done=page.locator('#screen-dialog [data-action="r2-done"][data-match="5"]');await done.scrollIntoViewIfNeeded();await done.click();}
@@ -38,19 +38,19 @@ let browser,page;
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?3:2);
   if(key!=='final')await page.waitForFunction(name=>document.querySelector('#cutscene').classList.contains('verdict-hook')&&document.querySelector('#cutscene-caption').textContent.includes(name),expected[0]);
-  else await page.waitForFunction(()=>!!CityWorld.getStatus().ceremony);
-  if(key!=='final'){assert.equal(await page.locator('#cutscene .av-player').count(),1);assert.equal(await page.locator('#cutscene .av-hook').count(),1);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-verdict.png')});}}
+  else await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('verdict-hook'));
+  if(key!=='final'){assert.equal(await page.locator('#cutscene .av-player').count(),1);assert.equal(await page.locator('#cutscene .gv-shears').count(),1);assert.equal(await page.locator('#cutscene .gv-compost').count(),1);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-verdict.png')});}}
   assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
   if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('verdict-drag'));if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'verdict-drag.png')});}
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
-  else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='descend',null,{timeout:14000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);assert.equal(await page.locator('#ceremony-hud').isVisible(),true,'ceremony HUD shows during the gate ceremony');await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='crowned');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'gate-crowned.png')});await page.keyboard.press('Escape');}
+  else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='descend',null,{timeout:22000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);assert.equal(await page.locator('#ceremony-hud').isVisible(),true,'ceremony HUD shows during the garden bloom ceremony');await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='crowned');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'pavilion-bloom.png')});await page.keyboard.press('Escape');}
   // Forget The Past also verifies automatic completion, with no skip.
-  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
-  assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','the gate ceremony exits the scoring room; a verdict-only skip keeps it');
+  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:40000});
+  assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','the garden bloom ceremony exits the scoring room; a verdict-only skip keeps it');
   assert.equal(await page.locator('#ceremony-hud').isVisible(),false,'ceremony HUD hides when the cutscene ends');
-  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','boo','hook','cheer','slam','horn','boo','hook','cheer','slam'],'per gladiator: horn, boo, hook, cheer, slam');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'champions play victory');}
+  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','shears','hook','compost','slam','horn','shears','hook','compost','slam'],'per player: gardener raises shears, snip, fling, compost impact');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'champions play victory');}
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
@@ -64,7 +64,7 @@ let browser,page;
  await page.locator('#result-content [data-path="round1.extras.0.p9"]').fill('0');
  await page.locator('#cutscene[open]').waitFor();
  assert((await page.locator('#cutscene-label').textContent()).includes('Be Better'));
- assert((await page.locator('#cutscene-caption').innerText()).includes('ELIMINATED'));
+ assert((await page.locator('#cutscene-caption').innerText()).includes('PRUNED'));
  await page.locator('#cutscene-skip').click();await saved();
  assert(await page.locator('#result-dialog').evaluate(e=>e.open));
  assert.equal(await page.evaluate(()=>cutsceneActive),false);
