@@ -16,6 +16,18 @@ The dashboard opens at **http://127.0.0.1:8765**. Leave the terminal running whi
 
 This runs on your computer. A GitHub repository stores the code; it does not host the running Python dashboard. For private GitHub Codespaces use, forward port 8765 privately and run `python app.py --no-browser` in its terminal. Do not expose the app as a public service.
 
+## Three psychological trials
+
+The round titles describe the mental development each competitor is challenged to demonstrate. These are narrative themes; **advancement is still determined by the recorded goals, wins, rankings and tie rules**, not by a separate psychological score.
+
+| Round | Psychological requirement | What advancement means |
+|---|---|---|
+| **1 · Face Your Weakness** | Recognize personal shortcomings, confront mistakes and adjust your play instead of denying them | Be among the top **8 of 10** |
+| **2 · Abandon Your Comfort** | Let go of rigid expectations and adapt to shifting teammates, pressure and limited options | Be among the top **6 of 8** |
+| **3 · Prove Your Resolve** | Maintain composure, make decisive plays and stay committed under final-round pressure | Earn a top-three podium finish |
+
+The sequence moves from **self-awareness → adaptability → mental fortitude**. Round 3 is the final psychological test; the podium is its outcome, not a fourth competitive round.
+
 ## The Royal Garden
 
 The landing screen is a live **royal hedge maze garden** rendered in WebGL with a static canvas fallback. The aerial first-person view floats above winding green hedges, rose arches, gravel paths, **five tournament pavilions**, fountains, and a distant palace. The 3D scene fills the **entire browser viewport**, without a boxed video frame. The tournament cards remain accessible over the garden. Open pavilions respond to click/keyboard navigation; closed pavilions remain locked until their qualifying round is settled.
