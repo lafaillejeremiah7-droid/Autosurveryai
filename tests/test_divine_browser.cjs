@@ -23,6 +23,21 @@ const url=new Promise((resolve,reject)=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const response=await page.goto(base,{waitUntil:'domcontentloaded'});
   assert.equal(response.status(),200);
+  // The self-contained preview has the genuine renderer inline, not a linked
+  // screenshot or a separate concept animation. Test its real live WebGL draw.
+  const demo=await page.goto(base+'/divine-preview',{waitUntil:'load'});
+  assert.equal(demo.status(),200,'offline preview route is served directly by the tournament app');
+  await page.waitForFunction(()=>window.Divine3D?._debug?.()?.triangles>1000,{timeout:15000});
+  const preview=await page.evaluate(()=>({
+   triangles:window.Divine3D._debug()?.triangles,
+   phase:window.Divine3D._debug()?.phase,
+   isWebGL:window.Divine3D._debug()?.webgl,
+   plantLabels:document.querySelectorAll('#plates .plate').length,
+   scripts:[...document.scripts].filter(s=>!!s.src).map(s=>s.src)
+  }));
+  assert(preview.isWebGL&&preview.plantLabels===10&&preview.scripts.length===0,
+    'actual preview is self-contained and shows ten real 3D plants');
+  await page.goto(base,{waitUntil:'domcontentloaded'});
   const asset=await page.request.get(base+'/divine3d.js');
   assert.equal(asset.status(),200,'cutscene JavaScript must be served by app.py');
   assert((await asset.text()).includes('PORTAL_PLANE=44'),'served code should contain the overhead portal');

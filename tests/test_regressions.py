@@ -111,7 +111,7 @@ class Regressions(unittest.TestCase):
             thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
             url=f'http://127.0.0.1:{server.server_port}'
             try:
-                for route in ['/','/app.js','/city.js','/city.css','/style.css','/city-timeline.js','/monuments.js','/divine3d.js']:
+                for route in ['/','/app.js','/city.js','/city.css','/style.css','/city-timeline.js','/monuments.js','/divine3d.js','/divine-preview']:
                     with self.subTest(route=route),urlopen(url+route) as response:
                         self.assertEqual(response.status,200)
                 # The real HTML must load the WebGL script through the server;
@@ -123,6 +123,10 @@ class Regressions(unittest.TestCase):
                     renderer=response.read().decode('utf-8')
                 self.assertIn('window.Divine3D=',renderer)
                 self.assertIn('PORTAL_PLANE=44',renderer)
+                with urlopen(url+'/divine-preview') as response:
+                    standalone=response.read().decode('utf-8')
+                self.assertIn('window.Divine3D=',standalone)
+                self.assertIn('Replay actual 3D scene',standalone)
                 with self.assertRaises(HTTPError) as caught:urlopen(url+'/tower-strike.svg')
                 self.assertEqual(caught.exception.code,404);caught.exception.close()
             finally:
