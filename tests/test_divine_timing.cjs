@@ -14,6 +14,9 @@ const document={querySelector:s=>nodes[s]??=elem(),querySelectorAll:()=>[],addEv
 const context={document,window:{matchMedia:()=>({matches:false}),addEventListener(){},BrawlAudio:{unlock(){},shears(){sounds.push(now);},stop(){}}},fetch:()=>new Promise(()=>{}),setInterval:()=>0,setTimeout(fn,delay){let id=++seq;timers.set(id,{fn,at:now+delay});return id;},clearTimeout(id){timers.delete(id);},console};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root,'static/app.js'),'utf8'),context);
+// The dashboard installs its audio facade during initialization; replace it with
+// the deterministic clock-backed spy after loading the script.
+context.window.BrawlAudio={unlock(){},shears(){sounds.push(now);},stop(){}};
 context.payload=payload;
 vm.runInContext('state=payload.state;view=payload.view;',context);
 const run=s=>vm.runInContext(s,context);
