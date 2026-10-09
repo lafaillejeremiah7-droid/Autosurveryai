@@ -44,17 +44,17 @@ window.BrawlAudio=(()=>{
   return track(source);
  }
  function stop(){for(const n of active)try{n.stop();}catch{}active.clear();birdsOn=false;}
- function roar(big=false){const dur=big?2.6:1.6,vol=big?.22:.12;const a=crowd(dur,vol,900);crowd(dur,vol/2,240);return a;}
- function cheer(big=false){const a=roar(big);if(!a)return null;const n=big?5:3;for(let i=0;i<n;i++)tone(600+Math.random()*60,.35,.02,'sine',900,i*.4/(n-1));return a;}
- function boo(){if(silent())return null;for(let i=0;i<4;i++){const d=1+(i-1.5)*.02;tone(210*d,1.4,.03,'triangle',170*d,i*.04);}return crowd(1.4,.08,400);}
+ function roar(big=false){return noise(big?2.4:1.4,big?.10:.055,600);} // Wind rising through the hedges
+ function cheer(big=false){const a=roar(big);if(!a)return null;const notes=big?[392,494,587,784,1047]:[392,494,587];notes.forEach((hz,i)=>tone(hz,.5,.035,'sine',hz*.97,i*.15));return a;}
+ function boo(){if(silent())return null;for(let i=0;i<3;i++)tone(260-i*45,.6,.045,'triangle',132-i*22,i*.12);return noise(.65,.06,420);}
  function horn(){const a=brass(196,1.1,.06);brass(293.66,1.1,.05);return a;}
- function fanfare(){const a=brass(392,.2,.05,0);brass(523.25,.2,.05,.18);brass(659.25,.2,.05,.36);brass(783.99,1,.05,.54);return a;}
+ function fanfare(){const notes=[392,523.25,659.25,783.99];let first=null;notes.forEach((hz,i)=>{const n=tone(hz,.85,.06,'sine',hz*.99,i*.19);first=first||n;});return first;}
  function hook(){return tone(900,.6,.05,'sine',300);}
  function shears(){noise(.18,.30,3600);tone(980,.12,.12,'square',220);tone(140,.24,.11,'triangle',45,.07);}
  function compost(){noise(.55,.24,230);tone(63,.55,.17,'sine',32);}
  function slam(){const a=noise(.35,.2,300);tone(60,.4,.15,'sine',40);return a;}
  function victory(){const a=fanfare();cheer(true);return a;}
- // Countdown crowd: murmurs mid-countdown, roars near the start, one fanfare when the games begin.
+ // Rising wind and soft chimes build toward the Garden Opens countdown.
  // The cadence advances even while muted so unmuting never releases a backlog.
  function ambience(progress,arrived){
   const n=Number(progress);progress=Number.isFinite(n)?Math.min(1,Math.max(0,n)):0;arrived=!!arrived;
@@ -63,15 +63,15 @@ window.BrawlAudio=(()=>{
   const now=Date.now();
   if(arrived&&!lastArrived){lastArrived=true;lastRoar=now;if(allowed){fanfare();roar(true);}return 'begin';}
   if(progress>=.65&&now-lastRoar>(arrived?4500:10000-6000*progress)){lastRoar=now;const big=progress>.9;if(allowed)roar(big);return big?'big':'roar';}
-  if(progress>=.3&&progress<.65&&now-lastRoar>7000){lastRoar=now;if(allowed)crowd(1.8,.04,700);return 'murmur';}
+  if(progress>=.3&&progress<.65&&now-lastRoar>7000){lastRoar=now;if(allowed)noise(1.8,.035,440);return 'murmur';}
   return null;
  }
  // A single morning birdsong phrase: a few quick, high, frequency-swept blips.
  function chirp(){if(muted||!ctx||ctx.state!=='running'||document.hidden)return;const base=1850+Math.random()*1500,blips=2+Math.floor(Math.random()*3);for(let i=0;i<blips;i++){const f=base*(.78+Math.random()*.5);tone(f,.06+Math.random()*.05,.03,'sine',f*(1.25+Math.random()*.5));}}
  return {unlock,stop,roar,cheer,boo,horn,fanfare,hook,slam,shears,compost,victory,ambience,
- // Gentle morning birdsong while the arena is still quiet. The world tick passes
+ // Gentle birdsong through the morning garden. The world tick passes
  // on=true only during the low-progress morning; chirps obey mute and document.hidden
- // and stop the moment the crowd builds (or a mute) turns them off.
+ // and stop when the countdown intensifies or the player mutes them.
  ambientBirds(on){if(!on){birdsOn=false;return;}if(muted||document.hidden||!ctx||ctx.state!=='running')return;const now=Date.now();if(!birdsOn){birdsOn=true;lastChirp=now;nextChirpGap=0;}if(now-lastChirp>=nextChirpGap){chirp();lastChirp=now;nextChirpGap=1400+Math.random()*2600;}},
  toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Garden sound off':'Garden sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
 })();
