@@ -80,7 +80,7 @@
  }
  function rose(m,x,y,z,tier=3,palette=0){
   const stems=[[.91,.47,.61],[.97,.73,.53],[.81,.66,.97],[1,.89,.64]];
-  const col=stems[palette%4];
+  const col=stems[Math.floor(Math.abs(palette))%4];
   const height=.24+.11*tier;
   m.cylinder([x,y,z],[x,y+height,z],.065,[.13,.42,.20],.043,6);
   if(tier<2){m.gem(x,y+height,z,.14,[.18,.59,.29],0,1.2);return;}
