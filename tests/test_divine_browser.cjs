@@ -77,6 +77,19 @@ const url=new Promise((resolve,reject)=>{
   await page.waitForTimeout(2950);
   const gateShot=await page.screenshot({type:'jpeg',quality:50});
   console.log('DIVINE_PORTAL_JPEG_BASE64='+gateShot.toString('base64'));
+  // A composited screenshot is reliable even when WebGL discards its back buffer.
+  const paintedSky=await page.evaluate(async encoded=>{
+    const img=new Image();
+    img.src='data:image/jpeg;base64,'+encoded;
+    await img.decode();
+    const testCanvas=document.createElement('canvas');
+    testCanvas.width=1;testCanvas.height=1;
+    const context=testCanvas.getContext('2d');
+    context.drawImage(img,5,5,1,1,0,0,1,1);
+    return Array.from(context.getImageData(0,0,1,1).data);
+  },gateShot.toString('base64'));
+  assert(paintedSky[0]<110&&paintedSky[2]>paintedSky[0]+25,
+    'painted PS2 sky must replace the flat clear color: '+JSON.stringify(paintedSky));
   await page.waitForTimeout(750);
   const stage=await page.evaluate(()=>{
    const s=window.Divine3D._debug();
@@ -90,18 +103,14 @@ const url=new Promise((resolve,reject)=>{
    const u=gl.getUniform(program,loc);
    const px=new Uint8Array(4);
    gl.readPixels(Math.floor(c.width/2),Math.floor(c.height/2),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
-   // Verify the PS2-painted backdrop actually renders rather than clearColor.
-   const sky=new Uint8Array(4);
-   gl.readPixels(5,c.height-6,1,1,gl.RGBA,gl.UNSIGNED_BYTE,sky);
-   const state={width:c.width,height:c.height,sky:Array.from(sky),error:gl.getError(),currentProgram:!!program,
+   const state={width:c.width,height:c.height,error:gl.getError(),currentProgram:!!program,
      depth:gl.isEnabled(gl.DEPTH_TEST),vertices:gl.getBufferParameter(gl.ARRAY_BUFFER,gl.BUFFER_SIZE)/40,
      sample:Array.from(px),matrix:Array.from(u),uniformEye:Array.from(gl.getUniform(program,gl.getUniformLocation(program,'u_eye')))};
    return state;
   });
   console.log('DIVINE_GPU_STATE='+JSON.stringify(gpu));
   assert.equal(gpu.error,0,'no GL errors after actual render');
-  assert(gpu.sky[0]<110&&gpu.sky[2]>gpu.sky[0]+25,
-    'painted PS2 sky must replace the flat clear color: '+JSON.stringify(gpu.sky));
+
   assert(gpu.matrix.length===16&&gpu.matrix.every(Number.isFinite),
     'perspective matrix must be finite: malformed cross products create blank WebGL frames');
   // Print one compact visual sample for design inspection; large images are
