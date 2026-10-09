@@ -1,6 +1,6 @@
 # Brawl Hockey Tournament Dashboard
 
-A local Python dashboard for 10 players, **Know Thy Nature** and **Adapt or Wither** cutting rounds, and the **The Last Bloom** final. All calculations run in Python. No extra packages, accounts, or internet connection are needed to run it.
+A local Python dashboard for 10 players, **Know Thy Nature** and **Adapt or Wither** cutting rounds, and **The Last Bloom** final. All calculations run in Python. No extra packages, accounts, or internet connection are needed to run it.
 
 ## Run
 
@@ -24,9 +24,11 @@ The round titles describe the mental development each competitor is challenged t
 |---|---|---|
 | **1 · Know Thy Nature** | Recognize personal shortcomings, confront mistakes and adjust your play instead of denying them | Be among the top **8 of 10** |
 | **2 · Adapt or Wither** | Let go of rigid expectations and adapt to shifting teammates, pressure and limited options | Be among the top **6 of 8** |
-| **3 · The Last Bloom** | Maintain composure, make decisive plays and stay committed under final-round pressure | Earn a top-three podium finish |
+| **3 · The Last Bloom** | Maintain composure, make decisive plays and stay committed under final-round pressure | Become the sole first-place champion and win all $40 |
 
 The sequence moves from **self-awareness → adaptability → mental fortitude**. Round 3 is the final psychological test; the podium is its outcome, not a fourth competitive round.
+
+The round names follow a nature-and-philosophy arc: **Know Thy Nature** (understand your roots and weaknesses), **Adapt or Wither** (natural selection rewards adaptation), and **The Last Bloom** (a single surviving champion). All ten competitors have an equal chance to earn the one **$40 winner-take-all prize**; second through tenth receive **$0**. Existing tournaments and restored backups automatically adopt the fixed payout without losing scores or round results.
 
 ## The Royal Garden
 
@@ -34,20 +36,20 @@ The landing screen is a live **royal hedge maze garden** rendered in WebGL with 
 
 The opening timer is **The Garden Opens**. Set the tournament's date and time under Players & rules, or use **Set start time** on the home screen. The countdown persists in the saved tournament state and survives page refreshes, backups, and Undo. Ambient birds and local sound effects accompany the opening. **Pause garden** and reduced-motion preferences stop decorative movement without stopping the countdown. **Garden sound off** silences the synthesized audio.
 
-The flowers follow tournament progress independently of the countdown. Before the first cut settles, **all 112 roses are closed buds**. After **Know Thy Nature**, the first 38 roses bloom; after **Adapt or Wither**, a second group opens; after the **The Last Bloom** final, all 112 roses are in full bloom. Scoring corrections and Undo recalculate the correct bloom stage instead of permanently advancing it. The Garden Bloom indicator measures this three-stage progression.
+The flowers follow tournament progress independently of the countdown. Before the first cut settles, **all 112 roses are closed buds**. After **Know Thy Nature**, the first 38 roses bloom; after **Adapt or Wither**, a second group opens; after **The Last Bloom** final, all 112 roses are in full bloom. Scoring corrections and Undo recalculate the correct bloom stage instead of permanently advancing it. The Garden Bloom indicator measures this three-stage progression.
 
 ### Elimination: the gardener's pruning verdict
 
-After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Know Thy Nature and Adapt or Wither prune their two cut players. The final prunes exactly the three non-podium finalists, then reveals the top three on the gold/silver/bronze podium. All eliminated names and placements come from the existing scoring engine, not from the animation.
+After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Know Thy Nature and Adapt or Wither prune their two cut players. The final prunes exactly the five non-winning finalists, then reveals the single champion on the gold pedestal. All eliminated names and placements come from the existing scoring engine, not from the animation.
 
 The cutscene appears above the scoring and results screens. **Skip**, **Escape**, or natural completion exits cleanly; reduced-motion preference shows a still summary instead. Once a round is pruned, its pavilion opens with a cascade of flowers. The normal standings and result dialogs remain available afterwards, including when ties are resolved through extra games.
 
 ### Pavilions and tournament path
 
-- **Players & rules:** enter ten names, scoring weights, start time, and prizes.
+- **Players & rules:** enter ten names, scoring weights, start time, and the fixed $40 champion prize.
 - **Know Thy Nature:** five 5v5 games, cutting 10 players to 8.
 - **Adapt or Wither:** five 4v4 games with reshuffle controls, cutting 8 to 6.
-- **The Last Bloom:** eight 3v3 final games, goals, wins and prizes.
+- **The Last Bloom:** eight 3v3 final games, goals and wins, culminating in one $40 champion.
 - **Leaderboard:** advancing players, cuts, settled podium and CSV.
 
 The path only unlocks the next playable pavilion after the preceding round is complete. Undo or an earlier score correction can reseal it. The royal podium reflects the actual final results, including unresolved ties.
@@ -72,11 +74,11 @@ Lineups are saved, so reloads do not change them. The reshuffle action does not 
 
 ## Tournament flow
 
-1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
+1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. The single, fixed prize is $40 for first place; everyone else gets $0.
 2. **Know Thy Nature:** each of the five games gets an automatic fresh random 5v5 split. Ranking is by individual total goals rather than team wins; an optional per-game **Reshuffle teams** button draws a new split and locks once that game has any score. Enter all five games, with a score for every one of the ten players each game including explicit zeroes. Rank all ten players together by total goals (and goals per match): the top eight advance, the bottom two are cut. A tie across eighth and ninth requires extra games.
 3. **Adapt or Wither:** the eight survivors play five 4v4 matches with balanced, changing teammates and opponents. A **Reshuffle teams** button is available before recording any goals for the current game; completed games and saved scores are protected. No player sits out. Enter eight scores including zeroes per game. Rank all individuals by average goals per match: the top six advance, bottom two are cut, and ties across sixth/seventh require extra games.
 4. **The Last Bloom:** the six survivors start at zero. Follow the displayed schedule of eight balanced 3v3 matches. Every player plays eight matches; teammate and opponent counts are kept as even as possible. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–8 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all eight games are complete.
-5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
+5. **Leaderboard:** follow cuts, final standings, and prizes. The $40 prize appears only when the final is settled with a unique first-place champion. Second place and below receive $0.
 
 Yellow controls are editable. Gray cells are calculated. Advance is green, cut is red, and relevant ties display **TIE - EXTRA GAMES NEEDED**. Rankings during incomplete rounds are provisional; nobody advances until the round is complete.
 
@@ -93,7 +95,7 @@ Old saved scores above these limits are retained for correction. They block roun
 Each round has a per-match **Submit Match N of X** control: Know Thy Nature has five games, Adapt or Wither has five matches, and The Last Bloom has eight games. The control stays disabled until that match is ready (every active player in it has a score, including explicit zeroes) and the stage is not stale.
 
 - **Submitting a non-final match** opens a dismissible popup with the cumulative round standings through that match. It lists each player's rank, name, running total, average, and provisional status. The totals and averages are summed over the matches played so far, not just the one match you submitted. Close the popup to continue to the next match.
-- **Submitting the final match** of a round opens a fullscreen total round ranking for all players, with totals, an average column, and a status badge each. For the two cutting rounds (Know Thy Nature and Adapt or Wither) the badge is **ADVANCE**, **CUT**, or **TIE** and the average column shows goals per match. For The Last Bloom, which decides the podium rather than a cut, the badge is **FINAL** or **TIE** (there is no "cut" to a next round) and the average column shows average points per game (total points / games played). When no tie exists the fullscreen reports that the round is settled. When a tie sits across the cut line, the fullscreen states that extra games are needed and hosts the **Add extra game** controls directly. As you enter and save extra scores the fullscreen recomputes live and flips **TIE** to the settled badge as the bubble resolves; if players stay tied it asks for another extra game. Close the fullscreen to return to the dashboard.
+- **Submitting the final match** of a round opens a fullscreen total round ranking for all players, with totals, an average column, and a status badge each. For the two cutting rounds (Know Thy Nature and Adapt or Wither) the badge is **ADVANCE**, **CUT**, or **TIE** and the average column shows goals per match. For The Last Bloom, which decides a sole $40 champion rather than another advancement cut, the badge is **FINAL** or **TIE** (there is no "cut" to a next round) and the average column shows average points per game (total points / games played). When no tie exists the fullscreen reports that the round is settled. When a tie sits across the cut line, the fullscreen states that extra games are needed and hosts the **Add extra game** controls directly. As you enter and save extra scores the fullscreen recomputes live and flips **TIE** to the settled badge as the bubble resolves; if players stay tied it asks for another extra game. Close the fullscreen to return to the dashboard.
 
 Adapt or Wither uses a **Match N of 5 done** server flow, advancing the saved per-game team match, and then shows the same popup or fullscreen. Know Thy Nature and The Last Bloom use client-side submit controls that read the already-entered per-game scores, so no extra server round-trip is needed to show their standings.
 
@@ -113,7 +115,7 @@ A few quality-of-life controls make the dashboard easier to operate:
   - **Clear scoring** resets the point values that apply to all rounds back to defaults: win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched.
   Each is a separate button with copy stating exactly what it clears, and both can be undone immediately afterwards.
 - **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit Know Thy Nature, resolve a tie, draw and play Adapt or Wither, play The Last Bloom, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
-- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the Know Thy Nature **Reshuffle teams**, the Adapt or Wither **Generate balanced 4v4 games** / **Reshuffle teams** / **Match N done** / match tabs, or the The Last Bloom **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
+- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the Know Thy Nature **Reshuffle teams**, the Adapt or Wither **Generate balanced 4v4 games** / **Reshuffle teams** / **Match N done** / match tabs, or The Last Bloom **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
 - **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle Know Thy Nature teams, clear player names, clear scoring, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
 
 
@@ -123,7 +125,7 @@ Each game independently contains four players on Team A and four on Team B. The 
 
 ## Extra games
 
-Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 8th and 9th across all ten players in Know Thy Nature, the cluster straddling 6th and 7th in Adapt or Wither, and the tied podium group in The Last Bloom. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
+Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 8th and 9th across all ten players in Know Thy Nature, the cluster straddling 6th and 7th in Adapt or Wither, and the group tied for first place in The Last Bloom. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
 
 Click **Add extra game** after regulation play for the tied group. Enter a score for every player in that tied group. For a final extra game, enter both goals and W/L; it uses normal scoring without the games 1–2 multiplier.
 
