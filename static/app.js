@@ -686,9 +686,11 @@ function verdictBackdrop(){
 const hookSvg=(cls='',style='')=>'<svg class="av-hook'+cls+'"'+(style?' style="'+style+'"':'')+' viewBox="0 0 400 80" aria-hidden="true"><path d="M0 50H340"/><path d="M340 50C384 50 388 6 356 6C334 6 330 26 344 32"/></svg>';
 const stickman=name=>'<div class="av-player"><svg class="av-stickman" viewBox="0 0 60 120" aria-hidden="true"><circle class="av-head" cx="30" cy="14" r="10"/><line class="av-body" x1="30" y1="24" x2="30" y2="70"/><line class="av-arm av-arm-l" x1="30" y1="36" x2="12" y2="56"/><line class="av-arm av-arm-r" x1="30" y1="36" x2="48" y2="56"/><line class="av-leg av-leg-l" x1="30" y1="70" x2="16" y2="112"/><line class="av-leg av-leg-r" x1="30" y1="70" x2="44" y2="112"/></svg><span class="av-name">'+esc(name)+'</span></div>';
 const laurelSvg=cls=>'<svg class="'+cls+'" viewBox="0 0 120 80" aria-hidden="true"><path d="M60 74C30 70 14 48 18 14M60 74C90 70 106 48 102 14"/>'+[[20,56,-50],[16,40,-20],[20,24,10],[100,56,50],[104,40,20],[100,24,-10]].map(([x,y,r])=>'<ellipse cx="'+x+'" cy="'+y+'" rx="9" ry="4.5" transform="rotate('+r+' '+x+' '+y+')"/>').join('')+'</svg>';
-// One verdict beat, rebuilt per player so every CSS animation restarts.
-function buildVerdictScene(name){
- $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict">'+verdictBackdrop()+stickman(name)+'</div>';
+// Each scene contains exactly one contestant, one shears impact and its own index.
+function buildVerdictScene(name,index=0,total=1){
+ const count='<div class="gv-pruning-count">PRUNING '+(index+1)+' / '+total+'</div>';
+ $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict">'+verdictBackdrop()+stickman(name)+count+'</div>';
+ if(ceremonyStage==='final')$('#cutscene-label').textContent='The Last Bloom · '+(index+1)+' OF '+total;
 }
 function setVerdictClass(phase){
  const overlay=$('#cutscene');
@@ -702,7 +704,7 @@ function verdictPhase(phase,name){
 }
 function runVerdictSequence(names,i=0){
  if(!cutsceneActive)return;if(i>=names.length){startGateCeremony();return;}
- const name=names[i];buildVerdictScene(name);verdictPhase('enter',name);
+ const name=names[i];buildVerdictScene(name,i,names.length);verdictPhase('enter',name);
  schedule(()=>verdictPhase('judge',name),900);
  schedule(()=>verdictPhase('down',name),1900);
  schedule(()=>verdictPhase('hook',name),2200);
@@ -710,7 +712,16 @@ function runVerdictSequence(names,i=0){
  schedule(()=>verdictPhase('gone',name),4300);
  schedule(()=>runVerdictSequence(names,i+1),5000);
 }
-// Reduced motion: a static garden summary of pruned players.
+// Reduced motion: keep a still frame for each finalist, individually snipped.
+function runReducedFinalPruning(names,i=0){
+ if(!cutsceneActive)return;
+ if(i>=names.length){startGateCeremony();return;}
+ const name=names[i];buildVerdictScene(name,i,names.length);
+ verdictPhase('down',name); // Static closed shears, with an audible snip.
+ schedule(()=>{verdictPhase('gone',name);window.BrawlAudio?.compost?.();},600);
+ schedule(()=>runReducedFinalPruning(names,i+1),1600);
+}
+// Early-round reduced motion keeps the accessible summary of both cut players.
 function buildVerdictSummary(names){
  if(!cutsceneActive)return;
  $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict gv-summary">'+verdictBackdrop()+'<div class="av-lineup">'+names.map(stickman).join('')+'</div></div>';
@@ -759,7 +770,7 @@ function startFinalSequence(cuts){
  finalWinners=finalRoster(cuts).winners;
  // Five finalists are pruned. Only the first-place player survives to
  // claim the entire $30, with no runner-up payout.
- if(reducedMotion())buildVerdictSummary(cuts);
+ if(reducedMotion())runReducedFinalPruning(cuts);
  else runVerdictSequence(cuts);
 }
 function revealFinalWinners(run){
