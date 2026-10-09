@@ -5,7 +5,7 @@ const {spawn,execFileSync}=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'brawl-cutscene-'));
 const py=process.env.PYTHON||'python3';
-const fixtures=JSON.parse(execFileSync(py,['-c',"import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture,cut_tie_state;from engine import new_state;s=fixture();r1=fixture();r1['round2']=new_state()['round2'];r1['final']=new_state()['final'];r2=fixture();r2['final']=new_state()['final'];print(json.dumps({'round1':r1,'round2':r2,'final':s,'tie':cut_tie_state('round1')}))"],{cwd:root,encoding:'utf8'}));
+const fixtures=JSON.parse(execFileSync(py,['-c',"import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture,cut_tie_state;from engine import new_state;s=fixture();r1=fixture();r1['round2']=new_state()['round2'];r1['final']=new_state()['final'];r2=fixture();r2['final']=new_state()['final'];r2['round2']['draw']['completed']=4;t2=cut_tie_state('round2');t2['final']=new_state()['final'];print(json.dumps({'round1':r1,'round2':r2,'final':s,'tie':cut_tie_state('round1'),'tie2':t2}))"],{cwd:root,encoding:'utf8'}));
 const server=spawn(py,['app.py','--port','0','--no-browser','--data',path.join(tmp,'state.json')],{cwd:root});
 const ready=new Promise((resolve,reject)=>{
  const timer=setTimeout(()=>reject(Error('Server did not start')),15000);
@@ -28,7 +28,9 @@ let browser,page;
   await restore(fixtures[key]);
   await page.evaluate(()=>{window.audioEvents=[];for(const name of ['horn','boo','hook','cheer','slam','fanfare','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
   await page.evaluate(key=>openScreen(key),key);
-  await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
+  // Enough finishes through its real 'Match 5 of 5 done' button, not the generic Submit.
+  if(key==='round2'){const done=page.locator('#screen-dialog [data-action="r2-done"][data-match="5"]');await done.scrollIntoViewIfNeeded();await done.click();}
+  else await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
   if(key!=='final')await page.locator('#cutscene[open]').waitFor();
   if(key!=='final')assert(await page.locator('#cutscene').evaluate(e=>e.matches(':modal')),'cutscene must enter native top layer');
   assert((await page.locator('#cutscene-label').textContent()).includes(label),key+': '+await page.locator('#cutscene-label').textContent());
@@ -69,6 +71,18 @@ let browser,page;
  // An unrelated successful save after settlement must not replay the cutscene.
  await page.evaluate(()=>{state.settings.prizes[0]=19;changed();});await saved();
  assert.equal(await page.evaluate(()=>cutsceneActive),false);
+ // Settling a cut tie from the round screen's Extra games panel (result window closed) also plays.
+ await restore(fixtures.tie2);await page.evaluate(()=>openScreen('round2'));
+ assert.equal(await page.locator('#result-dialog').evaluate(e=>e.open),false);
+ const addExtra=page.locator('#screen-dialog [data-action="extra"][data-stage="round2"]');await addExtra.scrollIntoViewIfNeeded();await addExtra.click();await saved();
+ await page.locator('#screen-dialog [data-path="round2.extras.0.p4"]').fill('2');await saved();
+ assert.equal(await page.evaluate(()=>cutsceneActive),false,'partial tie must not eliminate anyone');
+ await page.locator('#screen-dialog [data-path="round2.extras.0.p8"]').fill('0');
+ await page.locator('#cutscene[open]').waitFor();
+ assert((await page.locator('#cutscene-label').textContent()).includes('Enough'));
+ assert.deepEqual(await page.evaluate(()=>eliminatedNames('round2')),['Player 8','Player 9']);
+ await page.locator('#cutscene-skip').click();
+ await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open&&resultStage==='round2');
  assert.deepEqual(errors,[]);
  console.log('Cutscenes passed: all three rounds independently, native top layer, correct eliminated players, duplicate guard, Esc/Skip/natural completion, mobile reduced motion, and tie settlement without unrelated replay.');
 })().catch(async e=>{console.error(e);if(page)console.error(await page.evaluate(()=>({city:CityWorld.getStatus(),active:cutsceneActive,run:cutsceneRunId,stage:ceremonyStage,screen:document.querySelector('#screen-dialog').open,result:document.querySelector('#result-dialog').open,hud:document.querySelector('#ceremony-hud').hidden})));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();});
