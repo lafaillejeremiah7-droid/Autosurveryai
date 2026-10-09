@@ -9,7 +9,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fmt=v=>v===null||v===undefined?'—':Number(v).toLocaleString(undefined,{maximumFractionDigits:3});
 const playedLabel=(n,regulation)=>n>regulation?`${regulation} + ${n-regulation} EXTRA`:`${n}/${regulation}`;
 const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
-const tabs=[['settings','Players & rules'],['round1','Be Better'],['round2','Enough'],['final','Forget The Past'],['overview','Leaderboard']];
+const tabs=[['settings','Players & rules'],['round1','Face Your Weakness'],['round2','Abandon Your Comfort'],['final','Prove Your Resolve'],['overview','Leaderboard']];
 const roman=['I','II','III','IV','V'];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Royal garden audio: birds, shear snaps, compost impacts and floral fanfares. No recordings.
@@ -137,18 +137,18 @@ function panel(name,body,right=''){return `<section class="panel"><div class="pa
 // A visible, always-available 'Clear this round' .danger panel. The copy states the
 // exact downstream cascade (round1 clears all three, round2 clears round2+final,
 // final clears only final). Clearing routes through doDestructive so it is undoable.
-const clearRoundBlurb={round1:'Clears Be Better and every later round (Enough and Forget The Past). Earlier rounds do not exist for Be Better, so nothing before it is touched.',round2:'Clears Enough and Forget The Past. Be Better and its results are kept.',final:'Clears Forget The Past only. Be Better and Enough are kept.'};
+const clearRoundBlurb={round1:'Clears Face Your Weakness and every later round (Abandon Your Comfort and Prove Your Resolve). Earlier rounds do not exist for Face Your Weakness, so nothing before it is touched.',round2:'Clears Abandon Your Comfort and Prove Your Resolve. Face Your Weakness and its results are kept.',final:'Clears Prove Your Resolve only. Face Your Weakness and Abandon Your Comfort are kept.'};
 function clearRoundPanel(key){return panel('Clear this round','<p class="hint">'+clearRoundBlurb[key]+' You can Undo this straight afterwards.</p><button class="danger" data-action="clear-round" data-stage="'+key+'">'+clearRoundCopy[key]+'</button>');}
 function roomLock(key){
  if(key==='round1')return view.names_ok?'':'Enter ten unique player names in Players & rules.';
- if(key==='round2')return !view.names_ok?'Enter ten unique player names first.':view.round1.complete?'':'Finish Be Better and resolve its cut ties.';
- if(key==='final')return !view.names_ok?'Enter ten unique player names first.':!view.round1.complete?'Finish Be Better and resolve its cut ties.':view.round2.complete?'':'Finish Enough and resolve its cut ties.';
+ if(key==='round2')return !view.names_ok?'Enter ten unique player names first.':view.round1.complete?'':'Finish Face Your Weakness and resolve its cut ties.';
+ if(key==='final')return !view.names_ok?'Enter ten unique player names first.':!view.round1.complete?'Finish Face Your Weakness and resolve its cut ties.':view.round2.complete?'':'Finish Abandon Your Comfort and resolve its cut ties.';
  return '';
 }
 function lockAttrs(key){const reason=roomLock(key);return reason?' disabled aria-disabled="true" title="'+esc(reason)+'"':'';}
 function gateStages(){
  const setup={key:'settings',label:'Players & rules',status:view.names_ok?'complete':'current',detail:view.names_ok?'Roster ready · rules editable':'Enter ten unique names'};
- return [setup,...[['round1','Be Better'],['round2','Enough'],['final','Forget The Past']].map(([key,label])=>{
+ return [setup,...[['round1','Face Your Weakness'],['round2','Abandon Your Comfort'],['final','Prove Your Resolve']].map(([key,label])=>{
   const v=view[key],reason=roomLock(key),status=reason?'sealed':v.complete?'complete':'current';
   const cut=v.rows.filter(r=>r.status==='CUT').map(r=>r.name);
   const detail=reason||(status==='complete'?(key==='final'?'Podium settled':cut.length?'Cut: '+cut.join(' · '):'Qualification settled'):v.ready?'Resolve extra-game ties':v.games.filter(g=>g.ready).length+' / '+v.games.length+' matches');
@@ -160,9 +160,9 @@ function renderRoom(){
  $('#room-stats').innerHTML='<div><b>'+registered+'<small> / 10</small></b><small>REGISTERED</small></div><div><b>'+money(view.pool)+'</b><small>PRIZE POOL</small></div>';
  const rooms=[
   ['settings',roman[0],'Players & rules',registered+' / 10 PLAYERS READY'],
-  ['round1',roman[1],'Be Better',view.round1.games.filter(g=>g.ready).length+' / 5 MATCHES'],
-  ['round2',roman[2],'Enough',view.round2.games.filter(g=>g.ready).length+' / 5 MATCHES'],
-  ['final',roman[3],'Forget The Past',view.final.games.filter(g=>g.ready).length+' / 8 MATCHES'],
+  ['round1',roman[1],'Face Your Weakness',view.round1.games.filter(g=>g.ready).length+' / 5 MATCHES'],
+  ['round2',roman[2],'Abandon Your Comfort',view.round2.games.filter(g=>g.ready).length+' / 5 MATCHES'],
+  ['final',roman[3],'Prove Your Resolve',view.final.games.filter(g=>g.ready).length+' / 8 MATCHES'],
   ['overview',roman[4],'Leaderboard',money(view.awarded)+' AWARDED']
  ];
  const stages=gateStages(),stageMap=Object.fromEntries(stages.map(s=>[s.key,s]));
@@ -183,9 +183,9 @@ function nextStepBanner(next,finished){
  const tieIn=key=>view[key].rows.some(r=>r.status&&r.status.startsWith('TIE'));
  let msg,label,target=next;
  if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
- else if(next==='round1'){msg=tieIn('round1')?'Resolve the Be Better tie (add extra games) before Enough.':(view.round1.issues[0]||'Score the five Be Better games, then submit.');label='Open Be Better';}
- else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering scores for a game.';label='Open Enough';}
- else{msg=view.final.issues[0]||'Play the eight Forget The Past games to decide the podium.';label='Open Forget The Past';}
+ else if(next==='round1'){msg=tieIn('round1')?'Resolve the Face Your Weakness tie (add extra games) before Abandon Your Comfort.':(view.round1.issues[0]||'Score the five Face Your Weakness games, then submit.');label='Open Face Your Weakness';}
+ else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering scores for a game.';label='Open Abandon Your Comfort';}
+ else{msg=view.final.issues[0]||'Play the eight Prove Your Resolve games to decide the podium.';label='Open Prove Your Resolve';}
  return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
 }
 function overview(){
@@ -194,10 +194,10 @@ function overview(){
  let html=title('PAVILION V / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
- html+=`<div class="round-path">${[['round1','01 · Be Better','10 players → 8 survivors'],['round2','02 · Enough','8 players → 6 survivors'],['final','03 · Forget The Past','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
+ html+=`<div class="round-path">${[['round1','01 · Face Your Weakness','10 players → 8 survivors'],['round2','02 · Abandon Your Comfort','8 players → 6 survivors'],['final','03 · Prove Your Resolve','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  const rowmap=key=>Object.fromEntries(view[key].rows.map(r=>[r.id,r]));const a=rowmap('round1'),b=rowmap('round2'),c=rowmap('final');
- html+=panel('Every player',table(['PLAYER','BE BETTER','ENOUGH','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
+ html+=panel('Every player',table(['PLAYER','FACE YOUR WEAKNESS','ABANDON YOUR COMFORT','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
  if(final.rows.length)html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],final.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  return html;
 }
@@ -234,7 +234,7 @@ document.addEventListener('submit',e=>{
 });
 
 function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return '';
- let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Forget The Past). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
+ let html='<p class="hint">Enter extra-game scores only for tied players. Their totals and averages include these games, but places stay tied until everyone in the group has a score (and W/L in Prove Your Resolve). If a tie remains, add another game for that remaining group. Already settled places stay fixed. Remove deletes one extra game; Clear all removes every extra game in this round. Either action can be undone.</p>';
  stage.extras.forEach((_,i)=>{html+=`<div class="extra-head"><h3>Extra game ${i+1}</h3><button class="danger" data-action="remove-extra" data-stage="${key}" data-index="${i}">Remove</button></div><div class="extra-grid">${v.rows.map(r=>`<label>${esc(r.name)}<span class="game-pair">${key==='final'?inp(`${key}.extras.${i}.${r.id}.goals`,`${r.name} extra ${i+1} goals`)+select(`${key}.extras.${i}.${r.id}.result`,['W','L'],`${r.name} extra ${i+1} result`):inp(`${key}.extras.${i}.${r.id}`,`${r.name} extra ${i+1} goals`)}</span></label>`).join('')}</div>`;});
  const actions=`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>${stage.extras.length?`<button class="danger" data-action="clear-extras" data-stage="${key}">Clear all extra games</button>`:''}`;
  return panel('Extra games',html,actions);
@@ -242,7 +242,7 @@ function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return
 // Per-match submit + popup/fullscreen. Submitting a non-final match shows cumulative
 // round standings THROUGH that match (computed client-side); submitting the last match
 // shows the fullscreen total round ranking with ADVANCE/CUT/TIE and the add-extra flow.
-const stageMeta={round1:{count:5,label:'Be Better'},round2:{count:5,label:'Enough'},final:{count:8,label:'Forget The Past'}};
+const stageMeta={round1:{count:5,label:'Face Your Weakness'},round2:{count:5,label:'Abandon Your Comfort'},final:{count:8,label:'Prove Your Resolve'}};
 function provisionalRanks(rows,compare){
  rows.sort((a,b)=>compare(a,b)||a.name.localeCompare(b.name));
  let rank=1;
@@ -261,7 +261,7 @@ function cumulativeStandings(key,n){
   });
   return provisionalRanks(rows,(a,b)=>b.total-a.total);
  }
- // Be Better has no sit-out schedule; every player plays every game. Derive an
+ // Face Your Weakness has no sit-out schedule; every player plays every game. Derive an
  // {A,B,sit:[]} shape from the per-game cosmetic lineups so the popup grouping
  // matches, falling back to all-of-A when a game's split is not yet generated.
  const schedule=v.schedule||v.games.map(m=>({A:(m.teams&&m.teams.A.length?m.teams.A.concat(m.teams.B):ids),B:[],sit:[]}));
@@ -275,7 +275,7 @@ function cumulativeStandings(key,n){
  });
  return provisionalRanks(rows,(a,b)=>b.total*(a.played||1)-a.total*(b.played||1));
 }
-// The accent 'Submit Match N of X' panel for Be Better and Forget The Past (mirrors Enough's
+// The accent 'Submit Match N of X' panel for Face Your Weakness and Prove Your Resolve (mirrors Abandon Your Comfort's
 // .match-completion look). Disabled until that match's view games[match].ready is true
 // and the stage is not stale. Client-side: validates readiness then opens the popup.
 function matchSubmit(key,match){
@@ -371,12 +371,12 @@ function closeResult(){
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
- let html=title('ROUND 01','Be Better','Five games with fresh random 5v5 teams. Each team can score at most 3 goals per match. The top eight individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 01','Face Your Weakness','Five games with fresh random 5v5 teams. Each team can score at most 3 goals per match. The top eight individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
  round1Game=Math.min(round1Game,4);
  html+=matchScoreboard('round1',round1Game);
  const g=round1Game,match=v.games[g].teams,rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
- html+=`<div class="match-tabs" aria-label="Be Better match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
+ html+=`<div class="match-tabs" aria-label="Face Your Weakness match selector">${v.games.map((m,i)=>`<button data-r1-game="${i}" aria-pressed="${i===round1Game}" class="${i===round1Game?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`).join('')}</div>`;
  const scored=v.games[g].counts.A+v.games[g].counts.B>0;
  const rerollOff=lineupBusy||scored;
  const rerollWhy=scored?'This game already has scores. Clear them before reshuffling.':lineupBusy?'Wait for the current draw to finish.':'';
@@ -389,9 +389,9 @@ function round(key){
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
- let html=title('ROUND 02','Enough','Five 4v4 games with changing teams. Reshuffle before a game starts to reduce teammate bias; the top six individuals advance.','8 → 6 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 02','Abandon Your Comfort','Five 4v4 games with changing teams. Reshuffle before a game starts to reduce teammate bias; the top six individuals advance.','8 → 6 PLAYERS')+notice(v.issues);
  if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to generate new 4v4 matchups.'])+clearRoundPanel('round2');
- if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Be Better. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
+ if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Face Your Weakness. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(lineupBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
  html+='<div class="score-help">FIVE 4v4 GAMES · CHANGING TEAMS · ALL EIGHT PLAY EVERY GAME · INDIVIDUAL GOALS DECIDE ADVANCEMENT</div>';
  html+=`<div class="match-tabs" aria-label="Round 2 match selector">${v.games.map((m,i)=>{const off=i>=v.draw.revealed||lineupBusy;const why=i>=v.draw.revealed?`Finish Game ${v.draw.completed+1} first.`:'Wait for the current save.';return `<button data-r2-game="${i}" ${off?`disabled title="${esc(why)}" aria-disabled="true"`:''} aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}</button>`;}).join('')}</div>`;
@@ -414,19 +414,19 @@ function round2Page(){
 
 function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
- let html=title('ROUND 03 / THE FINAL','Forget The Past','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
+ let html=title('ROUND 03 / THE FINAL','Prove Your Resolve','Six finalists. Ten rotations. Every goal and win counts.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
- if(v.stale)html+=notice(['This roster changed since Forget The Past was scored. Clearing Forget The Past re-syncs it to the current finalists.']);
- if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish Enough and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
+ if(v.stale)html+=notice(['This roster changed since Prove Your Resolve was scored. Clearing Prove Your Resolve re-syncs it to the current finalists.']);
+ if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish Abandon Your Comfort and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
  html+=`<div class="score-help">GOAL = ${fmt(state.settings.goal_points)} PTS / WIN = ${fmt(state.settings.win_points)} PTS · Games 1–2 ×${fmt(state.settings.multiplier)} · Games 3–8 ×1</div>`;
  html+=`<div class="match-tabs" aria-label="Final match selector">${v.games.map((m,i)=>`<button data-game="${i}" aria-pressed="${i===g}" class="${i===g?'active':''} ${m.ready?'ready':''}">G${i+1}${i<2?' ×'+fmt(state.settings.multiplier):''}</button>`).join('')}</div>`;
  const schedule=v.schedule[g],rowmap=Object.fromEntries(v.rows.map(r=>[r.id,r]));
  html+=matchScoreboard('final',g);
- const fClearOff=v.stale||lineupBusy,fClearWhy=v.stale?'Clear Forget The Past first — the roster changed since these scores.':'Wait for the current draw to finish.';
+ const fClearOff=v.stale||lineupBusy,fClearWhy=v.stale?'Clear Prove Your Resolve first — the roster changed since these scores.':'Wait for the current draw to finish.';
  html+=`<div class="match-topline"><div><h2>Game ${g+1} <span class="stage-title-number">/ 8</span></h2><p>Enter each player’s goals, then mark the winning team.</p>${fClearOff?`<p class="hint reason">${esc(fClearWhy)}</p>`:''}</div><button class="danger clear-score" data-action="clear-game" ${fClearOff?`disabled title="${esc(fClearWhy)}" aria-disabled="true"`:''}>Clear this game</button></div><div class="teams-grid">`;
  for(const team of ['A','B']){
   const won=schedule[team].every(p=>state.final.players[p].results[g]==='W'),lost=schedule[team].every(p=>state.final.players[p].results[g]==='L');
-  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear Forget The Past first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`).join('')}</section>`;
+  html+=`<section class="team-score team-${team.toLowerCase()}"><div class="team-head"><div><small>GAME ${g+1}</small><h2>Team ${team}</h2></div><button data-winner="${team}" aria-pressed="${won}" class="${won?'accent':''}" ${v.stale?`disabled title="${esc(v.issues[0]||'Clear Prove Your Resolve first — the roster changed since these scores.')}" aria-disabled="true"`:''}>${won?'✓ WIN RECORDED':lost?'LOSS RECORDED':'Mark win +1'}</button></div>${schedule[team].map(p=>`<div class="player-score"><div class="player-name">${esc(state.names[p])}<small>${fmt(rowmap[p].game_points[g])} POINTS THIS GAME</small></div>${counter(`final.players.${p}.goals.${g}`,`${state.names[p]} game ${g+1}`,v.stale||lineupBusy)}</div>`).join('')}</section>`;
  }
  html+='</div><p class="hint">Marking the winner adds one win to each teammate and records a loss for each opponent. Enter 0 for a played game with no goals. Win and goal points calculate as you enter either value. Played counts complete goal/result pairs; prizes wait for all eight games.</p>';
  html+=panel('Live standings',table(['RANK','PLAYER','GOALS','WINS','PLAYED','WIN PTS','GOAL PTS','TOTAL PTS','PRIZE','STATUS'],v.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${r.goals}</td><td class="calc">${r.wins}</td><td class="calc">${r.played}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc"><b>${fmt(r.total)}</b></td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
@@ -440,7 +440,7 @@ async function rerollRound1Game(game){
  lineupBusy=true;
  // Snapshot the pre-reroll state so Undo can restore the prior split. The server
  // echo overwrites state below, so capture before the PUT and keep the snapshot.
- const snap={state:clone(state),label:'Undo: Reshuffle Be Better Game '+(game+1)};
+ const snap={state:clone(state),label:'Undo: Reshuffle Face Your Weakness Game '+(game+1)};
  try{
   await flush();
   const res=await fetch('/api/round1-lineup',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({action:'reroll',game:game+1,revision})});
@@ -450,7 +450,7 @@ async function rerollRound1Game(game){
 }
 async function progressRound2(action,game){
  if(lineupBusy)return false;
- const snap=action==='reroll'?{state:clone(state),label:'Undo: Reshuffle Enough Game '+game}:null;
+ const snap=action==='reroll'?{state:clone(state),label:'Undo: Reshuffle Abandon Your Comfort Game '+game}:null;
  lineupBusy=true;
  try{
   await flush();
@@ -472,7 +472,7 @@ function render(){
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>${roman[i]}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
  $('#breadcrumb').textContent=`BH / PAVILION ${roman[tabs.findIndex(t=>t[0]===tab)]} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
- $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. Enough uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Be Better, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
+ $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. Abandon Your Comfort uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Face Your Weakness, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
  window.BrawlMonuments?.renderScreen(view);
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
  [...document.querySelectorAll('#content details')].forEach((e,i)=>e.open=openDetails[i]||false);
@@ -584,8 +584,8 @@ async function performUndo(){
 }
 const resetCascade=key=>key==='round1'?['round1','round2','final']:key==='round2'?['round2','final']:['final'];
 // Human-readable labels for the per-round clear-round controls and their cascade.
-const clearRoundLabel={round1:'Clear Be Better',round2:'Clear Enough',final:'Clear Forget The Past'};
-const clearRoundCopy={round1:'Clear Be Better (also clears Enough &amp; Forget The Past)',round2:'Clear Enough (also clears Forget The Past)',final:'Clear Forget The Past'};
+const clearRoundLabel={round1:'Clear Face Your Weakness',round2:'Clear Abandon Your Comfort',final:'Clear Prove Your Resolve'};
+const clearRoundCopy={round1:'Clear Face Your Weakness (also clears Abandon Your Comfort &amp; Prove Your Resolve)',round2:'Clear Abandon Your Comfort (also clears Prove Your Resolve)',final:'Clear Prove Your Resolve'};
 function resetStage(key){for(const k of resetCascade(key)){state[k].extras=[];state[k].roster=[];if(k==='round2')state[k].draw={order:[],lineups:[],revealed:0,completed:0,mode:'random'};if(k==='round1')state[k].lineups=[];for(const d of Object.values(state[k].players)){d.goals=Array(k==='final'?8:5).fill(null);if(k==='final')d.results=Array(8).fill('');}}}
 function markWinner(team,game=finalGame){const match=view.final.schedule[game];if(!match||view.final.stale)return;for(const t of ['A','B'])for(const p of match[t])state.final.players[p].results[game]=t===team?'W':'L';}
 document.addEventListener('input',e=>{const el=e.target;if(el.id==='starts-at'){countdownDraft=el.value;return;}if(!el.dataset.path||el.tagName==='SELECT')return;const next=el.type==='number'?(el.value===''?null:Number(el.value)):el.value,rule=goalRule(el.dataset.path);if(rule&&next!==null&&Number.isFinite(next)&&next>=0&&Number.isInteger(next)){if(!enterGoal(el.dataset.path,next)){el.value=value(el.dataset.path)??'';return;}}else{if(!el.checkValidity()){error(el.validationMessage);return;}setValue(el.dataset.path,next);const match=el.dataset.path.match(/^(round1|round2|final)\.players\.p\d+\.goals\.(\d+)$/);if(match)zeroUnscoredPlayersAfterMatchEnd(match[1],Number(match[2]));}refreshGoalControls();changed();});
@@ -614,9 +614,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='remove-extra'){await flush();const index=Number(b.dataset.index);doDestructive('Undo: Remove extra game '+(index+1),()=>{state[key].extras.splice(index,1);});await save();}
  if(action==='clear-extras'){await flush();doDestructive('Undo: Clear all extra games',()=>{state[key].extras=[];});await save();}
  if(action==='undo'){await performUndo();return;}
- if(action==='clear-r1-game'){await flush();const g=round1Game;doDestructive('Undo: Clear Be Better Game '+(g+1),()=>{for(const p of ids)state.round1.players[p].goals[g]=null;});await save();}
- if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear Enough Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
- if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear Forget The Past Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
+ if(action==='clear-r1-game'){await flush();const g=round1Game;doDestructive('Undo: Clear Face Your Weakness Game '+(g+1),()=>{for(const p of ids)state.round1.players[p].goals[g]=null;});await save();}
+ if(action==='clear-r2-game'){await flush();const g=round2Game;doDestructive('Undo: Clear Abandon Your Comfort Game '+(g+1),()=>{for(const p of view.round2.rows.map(r=>r.id))state.round2.players[p].goals[g]=null;});await save();}
+ if(action==='clear-game'){await flush();const g=finalGame;doDestructive('Undo: Clear Prove Your Resolve Game '+(g+1),()=>{for(const p of view.final.schedule[g].A.concat(view.final.schedule[g].B)){state.final.players[p].goals[g]=null;state.final.players[p].results[g]='';}});await save();}
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
@@ -774,7 +774,7 @@ function revealFinalWinners(run){
  const petals=Array.from({length:25},(_,i)=>'<span class="fc-petal" style="--x:'+((i*41)%98+1)+'%;--y:'+((i*61)%87+5)+'%;--delay:'+(-(i%8)*.29)+'s"></span>').join('');
  $('#cutscene-stage').innerHTML='<div class="fc-victory"><div class="fc-victory-title">THE CHAMPIONS</div><div class="fc-podium">'+block(2,'silver')+block(1,'gold')+block(3,'bronze')+'</div>'+petals+'</div>';
  $('#cutscene .eyebrow').textContent='TOURNAMENT COMPLETE';
- $('#cutscene-label').textContent='Forget The Past';
+ $('#cutscene-label').textContent='Prove Your Resolve';
  finalTitle('CHAMPION',name(1));
  overlay.hidden=false;overlay.setAttribute('aria-hidden','false');if(!overlay.open)overlay.showModal();
  window.BrawlAudio?.victory();
