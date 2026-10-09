@@ -185,7 +185,7 @@ function nextStepBanner(next,finished){
  if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
  else if(next==='round1'){msg=tieIn('round1')?'Resolve the Know Thy Nature tie (add extra games) before Adapt or Wither.':(view.round1.issues[0]||'Score the five Know Thy Nature games, then submit.');label='Open Know Thy Nature';}
  else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering scores for a game.';label='Open Adapt or Wither';}
- else{msg=view.final.issues[0]||'Play eight final matches. Only the first-place champion wins $40.';label='Open The Last Bloom';}
+ else{msg=view.final.issues[0]||'Survive eight final matches. Only the last bloom wins $40.';label='Open The Last Bloom';}
  return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
 }
 function overview(){
@@ -194,7 +194,7 @@ function overview(){
  let html=title('PAVILION V / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('CHAMPION PRIZE',money(view.pool),'Only 1st place wins')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('WINNER PAID',money(view.awarded),'No payout while first place is tied')}</div>`;
- html+=`<div class="round-path">${[['round1','01 · Know Thy Nature','Identify your shortcomings · 10 → 8'],['round2','02 · Adapt or Wither','Adapt to uncertainty · 8 → 6'],['final','03 · The Last Bloom','Execute under pressure · 6 → 1 champion']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
+ html+=`<div class="round-path">${[['round1','01 · Know Thy Nature','Understand your roots · 10 → 8'],['round2','02 · Adapt or Wither','Survive through change · 8 → 6'],['final','03 · The Last Bloom','Only one flower survives · 6 → 1']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  const rowmap=key=>Object.fromEntries(view[key].rows.map(r=>[r.id,r]));const a=rowmap('round1'),b=rowmap('round2'),c=rowmap('final');
  html+=panel('Every player',table(['PLAYER','KNOW THY NATURE','ADAPT OR WITHER','FINAL RANK','TOTAL POINTS','PRIZE'],ids.map(p=>`<tr><td>${esc(state.names[p]||'Player '+(ids.indexOf(p)+1))}</td><td>${badge(a[p]?.status||'PENDING')}</td><td>${b[p]?badge(b[p].status):'—'}</td><td class="calc">${fmt(c[p]?.rank)}</td><td class="calc">${fmt(c[p]?.total)}</td><td class="calc">${c[p]?money(c[p].prize):'—'}</td></tr>`)),`<button data-action="csv">Export CSV</button>`);
@@ -371,7 +371,7 @@ function closeResult(){
 function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
- let html=title('ROUND 01 · SELF-AWARENESS','Know Thy Nature','Mental challenge: recognize your mistakes, confront your limitations, and adjust rather than repeat them. Prove it across five 5v5 games; the eight highest-ranked individual scorers advance.','10 → 8 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 01 · THE ROOTS','Know Thy Nature','The first principle: growth begins with understanding your own roots. Confront your weaknesses, study your mistakes, and change your play. Across five 5v5 games, only eight of ten take root.','10 → 8 PLAYERS')+notice(v.issues);
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
  round1Game=Math.min(round1Game,4);
  html+=matchScoreboard('round1',round1Game);
@@ -389,7 +389,7 @@ function round(key){
 }
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
- let html=title('ROUND 02 · ADAPTABILITY','Adapt or Wither','Mental challenge: let go of familiar habits, read unfamiliar teammates, and adapt to changing 4v4 lineups across five games. The six highest-ranked individual scorers advance.','8 → 6 PLAYERS')+notice(v.issues);
+ let html=title('ROUND 02 · NATURAL SELECTION','Adapt or Wither','Nature rewards those who change with their environment. Abandon familiar habits, adapt to unfamiliar teammates, and survive five shifting 4v4 games. Only six of eight remain.','8 → 6 PLAYERS')+notice(v.issues);
  if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to generate new 4v4 matchups.'])+clearRoundPanel('round2');
  if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Know Thy Nature. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(lineupBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
@@ -414,7 +414,7 @@ function round2Page(){
 
 function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
- let html=title('ROUND 03 · MENTAL FORTITUDE','The Last Bloom','Mental challenge: remain composed under pressure, commit to decisive choices, and execute across eight 3v3 games. Goals and wins decide one $40 champion; all others receive $0.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
+ let html=title('ROUND 03 · THE WILL TO LIVE','The Last Bloom','Six reach the final garden, but only one can bloom. Stay composed, act decisively, and endure eight 3v3 matches. First place alone receives $40; the other five receive $0.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  if(v.stale)html+=notice(['This roster changed since The Last Bloom was scored. Clearing The Last Bloom re-syncs it to the current finalists.']);
  if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish Adapt or Wither and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
