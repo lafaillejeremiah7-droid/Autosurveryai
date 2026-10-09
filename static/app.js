@@ -169,7 +169,7 @@ function renderRoom(){
  const route=$('#gate-route');
  if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+lockAttrs(s.key)+' '+(s.status==='current'?'aria-current="step"':'')+'><small>'+roman[i]+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
  window.CityWorld?.setTournament?.(stages);
- $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' pavilion"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER GATE ↗')+'</span><span class="room-label"><small>GATE '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
+ $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' pavilion"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER PAVILION ↗')+'</span><span class="room-label"><small>PAVILION '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
  window.BrawlMonuments?.render(view);
  window.CityWorld?.refreshRooms();
  window.CityWorld?.setSettings(state.settings);
@@ -656,7 +656,7 @@ function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{
 let cutsceneActive=false;
 const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume garden':'Pause garden';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);}};
 
-// Elimination cutscene: the emperor's verdict and the hook. Plays BEFORE the end-of-round
+// Elimination cutscene: the gardener's shears and compost heap. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
 // The eliminated players for a stage come straight from the engine view (no server
 // change): round1/round2 -> rows with status 'CUT'; final -> exactly the three
@@ -669,7 +669,7 @@ function eliminatedNames(key){
   :[...v.rows].filter(r=>r.status==='CUT').sort(byRank);
  return rows.map(r=>r.name);
 }
-// Five seconds per eliminated gladiator. Only engine-cut players are judged.
+// Five seconds per eliminated player. Only engine-cut players are judged.
 let cutsceneTimers=[],cutsceneKeyHandler=null,cutsceneResolve=null;
 let ceremonyLabel="",ceremonyStage="",cutsceneRunId=0,cutsceneReturnResult=false;
 const titled=(label,suffix)=>(label?label+': ':'')+suffix;
@@ -687,7 +687,7 @@ function verdictBackdrop(){
 const hookSvg=(cls='',style='')=>'<svg class="av-hook'+cls+'"'+(style?' style="'+style+'"':'')+' viewBox="0 0 400 80" aria-hidden="true"><path d="M0 50H340"/><path d="M340 50C384 50 388 6 356 6C334 6 330 26 344 32"/></svg>';
 const stickman=name=>'<div class="av-player"><svg class="av-stickman" viewBox="0 0 60 120" aria-hidden="true"><circle class="av-head" cx="30" cy="14" r="10"/><line class="av-body" x1="30" y1="24" x2="30" y2="70"/><line class="av-arm av-arm-l" x1="30" y1="36" x2="12" y2="56"/><line class="av-arm av-arm-r" x1="30" y1="36" x2="48" y2="56"/><line class="av-leg av-leg-l" x1="30" y1="70" x2="16" y2="112"/><line class="av-leg av-leg-r" x1="30" y1="70" x2="44" y2="112"/></svg><span class="av-name">'+esc(name)+'</span></div>';
 const laurelSvg=cls=>'<svg class="'+cls+'" viewBox="0 0 120 80" aria-hidden="true"><path d="M60 74C30 70 14 48 18 14M60 74C90 70 106 48 102 14"/>'+[[20,56,-50],[16,40,-20],[20,24,10],[100,56,50],[104,40,20],[100,24,-10]].map(([x,y,r])=>'<ellipse cx="'+x+'" cy="'+y+'" rx="9" ry="4.5" transform="rotate('+r+' '+x+' '+y+')"/>').join('')+'</svg>';
-// One verdict beat, rebuilt per gladiator so every CSS animation restarts.
+// One verdict beat, rebuilt per player so every CSS animation restarts.
 function buildVerdictScene(name){
  $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict">'+verdictBackdrop()+stickman(name)+'</div>';
 }
@@ -711,7 +711,7 @@ function runVerdictSequence(names,i=0){
  schedule(()=>verdictPhase('gone',name),4300);
  schedule(()=>runVerdictSequence(names,i+1),5000);
 }
-// Reduced motion: one still frame with every eliminated gladiator at the closed gate.
+// Reduced motion: a static garden summary of pruned players.
 function buildVerdictSummary(names){
  if(!cutsceneActive)return;
  $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict gv-summary">'+verdictBackdrop()+'<div class="av-lineup">'+names.map(stickman).join('')+'</div></div>';
@@ -737,7 +737,7 @@ async function startGateCeremony(){
  $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=titled(ceremonyLabel,'The pavilion blooms');
  runCrownFallback(ceremonyLabel);
 }
-// Used only when the 3D arena is unavailable: a laurel card stands in for the gate ceremony.
+// Used when the 3D garden is unavailable: a floral card represents the pavilion ceremony.
 function runCrownFallback(label){
  if(!cutsceneActive)return;
  label=String(label||'');
@@ -747,7 +747,7 @@ function runCrownFallback(label){
  schedule(endCutscene,reducedMotion()?1500:2500);
 }
 
-// Final verdict: the emperor hooks the three non-podium finalists; the official podium stays.
+// Final verdict: the gardener prunes the three non-podium finalists; the winners reach the podium.
 let finalWinners=null;
 function finalRoster(cuts){
  const rows=Array.isArray(view?.final?.rows)?view.final.rows:[];
