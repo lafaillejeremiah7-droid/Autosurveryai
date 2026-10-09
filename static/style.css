@@ -487,3 +487,18 @@ body{background:#10271e}
  #cutscene.verdict-down .gv-snip,#cutscene.verdict-gone .gv-pruned{animation:none;opacity:1}
  #cutscene .garden-verdict .av-player{animation:none!important}
 }
+
+/* Keep the airborne player inside the compost heap on narrower screens. */
+@keyframes gv-fling-mobile{
+  0%{transform:translate(0,0) rotate(0deg) scale(1);opacity:1}
+  25%{transform:translate(-50%,-140%) rotate(-55deg) scale(.9);opacity:1}
+  70%{transform:translate(-180%,-95%) rotate(-310deg) scale(.65);opacity:1}
+  100%{transform:translate(-240%,58%) rotate(-550deg) scale(.4);opacity:0}
+}
+@media(max-width:600px){
+  #cutscene.verdict-hook .garden-verdict .av-player,
+  #cutscene.verdict-drag .garden-verdict .av-player,
+  #cutscene.verdict-gone .garden-verdict .av-player{
+    animation:gv-fling-mobile 1.12s cubic-bezier(.15,.5,.65,1) forwards;
+  }
+}
