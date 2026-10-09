@@ -14,7 +14,7 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
 <div class="nav"><h1>Divine Selection</h1><select id="round"><option value="round1">Know Thy Nature · 2 cuts</option><option value="round2">Adapt or Wither · 2 cuts</option><option value="final">The Last Bloom · 5 cuts</option></select><button id="again">Replay actual 3D scene</button><button id="full">Fullscreen</button></div>
 <div class="scene" id="scene"><canvas id="canvas" aria-label="Original Brawl Hockey Divine Selection 3D cutscene"></canvas><div class="title"><span id="phase">PORTAL EMERGENCE</span><span>LIVE WEBGL · FROM THE TOURNAMENT CODE</span></div><div class="caption" id="caption">The ancient hand emerges from the portal.</div><div class="plates" id="plates"></div></div>
 <div class="foot"><span id="info">Real WebGL scene loading…</span><span>Five-second judgment · 10 growth-stage plants · 3 tournament rounds</span></div>
-<p class="note">This file embeds the exact 3D renderer from the GitHub project at creation time. Names and scores are illustrative; the underlying 3D portal, camera, hand, shears, plants and garden are the original renderer.</p>
+<p class="note">This file embeds the exact 3D renderer from the GitHub project at creation time. Names and goals are illustrative. In this preview, the lowest-scoring eligible players are pruned, and eliminated flowers remain withered in later rounds. The real tournament also evaluates wins, placement and tiebreakers.</p>
 </main>
 <script>
 /* Royal Garden Divine Selection: the same dependency-free, low-poly WebGL
@@ -648,10 +648,14 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
 const names=Array.from({length:10},(_,i)=>'PLAYER '+String(i+1).padStart(2,'0'));
 const growth=['Seedling','First Leaves','Bud','Young Rose','Blooming Rose','Royal Rose','Full Bloom'];
 const presets={
- round1:{tier:[0,2,3,4,6,1,2,5,3,4],goals:[0,2,5,9,24,1,3,16,7,11],prior:[],cuts:[1,7]},
- round2:{tier:[1,3,5,6,5,4,2,6,4,6],goals:[1,7,18,26,17,12,3,27,10,23],prior:[1,7],cuts:[6,8]},
- final:{tier:[2,4,5,6,6,5,3,6,5,6],goals:[3,13,22,34,35,19,5,31,23,38],prior:[1,6,7,8],cuts:[0,2,5,3,4]}
+ // Illustrative GOALS-ONLY standings. In the actual tournament, the scoring
+ // engine also accounts for wins, rank and tiebreakers.
+ // Already-pruned plants keep their goal total and do not grow in later rounds.
+ round1:{tier:[0,2,3,4,6,1,2,5,3,4],goals:[0,2,5,9,24,1,3,16,7,11],prior:[],cuts:[0,5]},
+ round2:{tier:[0,3,5,6,6,1,2,6,4,6],goals:[0,7,18,26,30,1,3,27,10,23],prior:[0,5],cuts:[6,1]},
+ final:{tier:[0,3,5,6,6,1,2,6,5,6],goals:[0,7,22,34,35,1,3,31,23,38],prior:[0,5,6,1],cuts:[2,8,7,3,4]}
 };
+window.DivinePreviewData={presets,growth,names};
 const $=id=>document.getElementById(id),scene=$('scene'),stage=$('round');let timers=[],currentStage='round1',step=-1,target=-1;
 const models=()=>names.map((name,i)=>({id:'p'+(i+1),name,tier:presets[currentStage].tier[i],goals:presets[currentStage].goals[i],priorPruned:presets[currentStage].prior.includes(i)}));
 function plates(){
