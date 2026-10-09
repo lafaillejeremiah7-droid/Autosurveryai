@@ -16,29 +16,29 @@ The dashboard opens at **http://127.0.0.1:8765**. Leave the terminal running whi
 
 This runs on your computer. A GitHub repository stores the code; it does not host the running Python dashboard. For private GitHub Codespaces use, forward port 8765 privately and run `python app.py --no-browser` in its terminal. Do not expose the app as a public service.
 
-## The Coliseum
+## The Royal Garden
 
-The landing screen is a locally rendered 3D Roman amphitheater: an oval sand arena ringed by tiered seating, a three-level arcaded facade, velarium awnings, torches and the emperor's box. The five tournament rooms are five gates in the podium wall, numbered I to V. Click a gate card or a route stop to fly into that gate; use **Back to arena** or Escape to return. No external graphics packages or downloads are needed. Browsers without WebGL receive a static projection of the arena.
+The landing screen is a live **royal hedge maze garden** rendered in WebGL with a static canvas fallback. The aerial first-person view floats above winding green hedges, rose arches, gravel paths, **five tournament pavilions**, fountains, and a distant palace. The 3D scene fills the **entire browser viewport**, without a boxed video frame. The tournament cards remain accessible over the garden. Open pavilions respond to click/keyboard navigation; closed pavilions remain locked until their qualifying round is settled.
 
-Set the tournament's date and time in **Players & rules → Games countdown**, or click **Set start time** on the landing screen. The stands begin almost empty on a calm morning, with birds overhead. Spectators arrive in small timed steps throughout the saved countdown, the crowd bobs harder, waves travel around the stands, and petals and dust thicken. The **Crowd bloodlust** meter shows the phase (Morning calm, Crowd gathering, Stands filling, Crowd restless, Crowd frenzy) and reaches full bloodlust at zero, when the panel changes to **THE GAMES HAVE BEGUN**. The server saves the countdown's starting point, so reloading or restarting keeps the correct crowd. Changing the deadline empties the stands and starts a new progression; clearing it returns the arena to rest. Backups and Undo preserve the saved timeline. Each settled round lowers the sun toward dusk and lights more stand torches.
+The opening timer is **The Garden Opens**. Set the tournament's date and time under Players & rules, or use **Set start time** on the home screen. The countdown persists in the saved tournament state and survives page refreshes, backups, and Undo. Ambient birds and local sound effects accompany the opening. **Pause garden** and reduced-motion preferences stop decorative movement without stopping the countdown. **Garden sound off** silences the synthesized audio.
 
-**Pause arena** and reduced-motion preferences stop movement and the crowd-roar camera rumble, but the countdown and bloodlust level continue updating. The rumble stays inside the 3D arena and never moves scoring panels. **Arena sound off** silences every sound; all audio is synthesized locally.
+The flowers follow tournament progress independently of the countdown. Before the first cut settles, **all 112 roses are closed buds**. After **Be Better**, the first 38 roses bloom; after **Enough**, a second group opens; after the **Forget The Past** final, all 112 roses are in full bloom. Scoring corrections and Undo recalculate the correct bloom stage instead of permanently advancing it. The Garden Bloom indicator measures this three-stage progression.
 
-When a round's final match is submitted (in Enough, when Match 5 of 5 is marked done) and the round is settled, a skippable cartoon verdict plays before the standings appear. For each eliminated player in Be Better and Enough, a labelled stickman walks onto the sand, the emperor turns his thumb down, the crowd boos, and a giant vaudeville hook drags the player off through the Losers' Gate before the portcullis slams. In Forget The Past the six finalists line up, the emperor gives thumbs down to the three lowest-ranked finalists, and the hooks pull them out together before the champions take the podium. After each verdict the camera flies to the completed gate for a gate ceremony: a laurel descends onto the gate and crowns it, then the standings reopen. Each round triggers independently. If extra games are needed, the verdict appears when saved scores settle that round, whether the tie is settled in the result window or from the round screen's extra games panel. Cutscenes open above the scoring and result windows; Skip, Escape, or natural completion returns to that round's standings. Keyboard navigation, small-screen layouts, and reduced-motion preferences are supported (under reduced motion the verdict becomes a static ELIMINATED summary).
+### Elimination: the gardener's pruning verdict
 
-- **Players & rules:** ten tournament names, scoring weights, multiplier, and prizes.
-- **Be Better:** first cut, 10 players down to 8.
-- **Enough:** five reshuffleable 4v4 matches, 8 players down to 6.
-- **Forget The Past:** rotating 3v3 final, automatic points and standings.
-- **Leaderboard:** cuts, podium, prizes, and CSV export.
+After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Be Better and Enough prune their two cut players. The final prunes exactly the three non-podium finalists, then reveals the top three on the gold/silver/bronze podium. All eliminated names and placements come from the existing scoring engine, not from the animation.
 
-## Path through the gates
+The cutscene appears above the scoring and results screens. **Skip**, **Escape**, or natural completion exits cleanly; reduced-motion preference shows a still summary instead. Once a round is pruned, its pavilion opens with a cascade of flowers. The normal standings and result dialogs remain available afterwards, including when ties are resolved through extra games.
 
-The full-screen 3D arena fills the **entire browser viewport behind the tournament controls**, without any bordered scene box. The camera hovers above the stands, looking down over the sand. The five gates connect Players & rules → Be Better → Enough → Forget The Past → Leaderboard. Players & rules is open first; ten unique names unlock Be Better. Settling Be Better unlocks Enough, and settling Enough unlocks Forget The Past. Sealed gates keep their portcullis down and cannot be opened from the gate cards, route, or navigation. Open gates raise the portcullis and light their braziers, the current gate has a pulsing ring on the sand, and completed gates wear a laurel wreath. Ties keep the next gate sealed. Corrections and Undo update the path; reloading restores the correct stage without replaying the ceremony. Sealed gates display the prerequisite needed to open them. Opening a gate flies the camera to it; Escape returns to the arena overview. Gate buttons remain accessible above the 3D background, and **View victors' podium** flies to the emperor's dais. Correcting earlier results can reseal later gates; the current screen then returns to the earliest required step. Players & rules and the Leaderboard stay accessible. Reduced motion shows the settled state immediately.
+### Pavilions and tournament path
 
-## The victors' podium
+- **Players & rules:** enter ten names, scoring weights, start time, and prizes.
+- **Be Better:** five 5v5 games, cutting 10 players to 8.
+- **Enough:** five 4v4 games with reshuffle controls, cutting 8 to 6.
+- **Forget The Past:** eight 3v3 final games, goals, wins and prizes.
+- **Leaderboard:** advancing players, cuts, settled podium and CSV.
 
-The live podium appears in the arena, in Forget The Past, and on the Leaderboard. It updates from saved final points and animates position changes. Tied positions show everyone sharing that rank, with no arbitrary winner or awarded prize. All three platforms rise and show the champions' names, points, and prizes only when the whole final is settled. Reduced motion shows results immediately.
+The path only unlocks the next playable pavilion after the preceding round is complete. Undo or an earlier score correction can reseal it. The royal podium reflects the actual final results, including unresolved ties.
 
 ## Be Better per-game teams
 
@@ -147,7 +147,7 @@ Use a custom save location with `python app.py --data path/to/tournament.json`.
 python -m unittest discover -s tests -v
 ```
 
-If Node.js is available, verify the dashboard, audio, cutscene, timeline, 3D arena and theme copy with:
+If Node.js is available, verify the dashboard, audio, cutscene, timeline, 3D garden and theme copy with:
 
 ```sh
 node tests/test_ui.cjs
@@ -163,4 +163,4 @@ For the optional real-browser checks, install Playwright and its Chromium browse
 
 The tests cover the current five-game Be Better, five-game Enough, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and podium ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
 
-Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the gate ceremony, tie settlement, native-dialog visibility, and skip behavior.
+Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the pavilion bloom ceremony, tie settlement, native-dialog visibility, and skip behavior.
