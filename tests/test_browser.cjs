@@ -136,6 +136,8 @@ let browser,page;
    await page.locator(`[data-path="round2.players.${p}.goals.${g}"]`).fill(scorers.includes(p)?'1':'0');await saved();
   }
   await page.locator('[data-action="r2-done"]').click();
+  // Match 5 done settles Enough: its verdict plays first. Skip it to reach the standings.
+  if(g===4){await page.locator('#cutscene[open]').waitFor();assert((await page.locator('#cutscene-label').textContent()).includes('Enough'));await page.locator('#cutscene-skip').click();}
   await page.locator('#result-dialog[open]').waitFor();
   assert.equal(await page.evaluate(()=>view.round2.draw.completed),g+1);
   await page.locator('[data-action="close-result"]').click();

@@ -346,12 +346,21 @@ async function openMatchResult(key,match){
   const names=eliminatedNames(key);
   if(names.length)await playCutscene(names,meta.label,key);
  }
+ showResultDialog();
+}
+function showResultDialog(){
  const dialog=$('#result-dialog');
  dialog.classList.toggle('fullscreen',resultFinal);
  if(!dialog.open)dialog.showModal();
  renderResult();
  if(!reducedMotion())dialog.animate([{opacity:0,transform:'scale(.97)'},{opacity:1,transform:'scale(1)'}],{duration:resultFinal?360:220,easing:'cubic-bezier(.2,.7,.2,1)'});
  const first=$('#result-content').querySelector('.result-close');first?.focus({preventScroll:true});
+}
+// The full round ranking for a settled stage, shown after a cutscene that a save
+// (not a Submit click) started.
+function showRoundStandings(key){
+ resultStage=key;resultMatch=stageMeta[key].count-1;resultFinal=true;
+ showResultDialog();
 }
 function closeResult(){
  const dialog=$('#result-dialog');resultStage=null;resultFinal=false;dialog.classList.remove('fullscreen');dialog.close();
@@ -527,18 +536,32 @@ function error(message){$('#error').hidden=!message;$('#error').textContent=mess
  // Native dialogs are in the top layer: put errors inside the TOPMOST open one.
  const parent=$('#result-dialog').open?$('#result-dialog'):$('#screen-dialog').open?$('.screen-shell'):document.body;if($('#error').parentElement!==parent)parent.appendChild($('#error'));
 }
+// View before the first save whose response has not yet been applied (see save()).
+let settleBaseView=null;
+// The earliest stage that a save moved from ready-but-tied to settled, or null.
+// Requiring prev.ready keeps the last regulation score from playing early; that
+// path plays on Submit / Match done instead.
+function settledByEdit(prev,next){
+ if(!prev||!next)return null;
+ return ['round1','round2','final'].find(k=>prev[k]?.ready&&!prev[k].complete&&next[k]?.complete&&!next[k].stale)||null;
+}
 function changed(){dirty=true;saveFailed=false;editVersion++;$('#save-status').textContent='Unsaved changes…';clearTimeout(timer);timer=setTimeout(save,250);}
 async function save(){
  clearTimeout(timer);if(saving)return saveTask;if(!dirty)return;
  saving=true;dirty=false;const seq=editVersion;$('#save-status').textContent='Saving…';
  saveTask=(async()=>{
+  settleBaseView??=view;
   try{const res=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Session-Token':token},body:JSON.stringify({state,revision})});const data=await res.json();if(!res.ok)throw new Error(data.error);
-   // Extra games may settle a submitted round after its last scheduled match.
-   // Trigger only on that round's incomplete -> complete save, never on unrelated edits.
-   const settledStage=seq===editVersion&&$('#result-dialog').open&&resultFinal&&resultStage&&!view[resultStage].complete&&data.view[resultStage].complete?resultStage:null;
+   // Extra games (from the round screen or the result fullscreen) may settle a round
+   // after its last scheduled match. Detect the ready-but-tied -> complete transition
+   // against the view from before the first unapplied save, so a superseded save defers
+   // the check instead of losing it.
+   let settled=null;
+   if(seq===editVersion){settled=settledByEdit(settleBaseView,data.view);settleBaseView=null;}
    saveFailed=false;revision=data.revision;view=data.view;
    if(seq===editVersion){state=data.state;render();renderResult();}error('');$('#save-status').textContent=dirty?'Unsaved changes…':'All changes saved';$('#retry-save').hidden=true;
-   if(settledStage&&!cutsceneActive)playCutscene(eliminatedNames(settledStage),stageMeta[settledStage].label,settledStage);
+   const names=settled&&!cutsceneActive?eliminatedNames(settled):[];
+   if(names.length)playCutscene(names,stageMeta[settled].label,settled).then(()=>{if(view[settled]?.complete&&!($('#result-dialog').open&&resultFinal&&resultStage===settled))showRoundStandings(settled);});
   }catch(e){saveFailed=true;dirty=true;error(e.message);$('#save-status').textContent='Not saved';$('#retry-save').hidden=false;}
   finally{saving=false;}
  })();await saveTask;if(dirty&&!saveFailed)return save();
@@ -649,13 +672,14 @@ const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='
 // Elimination cutscene: the emperor's verdict and the hook. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
 // The eliminated players for a stage come straight from the engine view (no server
-// change): round1/round2 -> rows with status 'CUT'; final -> rows with rank>3 (the
-// non-podium finishers; the top-3 podium are never hooked).
+// change): round1/round2 -> rows with status 'CUT'; final -> exactly the three
+// lowest-ranked finishers (never a top-3 podium place, whatever the final's size).
 function eliminatedNames(key){
  const v=view&&view[key];if(!v||!v.rows)return [];
+ const byRank=(a,b)=>(a.rank||99)-(b.rank||99);
  const rows=key==='final'
-  ?[...v.rows].filter(r=>r.rank>3).sort((a,b)=>(a.rank||99)-(b.rank||99))
-  :[...v.rows].filter(r=>r.status==='CUT').sort((a,b)=>(a.rank||99)-(b.rank||99));
+  ?[...v.rows].filter(r=>r.rank>3).sort((a,b)=>byRank(b,a)).slice(0,3).sort(byRank)
+  :[...v.rows].filter(r=>r.status==='CUT').sort(byRank);
  return rows.map(r=>r.name);
 }
 // Five seconds per eliminated gladiator. Only engine-cut players are judged.
