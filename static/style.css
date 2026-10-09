@@ -502,3 +502,20 @@ body{background:#10271e}
     animation:gv-fling-mobile 1.12s cubic-bezier(.15,.5,.65,1) forwards;
   }
 }
+
+/* The Last Bloom: one trophy pedestal, no silver or bronze winners. */
+#city-podium .monument-podium,
+#screen-podium .monument-podium{
+ display:flex;justify-content:center;align-items:flex-end;gap:0;
+}
+#city-podium .podium-place,
+#screen-podium .podium-place{
+ flex:0 1 400px;max-width:100%;width:min(100%,400px);height:100%;
+}
+#cutscene .fc-podium{justify-content:center}
+#cutscene .fc-medal.gold{width:min(54%,320px);max-width:320px}
+#cutscene .fc-victory-title{color:#f4e8ab}
+@media(max-width:600px){
+ #city-podium .podium-place,#screen-podium .podium-place{flex:0 1 250px}
+ #cutscene .fc-medal.gold{width:min(75%,250px)}
+}
