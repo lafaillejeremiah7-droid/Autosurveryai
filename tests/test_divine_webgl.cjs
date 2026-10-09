@@ -46,7 +46,7 @@ assert(geo.gardenTriangles>3000,'detailed 3D garden includes thousands of archit
 assert.equal(geo.plantStages,7,'all seven competitive flower growth stages have dedicated meshes');
 const meshes=three._growthMeshes();
 assert.equal(meshes.length,7);
-assert.deepEqual(meshes.map(x=>x.tier),[0,1,2,3,4,5,6]);
+assert.deepEqual(Array.from(meshes,x=>x.tier),[0,1,2,3,4,5,6]);
 assert.equal(new Set(meshes.map(x=>x.triangles)).size,7,'all growth levels have distinctive 3D surface complexity');
 assert(meshes[6].triangles>meshes[0].triangles*4,'full-bloom rose has substantially more modeled geometry than the zero-goal seedling');
 const rendererSource=fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8');
