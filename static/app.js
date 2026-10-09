@@ -185,7 +185,7 @@ function nextStepBanner(next,finished){
  if(next==='settings'){msg='Start here: enter 10 unique player names.';label='Open Players & rules';}
  else if(next==='round1'){msg=tieIn('round1')?'Resolve the Know Thy Nature tie (add extra games) before Adapt or Wither.':(view.round1.issues[0]||'Score the five Know Thy Nature games, then submit.');label='Open Know Thy Nature';}
  else if(next==='round2'){msg=view.round2.issues[0]||'Play five 4v4 games with changing teams; reshuffle before entering scores for a game.';label='Open Adapt or Wither';}
- else{msg=view.final.issues[0]||'Survive eight final matches. Only the last bloom wins $40.';label='Open The Last Bloom';}
+ else{msg=view.final.issues[0]||'Survive eight final matches. Only the last bloom wins $30.';label='Open The Last Bloom';}
  return `<div class="notice next-step"><div><div class="eyebrow">WHAT TO DO NEXT</div><strong>${esc(msg)}</strong></div><button class="accent" data-tab="${target}">${label} ↗</button></div>`;
 }
 function overview(){
@@ -201,7 +201,7 @@ function overview(){
  if(final.rows.length)html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],final.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  return html;
 }
-function playerSettings(){return title('PAVILION I / CONFIGURATION','Players & rules','Enter ten unique names. Set scoring rules and compete for the fixed $40 champion prize.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Winner-take-all prize','<div class="notice"><strong>$40 · FIRST PLACE ONLY</strong><p>One champion earns the entire $40. All other players receive $0. If first place is tied, resolve it with extra games before the prize is awarded.</p></div>')}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
+function playerSettings(){return title('PAVILION I / CONFIGURATION','Players & rules','Enter ten unique names. Set scoring rules and compete for the fixed $30 champion prize.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Winner-take-all prize','<div class="notice"><strong>$30 · FIRST PLACE ONLY</strong><p>One champion earns the entire $30. All other players receive $0. If first place is tied, resolve it with extra games before the prize is awarded.</p></div>')}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
 
 let countdownDraft=null,roomTransition=false;
 function localStartValue(iso){
@@ -414,7 +414,7 @@ function round2Page(){
 
 function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule(path);return `<div class="counter"><button data-step="-1" data-target="${path}" aria-label="Subtract one goal for ${esc(label)}" ${disabled||n<=0?'disabled':''}>−</button>${inp(path,label+' goals','number',disabled)}<button data-step="1" data-target="${path}" aria-label="Add one goal for ${esc(label)}" ${disabled||(rule&&n>=rule.max)?'disabled':''}>+</button></div>`;}
 function finalPage(){const v=view.final,g=finalGame;
- let html=title('ROUND 03 · THE WILL TO LIVE','The Last Bloom','Six reach the final garden, but only one can bloom. Stay composed, act decisively, and endure eight 3v3 matches. First place alone receives $40; the other five receive $0.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
+ let html=title('ROUND 03 · THE WILL TO LIVE','The Last Bloom','Six reach the final garden, but only one can bloom. Stay composed, act decisively, and endure eight 3v3 matches. First place alone receives $30; the other five receive $0.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
  if(v.stale)html+=notice(['This roster changed since The Last Bloom was scored. Clearing The Last Bloom re-syncs it to the current finalists.']);
  if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish Adapt or Wither and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
@@ -620,7 +620,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
  if(action==='clear-round'){await flush();doDestructive('Undo: '+clearRoundLabel[key],()=>resetStage(key));await save();}
  if(action==='clear-names'){await flush();doDestructive('Undo: Clear player names',()=>{for(const p of ids)state.names[p]='';});await save();}
  if(action==='clear-scoring'){await flush();doDestructive('Undo: Clear scoring',()=>{state.settings.win_points=1;state.settings.goal_points=1.5;state.settings.multiplier=2;});await save();}
- if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[40,0,0],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))};});await save();}
+ if(action==='reset-all'&&confirm('Clear the tournament? You can undo this, but downloading a backup first is safest.')){await flush();doDestructive('Undo: Clear tournament',()=>{countdownDraft=null;state={version:6,wheel:{text:'',remove_winner:false},names:Object.fromEntries(ids.map(p=>[p,''])),settings:{win_points:1,goal_points:1.5,multiplier:2,prizes:[30,0,0],start_at:'',disaster_started_at:''}};for(const k of ['round1','round2','final'])state[k]={roster:[],extras:[],...(k==='round2'?{draw:{order:[],lineups:[],revealed:0,completed:0,mode:'random'}}:k==='round1'?{lineups:[]}:{}),players:Object.fromEntries(ids.map(p=>[p,k==='final'?{goals:Array(8).fill(null),results:Array(8).fill('')}:{goals:Array(5).fill(null)}]))};});await save();}
  }catch(err){error(err.message);}});
 $('#close-screen').onclick=()=>closeScreen().catch(e=>error(e.message));
 $('#screen-dialog').addEventListener('cancel',e=>{e.preventDefault();closeScreen().catch(err=>error(err.message));});
@@ -746,7 +746,7 @@ function runCrownFallback(label){
  schedule(endCutscene,reducedMotion()?1500:2500);
 }
 
-// Final verdict: the gardener prunes the five losing finalists; one $40 champion survives.
+// Final verdict: the gardener prunes the five losing finalists; one $30 champion survives.
 let finalWinners=null;
 function finalRoster(cuts){
  const rows=Array.isArray(view?.final?.rows)?view.final.rows:[];
@@ -758,7 +758,7 @@ function startFinalSequence(cuts){
  if(!cutsceneActive)return;
  finalWinners=finalRoster(cuts).winners;
  // Five finalists are pruned. Only the first-place player survives to
- // claim the entire $40, with no runner-up payout.
+ // claim the entire $30, with no runner-up payout.
  if(reducedMotion())buildVerdictSummary(cuts);
  else runVerdictSequence(cuts);
 }
@@ -769,10 +769,10 @@ function revealFinalWinners(run){
  const name=rank=>finalWinners?.find(x=>x.rank===rank)?.name||'-';
  const block=(rank,cls)=>'<div class="fc-medal '+cls+'">'+laurelSvg('fc-laurel')+'<span class="fc-winner-name">'+esc(name(rank))+'</span><div class="fc-plinth">'+rank+'</div></div>';
  const petals=Array.from({length:25},(_,i)=>'<span class="fc-petal" style="--x:'+((i*41)%98+1)+'%;--y:'+((i*61)%87+5)+'%;--delay:'+(-(i%8)*.29)+'s"></span>').join('');
- $('#cutscene-stage').innerHTML='<div class="fc-victory"><div class="fc-victory-title">THE LAST BLOOM · $40 CHAMPION</div><div class="fc-podium">'+block(1,'gold')+'</div>'+petals+'</div>';
+ $('#cutscene-stage').innerHTML='<div class="fc-victory"><div class="fc-victory-title">THE LAST BLOOM · $30 CHAMPION</div><div class="fc-podium">'+block(1,'gold')+'</div>'+petals+'</div>';
  $('#cutscene .eyebrow').textContent='TOURNAMENT COMPLETE';
  $('#cutscene-label').textContent='The Last Bloom';
- finalTitle('SOLE CHAMPION · $40',name(1));
+ finalTitle('SOLE CHAMPION · $30',name(1));
  overlay.hidden=false;overlay.setAttribute('aria-hidden','false');if(!overlay.open)overlay.showModal();
  window.BrawlAudio?.victory();
  cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive&&run===cutsceneRunId)endCutscene()},reducedMotion()?3000:6400));
