@@ -4,7 +4,7 @@
   const r1=view.round1,r2=view.round2,final=view.final;
   const first=!!r1.complete,second=first&&!!r2.complete;
   const eligible=second&&!final.stale,rows=eligible?final.rows:[],complete=eligible&&!!final.complete;
-  const slots=[2,1,3].map(place=>{
+  const slots=[1].map(place=>{
    const group=rows.filter(r=>r.rank<=place&&place<r.rank+rows.filter(p=>p.rank===r.rank).length);
    const tied=group.length>1||group.some(r=>String(r.status).startsWith('TIE'));
    const person=!tied&&group.length===1?group[0]:null;
@@ -20,10 +20,10 @@
  function podium(host,m){
   if(!host)return;
   const key=host.id||'screen-podium',old=snapshots.get(key)||new Map();
-  const header=m.complete?'THE THREE CHAMPIONS':!m.eligible?'AWAITING SIX FINALISTS':m.tie?'PROVISIONAL · TIED POSITIONS':'PROVISIONAL · LIVE POINTS';
+  const header=m.complete?'THE SOLE $40 CHAMPION':!m.eligible?'AWAITING SIX FINALISTS':m.tie?'PROVISIONAL · TIED POSITIONS':'PROVISIONAL · LIVE POINTS';
   host.dataset.settled=String(m.complete);
   host.classList.toggle('podium-celebrate',settlements.get(key)===false&&m.complete);settlements.set(key,m.complete);
-  host.innerHTML='<div class="podium-heading"><span class="eyebrow">VICTORS / '+header+'</span><p>'+(m.complete?'Final standings · all matches and podium ties settled.':'Positions can change. Prizes lock only after the final is settled.')+'</p></div><div class="monument-podium">'+m.slots.map(s=>'<article class="podium-place place-'+s.place+(s.tied?' podium-tie':'')+'" data-place="'+s.place+'"><div class="podium-label" '+(s.person?'data-podium-player="'+esc(s.person)+'"':'')+'><small>'+s.place+(s.place===1?'ST':s.place===2?'ND':'RD')+' PLACE'+(s.tied?' · TIED':'')+'</small><strong title="'+esc(s.names.join(' · '))+'">'+esc(s.names.join(' · ')||'Awaiting finalist')+'</strong><span>'+(s.points===null?'-':num(s.points)+' PTS')+'</span><b>'+(s.prize===null?'PRIZE PENDING':'$'+num(s.prize))+'</b></div><div class="podium-block" aria-hidden="true"><i>'+s.place+'</i></div></article>').join('')+'</div>';
+  host.innerHTML='<div class="podium-heading"><span class="eyebrow">VICTORS / '+header+'</span><p>'+(m.complete?'The sole $40 winner has been decided. Second place and below earn $0.':'First place must be unique to award the $40; all other places receive $0.')+'</p></div><div class="monument-podium">'+m.slots.map(s=>'<article class="podium-place place-'+s.place+(s.tied?' podium-tie':'')+'" data-place="'+s.place+'"><div class="podium-label" '+(s.person?'data-podium-player="'+esc(s.person)+'"':'')+'><small>'+s.place+(s.place===1?'ST':s.place===2?'ND':'RD')+' PLACE'+(s.tied?' · TIED':'')+'</small><strong title="'+esc(s.names.join(' · '))+'">'+esc(s.names.join(' · ')||'Awaiting finalist')+'</strong><span>'+(s.points===null?'-':num(s.points)+' PTS')+'</span><b>'+(s.prize===null?'$40 PENDING':'$'+num(s.prize))+'</b></div><div class="podium-block" aria-hidden="true"><i>'+s.place+'</i></div></article>').join('')+'</div>';
   const next=new Map();
   for(const e of host.querySelectorAll('[data-podium-player]')){
    const rect=e.getBoundingClientRect(),previous=old.get(e.dataset.podiumPlayer);next.set(e.dataset.podiumPlayer,rect);
