@@ -359,9 +359,15 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #f7efe20b}td.calc{backgroun
 #cutscene.fc-hook .fc-hook-n{animation:av-hook-reach 1.4s ease-in-out var(--hook-delay,0s) both}
 #cutscene.fc-judge .fc-person:before{content:'';position:absolute;left:50%;top:-16%;z-index:2;width:clamp(22px,3vw,36px);aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:#a9c97a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='9' y='17' width='20' height='17' rx='6' fill='%23f7efe2'/%3E%3Crect x='22' y='5' width='7' height='17' rx='3.5' fill='%23f7efe2'/%3E%3C/svg%3E") center/70% no-repeat}
 #cutscene.fc-judge .fc-loser:before{background-color:#e0675c;transform:translateX(-50%) rotate(180deg)}
-#cutscene.fc-hook .fc-loser{animation:av-yank 1.4s cubic-bezier(.55,0,.85,.35) both}
-#cutscene.fc-hook .fc-person:nth-child(3){animation-delay:.25s}
-#cutscene.fc-hook .fc-person:nth-child(5){animation-delay:.5s}
+/* Six equal slots: each label owns its slot width and truncates, so neighbours never touch. */
+#cutscene .fc-judgment .fc-people{container-type:inline-size;justify-content:space-between}
+#cutscene .fc-judgment .fc-person{flex:1 1 0;width:auto;min-width:0}
+#cutscene .fc-judgment .fc-name{left:0;right:0;max-height:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
+/* The hook tilts and drags only the figure (never its label), and it fades out inside its own slot. */
+#cutscene.fc-hook .fc-loser .fc-body{animation:av-yank 1.4s cubic-bezier(.55,0,.85,.35) both}
+#cutscene.fc-hook .fc-loser .fc-name{animation:fc-name-fade .5s ease-out both}
+#cutscene.fc-hook .fc-person:nth-child(3) :is(.fc-body,.fc-name){animation-delay:.25s}
+#cutscene.fc-hook .fc-person:nth-child(5) :is(.fc-body,.fc-name){animation-delay:.5s}
 #cutscene.fc-hook .fc-survivor{filter:drop-shadow(0 0 20px var(--metal))}
 /* Champions: laurels over the plinths and falling rose petals. */
 #cutscene .fc-victory{background:radial-gradient(ellipse at 50% 120%,#c9995f 0%,#5a3a1e 45%,#1a0f08 100%)}
@@ -382,9 +388,22 @@ table{border-spacing:0 5px}td{box-shadow:inset 0 1px #f7efe20b}td.calc{backgroun
 @keyframes av-wobble{from{transform:rotate(78deg)}to{transform:rotate(102deg)}}
 @keyframes av-pop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
 @keyframes av-puff{0%{opacity:0;transform:scale(.4)}30%{opacity:.9}100%{opacity:0;transform:translateY(-30px) scale(1.8)}}
-@keyframes av-yank{0%{transform:none;opacity:1}25%{transform:translateX(8%) rotate(8deg);opacity:1}85%{opacity:1}100%{transform:translateX(-900%) rotate(-20deg);opacity:0}}
+@keyframes av-yank{0%{translate:0;rotate:0deg;opacity:1}25%{translate:4px 0;rotate:6deg;opacity:1}100%{translate:calc(-1 * max(100cqw / 6 - 34px, 8px)) 0;rotate:-6deg;opacity:0}}
+@keyframes fc-name-fade{to{opacity:0}}
 @keyframes av-hook-reach{0%{transform:translateX(-105%)}35%,45%{transform:none}100%{transform:translateX(-105%)}}
 @keyframes fc-petal-fall{0%{opacity:0;transform:translateY(-30px) rotate(0)}15%{opacity:.9}100%{opacity:0;transform:translateY(80px) rotate(220deg)}}
 @keyframes crown-drop{from{opacity:0;transform:translateY(-40%) scale(.6)}to{opacity:1;transform:none}}
 @media(max-width:600px){#cutscene.verdict-mode .cutscene-stage,#cutscene.crown-mode .cutscene-stage{aspect-ratio:1.6}#cutscene .av-player{width:10%}#cutscene .av-gate{width:20%}}
+/* Cutscene column: nothing shrinks below its content, so the two-line caption can never spill
+   onto Skip. The stage is sized from the height left over, keeping its aspect ratio. */
+#cutscene{--cs-room:max(100dvh - 330px,180px);justify-content:safe center}
+#cutscene>*{flex-shrink:0}
+#cutscene .cutscene-caption{min-height:2.8em;overflow-wrap:anywhere}
+#cutscene .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 2.84)}
+#cutscene.verdict-mode .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 900 / 420)}
+#cutscene.crown-mode .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 2.4)}
+#cutscene.final-mode .cutscene-stage{height:min(510px,61vh,var(--cs-room))}
+#cutscene .arena-verdict,#cutscene .fc-judgment,#cutscene .fc-victory{min-height:0}
+@media(max-width:640px){#cutscene.final-mode .cutscene-stage{height:min(430px,54vh,var(--cs-room))}}
+@media(max-width:600px){#cutscene{--cs-room:max(100dvh - 430px,180px)}#cutscene .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 1.8)}#cutscene.verdict-mode .cutscene-stage,#cutscene.crown-mode .cutscene-stage{width:min(1400px,96vw,var(--cs-room) * 1.6)}}
 @media (prefers-reduced-motion: reduce){.arena-verdict *,.fc-judgment *,.crown-card *,.fc-victory *{animation:none!important;transition:none!important}#cutscene.fc-hook .fc-loser,#cutscene.fc-hook .fc-hook-n{visibility:hidden}#cutscene .fc-petal{opacity:.8}}
