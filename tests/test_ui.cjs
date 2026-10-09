@@ -17,6 +17,37 @@ const document={querySelector:s=>elements[s]??=(element()),querySelectorAll:()=>
 const context={document,window:{addEventListener(){},matchMedia:()=>({matches:true})},fetch:()=>new Promise(()=>{}),setTimeout:()=>1,clearTimeout(){},setInterval(){},console,fixture:payload,confirm:()=>true};
 vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'static/app.js'),'utf8'),context);
 vm.runInContext('state=fixture.state;view=fixture.view;',context);
+
+/* Garden plants use the evaluated goals (including settled extra games), carry
+   scores forward, and never hide the original ten players after pruning. */
+{
+ const expectedTiers=[[0,0],[1,1],[2,1],[3,2],[5,2],[6,3],[10,4],[15,5],[21,6]];
+ for(const [goals,tier] of expectedTiers)assert.equal(vm.runInContext(`plantTier(${goals})`,context),tier);
+ for(const key of ['round1','round2','final']){
+  const html=vm.runInContext(`plantGarden('${key}')`,context);
+  assert.equal((html.match(/class="plant-card /g)||[]).length,10,`${key}: ten plants visible`);
+  assert.equal((html.match(/class="plant-art"/g)||[]).length,10,`${key}: ten individual roses`);
+  const model=JSON.parse(vm.runInContext(`JSON.stringify(plantGardenModel('${key}'))`,context));
+  assert.equal(model.length,10);
+  for(const p of model){
+   const current=payload.view[key].rows.find(r=>r.id===p.id);
+   assert.equal(p.roundGoals,current?.goals||0);
+   const previous=['round1','round2','final'].slice(0,['round1','round2','final'].indexOf(key)+1);
+   const expected=previous.reduce((n,k)=>n+(payload.view[k].rows.find(r=>r.id===p.id)?.goals||0),0);
+   assert.equal(p.goals,expected,`${key}: growth carries over without double counting`);
+  }
+ }
+ assert.notEqual(vm.runInContext('plantSvg(0)',context),vm.runInContext('plantSvg(6)',context),'zero-goal seedling differs from full bloom');
+ const oldName=payload.state.names.p1;
+ vm.runInContext("state.names.p1='<img src=x onerror=alert(1)>';",context);
+ assert(!vm.runInContext("plantGarden('round1')",context).includes('<img src=x'),'names are HTML-escaped');
+ vm.runInContext(`state.names.p1=${JSON.stringify(oldName)};`,context);
+ const before=vm.runInContext("JSON.stringify({state,view})",context);
+ vm.runInContext("view.round1.complete=false;view.round1.survivors=[];",context);
+ assert(!JSON.parse(vm.runInContext("JSON.stringify(plantGardenModel('round2'))",context)).some(p=>p.pruned),'unsettled cut cannot prune');
+ vm.runInContext(`({state,view}=fixture)`,context);
+}
+
 for(let g=0;g<5;g++){
  const html=vm.runInContext(`round2Game=${g};round2Page()`,context);
  const paths=[...html.matchAll(/data-path="round2\.players\.(p\d+)\.goals\.(\d+)"/g)];

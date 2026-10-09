@@ -229,6 +229,56 @@ function extras(key){const stage=state[key],v=view[key];if(!v.rows.length)return
  const actions=`<button data-action="extra" data-stage="${key}" ${v.stale||!v.ready?'disabled':''}>+ Add extra game</button>${stage.extras.length?`<button class="danger" data-action="clear-extras" data-stage="${key}">Clear all extra games</button>`:''}`;
  return panel('Extra games',html,actions);
 }
+
+/* Ten original competitors remain on display in every trial. A player's rose
+   grows from their cumulative, engine-scored goals; eliminated roses are pruned,
+   not removed from the garden. The opening countdown blooms separately. */
+const plantStages=['round1','round2','final'];
+const plantNames=['Base seedling','Fresh sprout','Rosebud','Young rose','Blooming rose','Royal rose','Full bloom'];
+function plantTier(goals){
+ return goals<=0?0:goals<3?1:goals<6?2:goals<10?3:goals<15?4:goals<21?5:6;
+}
+function plantGardenModel(key){
+ const depth=plantStages.indexOf(key);
+ if(depth<0)return [];
+ const roundRows=Object.fromEntries(plantStages.map(k=>[k,new Map((view[k]?.rows||[]).map(r=>[r.id,r]))]));
+ const first=view.round1.complete?new Set(view.round1.survivors):null;
+ const second=view.round2.complete?new Set(view.round2.survivors):null;
+ const champion=key==='final'&&view.final.complete?new Set(view.final.rows.filter(r=>r.rank===1).map(r=>r.id)):null;
+ return ids.map((id,i)=>{
+  const goals=plantStages.slice(0,depth+1).reduce((total,stage)=>total+Math.max(0,Number(roundRows[stage].get(id)?.goals)||0),0);
+  const roundGoals=Math.max(0,Number(roundRows[key].get(id)?.goals)||0);
+  const pruned=!!((depth>=1&&first&&!first.has(id))||(depth>=2&&second&&!second.has(id))||(champion&&!champion.has(id)));
+  const name=state.names[id]?.trim()||`Player ${i+1}`;
+  const status=pruned?'PRUNED':champion?.has(id)?'CHAMPION':roundRows[key].has(id)?'GROWING':'WAITING';
+  return {id,name,goals,roundGoals,tier:plantTier(goals),status,pruned};
+ });
+}
+function plantSvg(level){
+ const tip=94-level*10,leafCount=Math.min(level+1,6);
+ const leaf=Array.from({length:leafCount},(_,i)=>{
+  const y=101-i*9,dir=i%2?-1:1,edge=18+level*1.7;
+  return `<path d="M56 ${y} Q${56+dir*11} ${y-14} ${56+dir*edge} ${y-6} Q${56+dir*9} ${y+5} 56 ${y}Z" fill="${i%2?'#5f9c54':'#85c66b'}" stroke="#315f39" stroke-width="0.8"/>`;
+ }).join('');
+ let head='<ellipse cx="56" cy="99" rx="5" ry="6" fill="#94bd69" stroke="#486836"/>';
+ if(level===1)head=`<ellipse cx="56" cy="${tip+5}" rx="6" ry="9" fill="#d78ca0" stroke="#f5c9bc"/>`;
+ if(level>=2){
+  const count=level>=5?9:level>=4?8:6,r=5+level*1.25;
+  head=(level>=5?`<circle cx="56" cy="${tip+5}" r="${19+level*2}" fill="none" stroke="#e3b45d" stroke-opacity=".58" stroke-width="2" stroke-dasharray="3 5"/>`:'');
+  head+=Array.from({length:count},(_,i)=>{
+   const angle=(i/count)*Math.PI*2,x=56+Math.cos(angle)*r,y=tip+5+Math.sin(angle)*r;
+   return `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(6+level*.8).toFixed(1)}" ry="${(4.4+level*.6).toFixed(1)}" fill="${i%2?'#ffb5c6':'#e96d91'}" stroke="#f9d5c8" stroke-width=".6"/>`;
+  }).join('')+`<circle cx="56" cy="${tip+5}" r="${3+level*.5}" fill="#f6cd64" stroke="#b17b39"/>`;
+ }
+ const base=`<ellipse cx="56" cy="126" rx="34" ry="5" fill="#102219" opacity=".5"/><path d="M39 107 L73 107 L69 125 L43 125 Z" fill="#a77553" stroke="#e1b07d" stroke-width="1.5"/><path d="M37 105 H75 V111 H37 Z" fill="#d59d6a" stroke="#f1cd9a" stroke-width="1"/>`;
+ return `<svg class="plant-art" viewBox="0 0 112 135" aria-hidden="true" focusable="false">${level>=5?`<ellipse cx="56" cy="${tip+7}" rx="30" ry="26" fill="#eec46a" opacity=".12"/>`:''}<path d="M56 109 Q${60+level} ${tip+30} 56 ${tip+8}" fill="none" stroke="#437b46" stroke-width="${2.4+level*.6}" stroke-linecap="round"/>${leaf}${head}${base}</svg>`;
+}
+function plantGarden(key){
+ const model=plantGardenModel(key);
+ const cards=model.map((p,i)=>`<li class="plant-card ${p.pruned?'pruned':''} ${p.status==='CHAMPION'?'champion':''}" data-player="${p.id}" data-goals="${p.goals}" data-tier="${p.tier}"><div class="plant-top"><span>PLANT ${String(i+1).padStart(2,'0')}</span><span class="plant-state">${p.status}</span></div>${plantSvg(p.tier)}<strong class="plant-name">${esc(p.name)}</strong><div class="plant-count"><b>${p.goals}</b> total ${p.goals===1?'goal':'goals'}</div><small>${p.roundGoals} this round · ${plantNames[p.tier]}</small></li>`).join('');
+ return `<section class="plant-garden" aria-labelledby="${key}-plant-title"><div class="plant-heading"><div><span class="eyebrow">THE LIVING ROSTER / ${key==='round1'?'01':key==='round2'?'02':'03'}</span><h2 id="${key}-plant-title">Ten roots. Ten futures.</h2></div><p>Every competitor starts as a seedling at 0 goals. More goals grow a larger, brighter rose. Growth carries across rounds; eliminated plants remain pruned.</p></div><ol class="plant-grid">${cards}</ol></section>`;
+}
+
 // Per-match submit + popup/fullscreen. Submitting a non-final match shows cumulative
 // round standings THROUGH that match (computed client-side); submitting the last match
 // shows the fullscreen total round ranking with ADVANCE/CUT/TIE and the add-extra flow.
@@ -362,6 +412,7 @@ function round(key){
  if(key==='round2')return round2Page();
  const v=view.round1;
  let html=title('ROUND 01 · THE ROOTS','Know Thy Nature','The first principle: growth begins with understanding your own roots. Confront your weaknesses, study your mistakes, and change your play. Across five 5v5 games, only eight of ten take root.','10 → 8 PLAYERS')+notice(v.issues);
+ html+=plantGarden('round1');
  html+=`<div class="games">${v.games.map(g=>`<div class="game ${g.ready?'ready':''}"><b>Game ${g.game}</b>A: ${g.counts.A}/5 · B: ${g.counts.B}/5</div>`).join('')}</div>`;
  round1Game=Math.min(round1Game,4);
  html+=matchScoreboard('round1',round1Game);
@@ -380,6 +431,7 @@ function round(key){
 function round2Page(){
  const v=view.round2;round2Game=Math.min(round2Game,Math.max(0,v.draw.revealed-1));const g=round2Game;
  let html=title('ROUND 02 · NATURAL SELECTION','Adapt or Wither','Nature rewards those who change with their environment. Abandon familiar habits, adapt to unfamiliar teammates, and survive five shifting 4v4 games. Only six of eight remain.','8 → 6 PLAYERS')+notice(v.issues);
+ html+=plantGarden('round2');
  if(v.stale)return html+notice(['The survivor list changed. Clear this round and the final to generate new 4v4 matchups.'])+clearRoundPanel('round2');
  if(!v.rows.length)return html+panel('Waiting for survivors','<div class="empty">Finish Know Thy Nature. The eight survivors enter five varied 4v4 matches.</div>')+clearRoundPanel('round2');
  if(!v.draw.order.length)return html+panel('Draw 4v4 matchups','<p>Create five different 4v4 team assignments. No player sits out, and you can reshuffle the next game before recording any goals.</p><button class="accent" data-action="r2-start" '+(lineupBusy?'disabled':'')+'>Generate balanced 4v4 games ↗</button>')+clearRoundPanel('round2');
@@ -406,6 +458,7 @@ function counter(path,label,disabled=false){const n=value(path)||0,rule=goalRule
 function finalPage(){const v=view.final,g=finalGame;
  let html=title('ROUND 03 · THE WILL TO LIVE','The Last Bloom','Six reach the final garden, but only one can bloom. Stay composed, act decisively, and endure eight 3v3 matches. First place alone receives $30; the other five receive $0.',`GAMES 1 & 2 ×${fmt(state.settings.multiplier)}`)+notice(v.issues);
  html+='<section id="screen-podium" aria-label="Live final podium"></section>';
+ html+=plantGarden('final');
  if(v.stale)html+=notice(['This roster changed since The Last Bloom was scored. Clearing The Last Bloom re-syncs it to the current finalists.']);
  if(!v.rows.length)return html+panel('Waiting for finalists','<div class="empty">Finish Adapt or Wither and resolve cut ties. Your six finalists will appear automatically.</div>')+clearRoundPanel('final');
  html+=`<div class="score-help">GOAL = ${fmt(state.settings.goal_points)} PTS / WIN = ${fmt(state.settings.win_points)} PTS · Games 1–2 ×${fmt(state.settings.multiplier)} · Games 3–8 ×1</div>`;
