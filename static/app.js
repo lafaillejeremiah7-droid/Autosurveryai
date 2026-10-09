@@ -169,7 +169,7 @@ function renderRoom(){
  const route=$('#gate-route');
  if(route)route.innerHTML=stages.map((s,i)=>'<button data-open="'+s.key+'" class="route-stop '+s.status+'" '+lockAttrs(s.key)+' '+(s.status==='current'?'aria-current="step"':'')+'><small>'+roman[i]+' / '+s.status.toUpperCase()+'</small><strong>'+s.label+'</strong><span>'+esc(s.detail)+'</span></button>').join('');
  window.CityWorld?.setTournament?.(stages);
- $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' gate"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER GATE ↗')+'</span><span class="room-label"><small>GATE '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
+ $('#monitors').innerHTML=rooms.map(([key,no,label,sub])=>'<button class="city-room '+(stageMap[key]?.status||'')+'" data-open="'+key+'" '+lockAttrs(key)+' aria-label="Enter '+label+' pavilion"><span class="room-entry">'+(roomLock(key)?'LOCKED':'ENTER GATE ↗')+'</span><span class="room-label"><small>GATE '+no+' / '+(stageMap[key]?.status.toUpperCase()||'OPEN')+'</small><strong>'+label+'</strong><span>'+esc(roomLock(key)||sub)+'</span></span></button>').join('');
  window.BrawlMonuments?.render(view);
  window.CityWorld?.refreshRooms();
  window.CityWorld?.setSettings(state.settings);
@@ -191,7 +191,7 @@ function nextStepBanner(next,finished){
 function overview(){
  const final=view.final, finished=final.complete; const next=!view.names_ok?'settings':!view.round1.complete?'round1':!view.round2.complete?'round2':'final';
  const done=[view.round1,view.round2,final].filter(r=>r.complete).length;
- let html=title('GATE V / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
+ let html=title('PAVILION V / LIVE FEED','Leaderboard','Run every round, track every player, and settle the podium.',finished?'TOURNAMENT COMPLETE':'TOURNAMENT IN PROGRESS');
  html+=nextStepBanner(next,finished);
  html+=`<div class="cards">${card('REGISTERED PLAYERS',Object.values(state.names).filter(v=>v.trim()).length,'10 tournament places')}${card('PRIZE POOL',money(view.pool),'Top 3 finishers')}${card('ROUNDS COMPLETE',`${done} / 3`,'Two cutting rounds + final')}${card('PRIZES ASSIGNED',money(view.awarded),'Tied prizes remain unassigned')}</div>`;
  html+=`<div class="round-path">${[['round1','01 · Be Better','10 players → 8 survivors'],['round2','02 · Enough','8 players → 6 survivors'],['final','03 · Forget The Past','6 players → 3 prize winners']].map(([k,t,d])=>`<button data-tab="${k}" ${lockAttrs(k)} class="${next===k?'accent':''}">${t}<small>${view[k].complete?'Complete':d}</small></button>`).join('')}</div>`;
@@ -201,7 +201,7 @@ function overview(){
  if(final.rows.length)html+=panel('Final standings',table(['RANK','PLAYER','WIN POINTS','GOAL POINTS','TOTAL','PRIZE','STATUS'],final.rows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.name)}</td><td class="calc">${fmt(r.win_points)}</td><td class="calc">${fmt(r.goal_points)}</td><td class="calc">${fmt(r.total)}</td><td class="calc">${money(r.prize)}</td><td>${badge(r.status)}</td></tr>`)));
  return html;
 }
-function playerSettings(){return title('GATE I / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
+function playerSettings(){return title('PAVILION I / CONFIGURATION','Players & rules','Enter ten unique names. Scoring settings and prizes update throughout the tournament.')+`<div class="settings-grid">${panel('The roster',`<div class="name-grid">${ids.map((p,i)=>`<label><small>PLAYER ${String(i+1).padStart(2,'0')}</small>${inp('names.'+p,'Player '+(i+1)+' name','text')}</label>`).join('')}</div><p class="hint">Clearing the names blanks all ten slots only. Scoring, prizes, and every round score stay as they are. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-names">Clear player names</button>`)}<div>${panel('Final scoring',[['win_points','Points per win'],['goal_points','Points per goal'],['multiplier','Games 1–2 multiplier']].map(([k,label])=>`<div class="field"><label>${label}</label>${inp('settings.'+k,label)}</div>`).join('')+'<div class="hint">The multiplier applies to win points and goal points in games 1 and 2 only.</div><p class="hint">Clearing scoring resets win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched. You can Undo this straight afterwards.</p><button class="danger" data-action="clear-scoring">Clear scoring</button>')}${panel('Prize money',[0,1,2].map((i)=>`<div class="field"><label>${['1st','2nd','3rd'][i]} place ($)</label>${inp('settings.prizes.'+i,'Prize '+(i+1))}</div>`).join('')+`<div class="notice">Total prize pool: <b>${money(view.pool)}</b></div>`)}</div></div>`+notice(view.names_ok?[]:['Names must be filled in and unique before anyone advances.'])+panel('Start over','<p>Download a backup first if you want to keep this tournament.</p><button class="danger" data-action="reset-all">Clear tournament</button>');}
 
 let countdownDraft=null,roomTransition=false;
 function localStartValue(iso){
@@ -471,7 +471,7 @@ function render(){
  const scrollTop=$('#screen-scroll').scrollTop,scrolls=[...document.querySelectorAll('#content .scroll')].map(e=>e.scrollLeft);
  const openDetails=[...document.querySelectorAll('#content details')].map(d=>d.open);
  $('#nav').innerHTML=tabs.map(([k,label],i)=>`<button data-tab="${k}" ${lockAttrs(k)} class="${tab===k?'active':''}" aria-current="${tab===k?'page':'false'}"><b>${roman[i]}</b>${label}<span>${view[k]?.complete?'✓':''}</span></button>`).join('');
- $('#breadcrumb').textContent=`BH / GATE ${roman[tabs.findIndex(t=>t[0]===tab)]} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
+ $('#breadcrumb').textContent=`BH / PAVILION ${roman[tabs.findIndex(t=>t[0]===tab)]} / ${tabs.find(t=>t[0]===tab)[1].toUpperCase()}`;
  $('#content').innerHTML=((state.legacy_round2_rotation||state.legacy_round2)?'<div class="notice">Your old Round 2 and final are archived in the downloadable backup. Enough uses five 4v4 games with reshuffled teams. Any prior incompatible round scores are archived. Be Better, names, and settings are preserved.</div>':state.legacy_final?'<div class="notice">Your old five-game final is archived in the downloadable backup.</div>':'')+(tab==='overview'?overview():tab==='settings'?settings():tab==='final'?finalPage():round(tab));
  window.BrawlMonuments?.renderScreen(view);
  [...document.querySelectorAll('#content .scroll')].forEach((e,i)=>e.scrollLeft=scrolls[i]||0);
@@ -644,7 +644,7 @@ function updateCountdown(){
  const ms=Math.max(0,new Date(target).getTime()-Date.now()), total=Math.ceil(ms/1000);
  const d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),sec=total%60;
  [['days',d],['hours',h],['minutes',m],['seconds',sec]].forEach(([k,v])=>{const e=$('#countdown-'+k);if(e)e.textContent=String(v).padStart(2,'0');});
- const started=ms<=0;$('#countdown-phase').textContent=started?'THE GARDEN IS OPEN':'COUNTDOWN TO THE GARDEN OPENS';$('#games-status').textContent=started?'THE GARDEN IS OPEN. Enter the pavilions.':'Garden opens '+new Date(target).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});if(box.setAttribute)box.setAttribute('aria-label',started?'The garden is open':'Tournament starts in '+d+' days '+h+' hours '+m+' minutes '+sec+' seconds');
+ const started=ms<=0;$('#countdown-phase').textContent=started?'THE GARDEN IS OPEN':'THE GARDEN OPENS IN';$('#games-status').textContent=started?'THE GARDEN IS OPEN. Enter the pavilions.':'Garden opens '+new Date(target).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});if(box.setAttribute)box.setAttribute('aria-label',started?'The garden is open':'Tournament starts in '+d+' days '+h+' hours '+m+' minutes '+sec+' seconds');
  if($('#schedule-label'))$('#schedule-label').textContent='CHANGE START TIME';const card=$('.games-clock');if(card)card.dataset.phase=started?'started':'waiting';
 }
 async function setStartTime(){
@@ -741,8 +741,8 @@ async function startGateCeremony(){
 function runCrownFallback(label){
  if(!cutsceneActive)return;
  label=String(label||'');
- $('#cutscene-stage').innerHTML='<div class="crown-card">'+laurelSvg('crown-laurel')+'<strong class="crown-label">'+esc(label)+'</strong></div>';
- $('#cutscene-caption').innerHTML='<strong>GATE CROWNED</strong><br>'+esc(label);
+ $('#cutscene-stage').innerHTML='<div class="crown-card">'+laurelSvg('crown-laurel')+'<strong class="crown-label">PAVILION OPEN · '+esc(label)+'</strong></div>';
+ $('#cutscene-caption').innerHTML='<strong>THE ROSES BLOOM</strong><br>'+esc(label);
  window.BrawlAudio?.fanfare();
  schedule(endCutscene,reducedMotion()?1500:2500);
 }
@@ -807,7 +807,7 @@ function playCutscene(names,roundLabel='',stage=''){
   const verdict=stage==='round1'||stage==='round2',label=String(roundLabel||'');
   ceremonyLabel=roundLabel||'Final';ceremonyStage=stage||'final';
   overlay.classList.toggle('verdict-mode',verdict);overlay.classList.toggle('final-mode',stage==='final');
-  $('#cutscene .eyebrow').textContent=verdict?'THE GARDENER HAS SPOKEN':stage==='final'?"THE EMPEROR'S VERDICT":'ROUND COMPLETE';
+  $('#cutscene .eyebrow').textContent=verdict?'THE GARDENER HAS SPOKEN':stage==='final'?"THE GARDENER'S VERDICT":'ROUND COMPLETE';
   $('#cutscene-label').textContent=verdict?titled(label,'PRUNED'):stage==='final'?titled(label,'The final pruning'):titled(String(ceremonyLabel),'The pavilion blooms');
   overlay.hidden=false;if(overlay.setAttribute)overlay.setAttribute('aria-hidden','false');overlay.classList.add('open');
   // Native top layer keeps the cutscene above both scoring and tie-result dialogs.
