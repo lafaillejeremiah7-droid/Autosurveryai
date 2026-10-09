@@ -44,6 +44,13 @@ assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows o
 assert(geo.triangles>1000);
 assert(geo.gardenTriangles>3000,'detailed 3D garden includes thousands of architectural triangles');
 assert.equal(geo.plantStages,7,'all seven competitive flower growth stages have dedicated meshes');
+const meshes=three._growthMeshes();
+assert.equal(meshes.length,7);
+assert.deepEqual(meshes.map(x=>x.tier),[0,1,2,3,4,5,6]);
+assert.equal(new Set(meshes.map(x=>x.triangles)).size,7,'all growth levels have distinctive 3D surface complexity');
+assert(meshes[6].triangles>meshes[0].triangles*4,'full-bloom rose has substantially more modeled geometry than the zero-goal seedling');
+const rendererSource=fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8');
+assert(rendererSource.includes('v_pos.z<-20.3'),'WebGL clips the hand behind the physical portal plane');
 assert(geo.details.includes('fountains')&&geo.details.includes('gazebos')&&geo.details.includes('hedge maze')&&geo.details.includes('palace'),'3D field includes royal garden architecture');
 assert(geo.portalPlane<0,'emerging hand is revealed in front of a physical portal plane');
 assert(geo.handScale>=4.7,'enormous hand is nearly twice the previous 2.6x scale');

@@ -500,6 +500,11 @@
   _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice()),
    portalOpen:portalOpening(step,age),handScale:HAND_SCALE,portalCenter:PORTAL_CENTER.slice(),
    portalRadius:PORTAL_RADIUS,portalPlane:PORTAL_PLANE,handEmergence:handEmergence(step,age),portalLead:PORTAL_LEAD,
-   gardenTriangles:baseField.triangles,plantStages:7,details:['marble paths','hedge maze','fountains','gazebos','rose arches','topiary','lamps','flower beds','palace']})
+   gardenTriangles:baseField.triangles,plantStages:7,details:['marble paths','hedge maze','fountains','gazebos','rose arches','topiary','lamps','flower beds','palace']}),
+  _growthMeshes:()=>Array.from({length:7},(_,tier)=>{
+   const sample=new Mesh();
+   plant(sample,{id:'seed',tier,priorPruned:false},0,[],-1,0,0);
+   return {tier,triangles:sample.triangles};
+  })
  };
 })();
