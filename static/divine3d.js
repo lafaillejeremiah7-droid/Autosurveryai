@@ -11,10 +11,11 @@
  const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),unit=a=>mul(a,1/(Math.hypot(...a)||1));
  const GOLD=[1,.79,.38],PALE=[1,.97,.76],STEEL=[.65,.86,.95],SHADOW=[.05,.22,.14];
  const positions=Array.from({length:10},(_,i)=>[(i%5-2)*5.8,0,i<5?-5.3:6.2]);
- // Keep the dimensional scale fixed across all three rounds. The giant hand
- // passes through a portal above the center of the ten plants, not a palm halo.
- const PORTAL_CENTER=[0,38,-21],PORTAL_RADIUS=16.2,HAND_SCALE=5.0;
- const PORTAL_LEAD=.45,EMERGENCE_SECONDS=2.65,PORTAL_PLANE=-20.3;
+ // The overhead gate is a HORIZONTAL XZ ring suspended over the arena.
+ // The palm descends along -Y, and the fragment shader clips everything
+ // above its opening. A wrist can never float detached in front of the gate.
+ const PORTAL_CENTER=[0,44,-12],PORTAL_RADIUS=23,HAND_SCALE=4.8;
+ const PORTAL_LEAD=.45,EMERGENCE_SECONDS=2.85,PORTAL_PLANE=44;
  const ease=t=>t*t*(3-2*t);
  const portalOpening=(step,age)=>step<0?ease(clamp(age/1.15)):1;
  const handEmergence=(step,age)=>step<0?ease(clamp((age-PORTAL_LEAD)/EMERGENCE_SECONDS)):1;
@@ -56,6 +57,41 @@
     const p=coord(a,r),q=coord(b,r);
     this.cylinder(p,q,tube,col,tube,5,kind);
    }
+  }
+  // Smooth Gouraud-style meshes: PS2-era modeled skin, not cubes or gems.
+  smoothTri(a,b,c,na,nb,nc,col,kind=7){
+   for(const [p,n] of [[a,na],[b,nb],[c,nc]])this.data.push(...p,...unit(n),...col,kind);
+   this.triangles++;
+  }
+  softSphere(center,rx,ry,rz,col,kind=7,rings=10,segments=16){
+   const p=(v,t)=>[center[0]+rx*Math.sin(v)*Math.cos(t),center[1]+ry*Math.cos(v),center[2]+rz*Math.sin(v)*Math.sin(t)];
+   const n=a=>[(a[0]-center[0])/(rx*rx),(a[1]-center[1])/(ry*ry),(a[2]-center[2])/(rz*rz)];
+   for(let i=0;i<rings;i++)for(let j=0;j<segments;j++){
+    const va=i*Math.PI/rings,vb=(i+1)*Math.PI/rings,ta=j*TAU/segments,tb=(j+1)*TAU/segments;
+    const a=p(va,ta),b=p(va,tb),c=p(vb,tb),d=p(vb,ta);
+    this.smoothTri(a,b,c,n(a),n(b),n(c),col,kind);
+    this.smoothTri(a,c,d,n(a),n(c),n(d),col,kind);
+   }
+  }
+  softTube(path,radii,col,kind=7,segments=12){
+   const rings=path.map((center,i)=>{
+    const tangent=unit(vec(path[Math.min(path.length-1,i+1)],path[Math.max(0,i-1)]));
+    const basis=unit(cross(tangent,Math.abs(tangent[1])>.9?[0,0,1]:[0,1,0]));
+    const next=unit(cross(tangent,basis));
+    return Array.from({length:segments},(_,j)=>{
+     const t=j*TAU/segments,normal=add(mul(basis,Math.cos(t)),mul(next,Math.sin(t)));
+     return {p:add(center,mul(normal,radii[i])),n:normal};
+    });
+   });
+   for(let i=0;i<rings.length-1;i++)for(let j=0;j<segments;j++){
+    const k=(j+1)%segments,a=rings[i][j],b=rings[i][k],c=rings[i+1][k],d=rings[i+1][j];
+    this.smoothTri(a.p,b.p,c.p,a.n,b.n,c.n,col,kind);
+    this.smoothTri(a.p,c.p,d.p,a.n,c.n,d.n,col,kind);
+   }
+  }
+  loopEllipse(c,rx,ry,col,tube=.13,kind=8){
+   const path=Array.from({length:33},(_,i)=>[c[0]+Math.cos(i*TAU/32)*rx,c[1]+Math.sin(i*TAU/32)*ry,c[2]]);
+   this.softTube(path,path.map(()=>tube),col,kind,8);
   }
   blade(start,tip,breadth,col){
    const d=unit(vec(tip,start)),s=unit(cross(d,[0,0,1]));
@@ -208,6 +244,32 @@
    rose(m,x,.1,-18.4,4,(x+20)/4);
    rose(m,x,.1,19.4,4,(x+24)/4);
   }
+  // PS2-style distant environmental meshes: rolling landscape, low-detail
+  // tree canopy, layered mountain silhouettes and soft atmospheric perspective.
+  // They are not competitors and never change the scored flower models.
+  for(const side of [-1,1]){
+   for(let row=0;row<9;row++)for(let col=0;col<9;col++){
+    const z=-42-row*9,x=side*(37+col*9),n=pseudoRand(row*31+col*7+side*11);
+    const hill=2+Math.sin(row*.6+col*.42)*2+n*5;
+    const grassColor=[.17+n*.05,.28+n*.11,.17+n*.08];
+    const p=[x,hill,z],q=[x+side*9,2+Math.sin(row*.7+(col+1)*.4)*2+pseudoRand(col*7+row+4)*5,z],
+      r=[x,hill+.8,z-9],t=[q[0],q[1]+1,z-9];
+    m.tri(p,q,r,grassColor);m.tri(q,t,r,grassColor);
+   }
+  }
+  for(let row=0;row<4;row++)for(let col=0;col<30;col++){
+   const n=pseudoRand(row*101+col*13+9),x=(col-14.5)*7.8+n*2,z=-51-row*15+n*4;
+   const h=4.5+n*5.5;
+   m.cylinder([x,0,z],[x,h*.64,z],.21,[.31,.31,.23],.13,5);
+   m.softSphere([x,h*.75,z],1.45+n*.9,h*.36,1.4+n*.8,
+     [.10+n*.08,.29+n*.10,.18+n*.06],0,5,7);
+  }
+  // Hills beyond the palace fade to fog-blue instead of ending abruptly.
+  for(let i=0;i<25;i++){
+   const x=(i-12)*10,z=-130;
+   const h=15+9*Math.sin(i*.48)+12*pseudoRand(i*17);
+   m.tri([x,3,z],[x+10,3,z],[x+5,h,z-4],[.40,.49,.47]);
+  }
   // Palace terrace background, parapets and tall stone towers.
   m.box(0,5.8,-33.8,52,11.6,3.0,[.65,.64,.56]);
   m.box(0,12.3,-34.2,54,1.1,4.0,[.30,.39,.34]);
@@ -323,92 +385,110 @@
  function portal(m,step,age,elapsed){
   const opening=portalOpening(step,age);
   if(opening<.008)return;
-  const [x,y,z]=PORTAL_CENTER,r=PORTAL_RADIUS*opening,SEG=60;
-  const ringpoint=(a,rr,zz=0)=>[x+Math.cos(a)*rr,y+Math.sin(a)*rr,z+zz];
-  const colors=[[.025,.026,.09],[.078,.031,.21],[.17,.07,.38],[.075,.15,.36],[.05,.024,.12]];
-  // Dark aperture from which the hand physically emerges, backlit rings and
-  // layered animated vortex ribbons.
+  const [x,y,z]=PORTAL_CENTER,r=PORTAL_RADIUS*opening,SEG=64;
+  // The camera sees the UNDERSIDE of this horizontal XZ opening. Its central
+  // vortex is behind the hand; the ring always stays above the skin and shears.
+  const p=(a,rad,dy=0)=>[x+Math.cos(a)*rad,y+dy,z+Math.sin(a)*rad];
+  const vortex=[[.038,.055,.12],[.095,.14,.26],[.24,.31,.42],[.36,.47,.59],[.66,.78,.83]];
   for(let band=0;band<5;band++){
-   const r0=band*r/5,r1=(band+1)*r/5,cc=colors[band];
-   for(let i=0;i<SEG;i++){
-    const a=i*TAU/SEG+elapsed*(band%2?-.12:.14),b=(i+1)*TAU/SEG+elapsed*(band%2?-.12:.14);
-    m.quad(ringpoint(a,r0,-.9-band*.02),ringpoint(b,r0,-.9-band*.02),
-       ringpoint(b,r1,-.9-band*.02),ringpoint(a,r1,-.9-band*.02),cc);
+   const low=band*r/5,high=(band+1)*r/5;
+   for(let j=0;j<SEG;j++){
+    const a=j*TAU/SEG+elapsed*(band%2?-.22:.30),b=(j+1)*TAU/SEG+elapsed*(band%2?-.22:.30);
+    const col=vortex[band];m.quad(p(a,low,.2),p(b,low,.2),p(b,high,.2),p(a,high,.2),col,2);
    }
   }
-  for(const [ratio,width,color] of [[1,.42,[1,.76,.26]],[.96,.20,[.96,.90,.57]],
-    [1.09,.17,[.61,.76,1]],[1.24,.11,[.70,.44,.99]],[.76,.09,[.44,.73,1]]]){
-   m.ring([x,y,z+.13],r*ratio,width*opening,color,'xy',2);
+  // Pale concentric whirlpool rings, as in the provided PS2 cinematic.
+  for(let i=0;i<10;i++){
+   const t=i/10,rad=r*(.27+t*.86);
+   const tint=i%3===0?[.99,1,1]:i%3===1?[.57,.73,.82]:[.30,.45,.62];
+   const offset=.27*Math.sin(elapsed*(i%2?1:-1)+i);
+   m.ring([x,y-.18+offset,z],rad,.18+.16*(i%3===0),tint,'xz',2);
   }
-  for(let arm=0;arm<9;arm++)for(let j=0;j<16;j++){
-   const a=arm*TAU/9+elapsed*(arm%2?-.6:.5)+j*.16;
-   const rr=r*(.16+j*.046),end=[x+Math.cos(a+.27)*rr*1.03,y+Math.sin(a+.27)*rr*1.03,z+.32];
-   const begin=[x+Math.cos(a)*rr,y+Math.sin(a)*rr,z+.32];
-   m.cylinder(begin,end,.055*opening,[.58,.42+(j%5)*.05,1],.025*opening,5,2);
+  for(const [size,tube,col] of [[1.00,.53,[1,1,.96]],[1.12,.25,[.72,.82,.93]],[1.23,.12,[.42,.56,.72]]]){
+   m.ring([x,y-.32,z],r*size,tube*opening,col,'xz',2);
   }
-  for(let j=0;j<36;j++){
-   const a=j*TAU/36+elapsed*(j%3?-.19:.35),rr=r*(1.05+Math.sin(j*5+elapsed*2)*.055);
-   const p=ringpoint(a,rr,.5);
-   m.gem(...p,.13+(j%4)*.055,[1,.78+(j%3)*.06,.33],2,1.55);
+  // Swirling elongated filaments; no square runes or fake gemstone halos.
+  for(let arm=0;arm<8;arm++)for(let j=0;j<14;j++){
+   const a=arm*TAU/8+elapsed*.62+j*.075,rad=r*(.16+j*.054);
+   const q=p(a,rad,-.39),q2=p(a+.18,rad+r*.045,-.41);
+   m.cylinder(q,q2,.055*opening,[.85,.93,1],.012*opening,4,2);
   }
-  // Concentric runic stones orbit the rim at different depths.
-  for(let j=0;j<20;j++){
-   const a=j*TAU/20+elapsed*.06,rr=r*1.32,p=ringpoint(a,rr,-.13);
-   m.box(p[0],p[1],p[2],.47*opening,.55*opening,.32*opening,[.84,.73,.48],2);
+  for(let j=0;j<26;j++){
+   const a=j*TAU/26+elapsed*.3,rr=r*(1.07+Math.sin(j*5+elapsed)*.025);
+   const q=p(a,rr,-.48);
+   m.gem(...q,.13+(j%3)*.05,[.87,.95,1],2,1.6);
   }
  }
  function hand(m,position,elapsed,step,age){
   const [x,y,z]=position,at=(a,b,c)=>[x+a,y+b,z+c];
-  const gold=[.94,.72,.35],high=[1,.90,.58],dark=[.65,.40,.17],chrome=[.69,.87,1];
-  // Sculpted arm disappearing into the portal rim.
-  m.cylinder(at(0,8.4,-.85),at(0,1.56,.2),1.0,[.88,.60,.26],1.4,13,7);
-  m.cylinder(at(0,5.95,-.55),at(0,3.15,-.24),1.48,gold,1.35,11,7);
+  const ivory=[.78,.79,.82],shade=[.66,.67,.73],highlight=[.88,.89,.90],
+   stone=[.75,.76,.78],metal=[.34,.38,.43],edge=[.78,.83,.86],dark=[.13,.16,.20];
+  // Soft-shaded sculpted arm and palm, veined knuckles and jointed fingers.
+  // The forearm extends ABOVE the gate; the shader hides that portion.
+  m.softTube([at(0,12,0),at(0,8.5,0),at(0,5.2,-.16),at(0,2.3,.02)],
+    [1.24,1.42,1.30,1.01],ivory,7,16);
+  m.softSphere(at(0,1.09,.06),1.60,1.84,.77,ivory,7,12,20);
+  m.softSphere(at(0,-.55,.48),1.74,1.34,.91,ivory,7,12,20);
+  m.softSphere(at(-.42,-.55,.83),.67,1.10,.51,shade,7,10,12);
+  const spread=[-1.17,-.39,.41,1.16];
   for(let i=0;i<4;i++){
-   const yy=2.3+i*.67;
-   m.ring(at(0,yy,0),1.20+i*.06,.10,[.98,.79,.38],'xz',8);
+   const dx=spread[i],length=[2.30,2.82,2.68,2.14][i],
+     from=at(dx,-1.21,.97),knuckle=at(dx*.99,-1.55-length*.34,1.42),
+     joint=at(dx*.89,-1.65-length*.71,2.05),
+     tip=at(dx*.79,-1.62-length,2.22);
+   m.softSphere(from,.40,.42,.40,ivory,7,8,12);
+   m.softTube([from,knuckle,joint,tip],[.38,.36,.27,.12],ivory,7,12);
+   m.softSphere(joint,.28,.28,.30,shade,7,7,10);
+   m.softSphere(tip,.15,.17,.21,highlight,7,7,10);
+   // Subtle finger nails and creases rather than sharp geometric spikes.
+   m.softSphere(add(tip,[0,.075,.17]),.125,.064,.09,highlight,7,6,10);
   }
-  m.sphere(at(0,.70,.30),1.77,1.73,.82,gold,7,7,13);
-  m.sphere(at(0,-.57,.75),1.68,1.28,.83,high,7,7,13);
-  for(let i=0;i<4;i++){
-   const dx=(i-1.5)*.76,len=2.45-Math.abs(i-1.5)*.29;
-   const a=at(dx,-1.18,1.14),b=at(dx*.91,-1.18-len*.54,1.46),
-      c=at(dx*.74,-1.18-len,1.95);
-   m.cylinder(a,b,.34,gold,.29,10,7);
-   m.cylinder(b,c,.29,high,.17,10,7);
-   m.sphere(c,.22,.21,.24,[1,.94,.74],7);
-   m.gem(...at(dx,-1.27,1.54),.18,dark,8,.50);
+  const thumb=[at(-1.42,.02,.74),at(-2.08,-.92,1.45),at(-1.53,-2.04,2.07)];
+  m.softTube(thumb,[.57,.42,.24],ivory,7,12);
+  m.softSphere(thumb[1],.43,.41,.43,shade,7,8,12);
+  // Faint tendon detail, like an older game with baked normal textures.
+  for(let i=-1;i<=1;i++){
+   const u=i*.58;m.softTube([at(u,1.4,.77),at(u*.93,.55,.96),at(u*.9,-.7,1.09)],
+    [.035,.048,.027],highlight,7,5);
   }
-  m.cylinder(at(-1.42,.31,1.03),at(-2.4,-1.2,1.86),.59,gold,.42,10,7);
-  m.cylinder(at(-2.4,-1.2,1.86),at(-1.49,-2.17,2.26),.43,high,.25,9,7);
-  // Giant steel shears pivot between the thumb and four curled fingers.
-  const pivot=at(.86,-2.75,2.3);
-  // Both blades actually meet above the selected stem, 0.95s into the strike.
-  // The giant hand is positioned so the shared tips touch that player's plant.
-  const contact=ease(clamp((age-.62)/.33)),spread=(1-contact)*1.70;
-  m.blade(pivot,at(.86+spread,-7.13,2.56),.71,chrome);
-  m.blade(pivot,at(.86-spread,-7.24,2.48),.76,[.88,.94,.99]);
-  m.sphere(pivot,.36,.38,.30,high,8);
-  m.cylinder(pivot,at(1.15,-.81,2.49),.19,[.67,.60,.54],.11,8,7);
-  m.ring(at(-.15,-3.36,2.70),.83,.18,[.96,.77,.35],'xy',8);
-  m.ring(at(1.84,-3.28,2.69),.84,.19,[.99,.83,.47],'xy',8);
-  for(const offset of [-.55,.55]){
-   m.gem(...at(offset,-.71,1.22),.25,[1,.90,.59],8,1.7);
+  // Proper paired shears. One steel pivot, two ring handles, twin broad blades
+  // that progressively close on the target flower at exactly 0.95 s.
+  const pivot=at(.72,-2.69,2.22),close=ease(clamp((age-.62)/.33));
+  const width=(1-close)*1.25;
+  const left=at(.72-width,-5.55,2.38),right=at(.72+width,-5.55,2.38);
+  const edgePoint=(v,i)=>[v[0]+i,v[1]+.13,v[2]+.18];
+  function blade(tip,which){
+   const base=add(pivot,[which*.34,-.28,-.05]),mid=add(mul(base,.56),mul(tip,.44));
+   const wing=add(mid,[which*.45,.04,.19]);
+   m.tri(base,wing,tip,metal,8);
+   m.tri(base,tip,wing,edge,8);
+   m.cylinder(base,tip,.045,edge,.022,5,8);
   }
-  m.gem(...at(0,3.4,.1),.48,[.97,.80,.38],8,1.5);
+  blade(left,-1);blade(right,1);
+  m.softSphere(pivot,.26,.26,.24,[.50,.56,.61],8,8,12);
+  const handleL=at(-.23,-2.50,2.24),handleR=at(1.62,-2.50,2.24);
+  m.softTube([pivot,at(.08,-1.72,2.36),handleL],[.18,.15,.13],metal,8,10);
+  m.softTube([pivot,at(1.38,-1.76,2.35),handleR],[.18,.15,.13],metal,8,10);
+  m.loopEllipse(at(-.48,-2.34,2.25),.59,.72,dark,.13,8);
+  m.loopEllipse(at(1.84,-2.28,2.25),.59,.73,dark,.13,8);
+  m.gem(...pivot,.15,highlight,8,1.0);
  }
  // World-space scissor tips stay aligned with the selected player rather than
  // pointing to an unrelated pot. Action starts at the previous frame's position.
  function handPosition(models,cutIds,step,age,previous){
-  if(step<0)return [0,40.7,lerp(-53,-9.3,handEmergence(step,age))];
+  const emerged=[0,34,-12];
+  if(step<0)return [0,lerp(78,emerged[1],handEmergence(step,age)),-12];
   const id=cutIds[step],index=models.findIndex(p=>p.id===id);
-  if(index<0)return previous||[0,40.7,-9.3];
+  if(index<0)return previous||emerged;
   const [x,,z]=positions[index],tier=Number(models[index].tier)||0;
-  const target=[x-.86*HAND_SCALE,36.2+Math.min(6,tier)*.35+1.8,z-2.48*HAND_SCALE];
-  const from=previous||[0,40.7,-9.3],t=ease(clamp(age/.76));
+  const bloomY=.75+[.48,1.18,1.98,2.78,3.65,4.63,5.58][Math.min(6,tier)];
+  // At closure both shear tips converge at local [.72,-5.55,2.38].
+  const target=[x-.72*HAND_SCALE,bloomY+5.55*HAND_SCALE,z-2.38*HAND_SCALE];
+  const from=previous||emerged,t=ease(clamp(age/.72));
   return from.map((v,i)=>lerp(v,target[i],t));
  }
  function shotCamera(models,cuts,step,age,previous){
-  const wide={eye:[0,39,64],target:[0,20,-12],fov:66*Math.PI/180};
+  const wide={eye:[0,39,42],target:[0,21,-12],fov:57*Math.PI/180};
   const garden={eye:[0,17.5,27],target:[0,3.6,-.4],fov:54*Math.PI/180};
   if(step<0){
    const t=ease(clamp((age-2.20)/1.65));
@@ -459,13 +539,15 @@
   const gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'low-power'});
   if(!gl)return null;
   const vertex='attribute vec3 a_pos,a_normal,a_color;attribute float a_kind;uniform mat4 u_vp;varying vec3 v_normal,v_color,v_pos;varying float v_kind;void main(){v_pos=a_pos;v_normal=a_normal;v_color=a_color;v_kind=a_kind;gl_Position=u_vp*vec4(a_pos,1.);}';
-  const fragment='precision mediump float;varying vec3 v_normal,v_color,v_pos;varying float v_kind;void main(){if(v_kind>6.5&&v_kind<8.5&&(v_pos.z<-20.3||v_pos.y>54.2))discard;vec3 n=normalize(v_normal);float light=max(0.,dot(n,normalize(vec3(-.5,.95,.45))));vec3 col=v_color*(.33+light*.78);if(v_kind>1.5&&v_kind<6.5)col=v_color*(1.13+light*.24);if(v_kind>6.5)col=v_color*(.67+light*.66);float haze=clamp((length(v_pos-vec3(0.,6.,0.))-38.)/125.,0.,.22);col=mix(col,vec3(.24,.30,.29),haze);gl_FragColor=vec4(col,1.);}';
+  // Retro-console lighting: Gouraud-looking skin, restrained specular steel,
+ // bright white-blue portal, subtle procedural garden texture and distance fog.
+ const fragment='precision mediump float;varying vec3 v_normal,v_color,v_pos;varying float v_kind;uniform vec3 u_eye;void main(){if(v_kind>6.5&&v_kind<8.5&&v_pos.y>44.0)discard;vec3 n=normalize(v_normal),lightDir=normalize(vec3(-.45,.87,.4)),eyeDir=normalize(u_eye-v_pos);float diffuse=max(dot(n,lightDir),0.);float wrap=max(dot(n,lightDir)*.55+.45,0.);float spec=pow(max(dot(reflect(-lightDir,n),eyeDir),0.),18.);float material=fract(sin(dot(floor(v_pos.xz*2.1),vec2(127.1,311.7)))*43758.54);vec3 col=v_color*(.43+diffuse*.53);if(v_kind>6.5&&v_kind<7.5){col=v_color*(.61+wrap*.38)+vec3(.13,.13,.15)*spec;}else if(v_kind>7.5){col=v_color*(.42+diffuse*.55)+vec3(.23,.28,.33)*spec;}else if(v_kind>1.5&&v_kind<3.0){col=v_color*(1.20+.08*wrap);}else{col*=.91+material*.12;}float fog=clamp((length(v_pos-u_eye)-45.)/120.,0.,.55);col=mix(col,vec3(.55,.63,.67),fog);gl_FragColor=vec4(col,1.);}';
   const program=gl.createProgram();
   gl.attachShader(program,compile(gl,gl.VERTEX_SHADER,vertex));gl.attachShader(program,compile(gl,gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);
   if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
   const buffer=gl.createBuffer(),attrs=[];
   for(const [name,size,offset] of [['a_pos',3,0],['a_normal',3,12],['a_color',3,24],['a_kind',1,36]])attrs.push([gl.getAttribLocation(program,name),size,offset]);
-  return {gl,program,buffer,attrs,uniform:gl.getUniformLocation(program,'u_vp')};
+  return {gl,program,buffer,attrs,uniform:gl.getUniformLocation(program,'u_vp'),eyeUniform:gl.getUniformLocation(program,'u_eye')};
  }
  let active=null;
  function stop(){
@@ -491,8 +573,8 @@
    const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,1.5);
    const w=Math.max(1,Math.floor(rect.width*dpr)),h=Math.max(1,Math.floor(rect.height*dpr));
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
-   const {gl,program,buffer,attrs,uniform}=instance;
-   gl.viewport(0,0,w,h);gl.clearColor(.027,.049,.074,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   const {gl,program,buffer,attrs,uniform,eyeUniform}=instance;
+   gl.viewport(0,0,w,h);gl.clearColor(.48,.58,.66,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
    const now=performance.now(),age=(now-(stepAgeStart(instance)))/1000,elapsed=(now-instance.start)/1000;
    const shot=shotCamera(instance.models,instance.cuts,instance.step,age,instance.cameraFrom);
@@ -501,7 +583,7 @@
    const mesh=sceneGeometry(instance.models,instance.cuts,instance.step,age,elapsed,instance.actionFrom);
    instance.lastHand=handPosition(instance.models,instance.cuts,instance.step,age,instance.actionFrom);
    instance.triangles=mesh.triangles;instance.floats=mesh.data.length;
-   gl.useProgram(program);gl.uniformMatrix4fv(uniform,false,vp);
+   gl.useProgram(program);gl.uniformMatrix4fv(uniform,false,vp);gl.uniform3fv(eyeUniform,shot.eye);
    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(mesh.data),gl.DYNAMIC_DRAW);
    for(const [loc,size,offset] of attrs)if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,40,offset);}
    gl.drawArrays(gl.TRIANGLES,0,mesh.data.length/10);
@@ -515,7 +597,7 @@
  function stepAgeStart(instance){return instance.step<0?instance.start:instance.actionAt;}
  function setAction(step,models,cuts){
   if(!active||active.stopped||step<0||step===active.step)return false;
-  const from=active.lastHand?.slice()||[0,40.7,-9.3],camera=active.lastCamera;
+  const from=active.lastHand?.slice()||[0,34,-12],camera=active.lastCamera;
   active.models=models;active.cuts=cuts;active.step=step;
   active.actionAt=performance.now();active.actionFrom=from;
   active.cameraFrom=camera?{eye:camera.eye.slice(),target:camera.target.slice(),fov:camera.fov}:null;
@@ -527,7 +609,10 @@
   _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,phase:active.phase,canvas:active.canvas,hand:active.lastHand,webgl:true}:null;},
   _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice()),
    portalOpen:portalOpening(step,age),handScale:HAND_SCALE,portalCenter:PORTAL_CENTER.slice(),
-   portalRadius:PORTAL_RADIUS,portalPlane:PORTAL_PLANE,handEmergence:handEmergence(step,age),portalLead:PORTAL_LEAD,handPosition:handPosition(models,cuts,step,age),cameraPhase:shotCamera(models,cuts,step,age).phase,
+   portalRadius:PORTAL_RADIUS,portalPlane:PORTAL_PLANE,portalAxis:'y',handEmergence:handEmergence(step,age),
+   portalLead:PORTAL_LEAD,handPosition:handPosition(models,cuts,step,age),
+   shearTipY:handPosition(models,cuts,step,age)[1]-5.55*HAND_SCALE,
+   cameraPhase:shotCamera(models,cuts,step,age).phase,
    gardenTriangles:baseField.triangles,plantStages:7,details:['marble paths','hedge maze','fountains','gazebos','rose arches','topiary','lamps','flower beds','palace']}),
   _growthMeshes:()=>Array.from({length:7},(_,tier)=>{
    const sample=new Mesh();

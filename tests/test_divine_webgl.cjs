@@ -14,7 +14,7 @@ const gl={VERTEX_SHADER:1,FRAGMENT_SHADER:2,COMPILE_STATUS:3,LINK_STATUS:4,
  createBuffer(){return {};},getAttribLocation(_p,name){return ['a_pos','a_normal','a_color','a_kind'].indexOf(name);},
  getUniformLocation(){return {};},viewport(){},clearColor(){},clear(){},
  enable(v){if(v===this.DEPTH_TEST)depthUsed=true;},disable(){},
- useProgram(){},uniformMatrix4fv(){},bindBuffer(){},
+ useProgram(){},uniformMatrix4fv(){},uniform3fv(){},bindBuffer(){},
  bufferData(_target,mesh){uploaded=mesh.length;},enableVertexAttribArray(){},
  vertexAttribPointer(){},drawArrays(_mode,_first,count){draws++;assert(count>1000,'submits thousands of 3D vertices');},
  deleteBuffer(){deleted++;},deleteProgram(){deleted++;}
@@ -52,9 +52,12 @@ assert.deepEqual(Array.from(meshes,x=>x.tier),[0,1,2,3,4,5,6]);
 assert.equal(new Set(meshes.map(x=>x.triangles)).size,7,'all growth levels have distinctive 3D surface complexity');
 assert(meshes[6].triangles>meshes[0].triangles*4,'full-bloom rose has substantially more modeled geometry than the zero-goal seedling');
 const rendererSource=fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8');
-assert(rendererSource.includes('v_pos.z<-20.3'),'WebGL clips the hand behind the physical portal plane');
+assert(rendererSource.includes('v_pos.y>44.0'),'skin and shears are clipped ABOVE the horizontal portal plane');
+assert(rendererSource.includes("'xz',2"),'portal rings are modeled in the horizontal XZ plane');
 assert(geo.details.includes('fountains')&&geo.details.includes('gazebos')&&geo.details.includes('hedge maze')&&geo.details.includes('palace'),'3D field includes royal garden architecture');
-assert(geo.portalPlane<0,'emerging hand is revealed in front of a physical portal plane');
+assert.equal(geo.portalAxis,'y','portal opens overhead, normal to the vertical emergence axis');
+assert.equal(geo.portalPlane,geo.portalCenter[1],'horizontal portal and clip plane share an altitude');
+assert(geo.portalPlane>30,'overhead gate is far above the competing plants');
 assert(geo.handScale>=4.7,'enormous hand is nearly twice the previous 2.6x scale');
 assert(geo.portalRadius>=15,'portal surrounds the gigantic hand, not a small halo');
 assert(geo.portalRadius>=8,'portal is giant and centered over the plants');
@@ -62,6 +65,7 @@ assert.deepEqual(Array.from(geo.portalCenter.slice(0,1)),[0],'portal stays on th
 assert(geo.portalCenter[1]>20,'portal is high above all rose flowers');
 assert(geo.handScale>=2.5,'hand and shears are more than 2.5x original size');
 assert.equal(geo.portalOpen,0,'portal starts closed at the beginning of contemplation');
+assert(geo.shearTipY>geo.portalPlane,'entire hand including shears initially hides above the gate');
 assert.equal(three._geometry(model,['p3','p7'],-1,.18).handEmergence,0,'no giant hand before the portal opens');
 assert(three._geometry(model,['p3','p7'],-1,.35).portalOpen>0,'portal opens first');
 assert(three._geometry(model,['p3','p7'],-1,1.35).handEmergence>0,'hand slides out after portal opens');
@@ -69,6 +73,10 @@ const opening=three._geometry(model,['p3','p7'],-1,1.2);
 assert.equal(opening.portalOpen,1,'giant portal is fully open after its entrance');
 const emerging=three._geometry(model,['p3','p7'],-1,EMERGENCE_FRAME);
 assert.equal(emerging.handEmergence,1,'giant hand has fully emerged before the five-second verdict');
+assert(emerging.shearTipY<geo.portalPlane-10,'metal scissors descend THROUGH the gate, not towards a vertical backdrop');
+assert(emerging.handPosition[1]<geo.portalPlane,'palm visibly descends below the portal opening');
+assert(emerging.handPosition[1]+12*geo.handScale>geo.portalPlane,'forearm is long enough to remain inside the gateway');
+assert.equal(three._geometry(model,['p3','p7'],-1,.55).shearTipY>geo.portalPlane,true,'portal opens before any fingers or shears become visible');
 const duringCut=three._geometry(model,['p3','p7'],0,0);
 assert.equal(duringCut.portalOpen,1,'portal remains open while the shears cut');
 assert.equal(duringCut.handScale,geo.handScale,'the same huge hand remains during elimination');
@@ -84,4 +92,4 @@ three.stop();assert.equal(three._debug(),null);
 assert(deleted>=2,'GL resources are released after cutscene closes');
 const fallback={getContext(){return null;}};
 assert.equal(three.mount(fallback,model,['p3','p7'],-1,labels),false,'no-WebGL fallback remains available');
-console.log('PASS Divine 3D: actual WebGL geometry and depth rendering, ten plants in two rows, articulated cut phases, projected labels, animation and resource cleanup.');
+console.log('PASS Divine 3D: horizontal overhead portal, hand emerging down through portal clip plane, PS2 smooth hand normals, ten growth models, continuous cuts and resources.');
