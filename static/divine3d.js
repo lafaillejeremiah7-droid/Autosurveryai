@@ -14,10 +14,10 @@
  // Keep the dimensional scale fixed across all three rounds. The giant hand
  // passes through a portal above the center of the ten plants, not a palm halo.
  const PORTAL_CENTER=[0,25.5,-11.0],PORTAL_RADIUS=8.8,HAND_SCALE=2.6;
- const EMERGENCE_SECONDS=1.8;
+ const EMERGENCE_SECONDS=1.85,PORTAL_LEAD=0.35;
  const ease=t=>t*t*(3-2*t);
  const portalOpening=(step,age)=>step<0?ease(clamp(age/.95)):1;
- const handEmergence=(step,age)=>step<0?ease(clamp(age/EMERGENCE_SECONDS)):1;
+ const handEmergence=(step,age)=>step<0?ease(clamp((age-PORTAL_LEAD)/EMERGENCE_SECONDS)):1;
  function multiply(a,b){const c=new Float32Array(16);for(let j=0;j<4;j++)for(let i=0;i<4;i++)for(let k=0;k<4;k++)c[j*4+i]+=a[k*4+i]*b[j*4+k];return c;}
  function perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,2*far*near/(near-far),0]);}
  function lookAt(eye,target){const z=unit(vec(eye,target)),x=unit(cross([0,1,0],z)),y=cross(z,x);return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);}
@@ -190,11 +190,11 @@
    if(models[i])plant(m,models[i],i,cutIds,step,age,elapsed);
   }
   portal(m,step,age,elapsed);
-  // Begin hidden high in the portal and descend over 1.8 seconds. The hand is
+  // Open the portal first, then descend from high inside it in 1.85 seconds. The hand is
   // 2.6x the old mesh in every dimension, including enormous articulated shears.
   // A per-cut camera-independent approach still chooses only the scored loser.
   const emergence=handEmergence(step,age);
-  let hx=0,hy=lerp(36,22,emergence)+.18*Math.sin(elapsed*1.7),hz=-8.1;
+  let hx=0,hy=lerp(50,22,emergence)+.18*Math.sin(elapsed*1.7),hz=-8.1;
   if(step>=0){
    const index=models.findIndex(p=>p.id===cutIds[step]);
    if(index>=0){
@@ -204,7 +204,7 @@
   }
   // Scale the vertex positions, not the normals, uniformly around the palm.
   const first=m.data.length;
-  hand(m,[hx,hy,hz],elapsed,step,age);
+  if(step>=0||age>=PORTAL_LEAD)hand(m,[hx,hy,hz],elapsed,step,age);
   for(let i=first;i<m.data.length;i+=10){
    m.data[i]=hx+(m.data[i]-hx)*HAND_SCALE;
    m.data[i+1]=hy+(m.data[i+1]-hy)*HAND_SCALE;
@@ -280,6 +280,6 @@
   _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,webgl:true}:null;},
   _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice()),
    portalOpen:portalOpening(step,age),handScale:HAND_SCALE,portalCenter:PORTAL_CENTER.slice(),
-   portalRadius:PORTAL_RADIUS,handEmergence:handEmergence(step,age)})
+   portalRadius:PORTAL_RADIUS,handEmergence:handEmergence(step,age),portalLead:PORTAL_LEAD})
  };
 })();

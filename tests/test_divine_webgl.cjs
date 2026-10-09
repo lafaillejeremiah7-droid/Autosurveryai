@@ -37,7 +37,7 @@ assert(uploaded>=three._debug().triangles*30,'vertices include 3D positions, nor
 assert.equal(draws,1);
 assert.equal(depthUsed,true,'depth-tested perspective rendering');
 assert(labels.every(p=>p.style.left&&p.style.top),'labels use projection from 3D model space');
-const EMERGENCE_FRAME=1.8;
+const EMERGENCE_FRAME=2.2;
 const geo=three._geometry(model,['p3','p7'],-1,0);
 assert.equal(geo.positions.length,10);
 assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows of roses');
@@ -47,6 +47,9 @@ assert.deepEqual(Array.from(geo.portalCenter.slice(0,1)),[0],'portal stays on th
 assert(geo.portalCenter[1]>20,'portal is high above all rose flowers');
 assert(geo.handScale>=2.5,'hand and shears are more than 2.5x original size');
 assert.equal(geo.portalOpen,0,'portal starts closed at the beginning of contemplation');
+assert.equal(three._geometry(model,['p3','p7'],-1,.18).handEmergence,0,'no giant hand before the portal opens');
+assert(three._geometry(model,['p3','p7'],-1,.35).portalOpen>0,'portal opens first');
+assert(three._geometry(model,['p3','p7'],-1,1.35).handEmergence>0,'hand slides out after portal opens');
 const opening=three._geometry(model,['p3','p7'],-1,1.2);
 assert.equal(opening.portalOpen,1,'giant portal is fully open after its entrance');
 const emerging=three._geometry(model,['p3','p7'],-1,EMERGENCE_FRAME);
