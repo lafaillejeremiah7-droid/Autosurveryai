@@ -199,7 +199,7 @@
    const eye=[0,21.4,32.2],target=[0,4.1,.4];
    const vp=multiply(perspective(53*Math.PI/180,w/h,.1,125),lookAt(eye,target));
    const mesh=sceneGeometry(models,cuts,step,age,elapsed);
-   instance.triangles=mesh.triangles;
+   instance.triangles=mesh.triangles;instance.floats=mesh.data.length;
    gl.useProgram(program);gl.uniformMatrix4fv(uniform,false,vp);
    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(mesh.data),gl.DYNAMIC_DRAW);
    for(const [loc,size,offset] of attrs)if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,40,offset);}
@@ -217,7 +217,7 @@
  window.Divine3D={
   mount,stop,
   // Nonmutating inspection for regression checks.
-  _debug(){return active?{running:!active.stopped,triangles:active.triangles,plants:active.models.length,step:active.step,webgl:true}:null;},
+  _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,webgl:true}:null;},
   _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice())})
  };
 })();
