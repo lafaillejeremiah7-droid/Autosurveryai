@@ -19,7 +19,7 @@
  const sides=[[0,1,2,3],[5,4,7,6],[3,2,6,7],[4,5,1,0],[1,5,6,2],[4,0,3,7]];
  class Mesh{
   constructor(){this.data=[];this.triangles=0;}
-  tri(a,b,c,col,kind=0){if([a,b,c,col].some(v=>!Array.isArray(v)||v.length!==3))throw Error('Invalid 3D triangle tuple '+JSON.stringify([a,b,c,col]));const n=unit(cross(vec(b,a),vec(c,a)));for(const p of [a,b,c])this.data.push(...p,...n,...col,kind);this.triangles++;}
+  tri(a,b,c,col,kind=0){if([a,b,c,col].some(v=>!Array.isArray(v)||v.length!==3))throw Error('Invalid 3D triangle tuple '+JSON.stringify([a,b,c,col]));const n=unit(cross(vec(b,a),vec(c,a)));for(const p of [a,b,c])this.data.push(p[0],p[1],p[2],n[0],n[1],n[2],col[0],col[1],col[2],kind);this.triangles++;}
   quad(a,b,c,d,col,kind=0){this.tri(a,b,c,col,kind);this.tri(a,c,d,col,kind);}
   box(x,y,z,w,h,d,col,kind=0){const p=vertices.map(v=>[x+v[0]*w*.5,y+v[1]*h*.5,z+v[2]*d*.5]);for(const face of sides)this.quad(...face.map(i=>p[i]),col,kind);}
   gem(x,y,z,r,col,kind=0,stretch=1){const p=[[x+r,y,z],[x,y,z+r],[x-r,y,z],[x,y,z-r]],top=[x,y+r*stretch,z],bot=[x,y-r*stretch,z];for(let i=0;i<4;i++){this.tri(top,p[i],p[(i+1)%4],col,kind);this.tri(bot,p[(i+1)%4],p[i],col,kind);}}
