@@ -102,11 +102,16 @@ class Rules(unittest.TestCase):
         self.assertEqual(validate(migrated)['settings']['prizes'],[40,0,0])
     def test_non_first_place_tie_does_not_block_champion(self):
         s=fixture()
-        # Settle second place ties only by neutralizing both secondary
-        # nonwinning players without changing the unique top score.
+        s['settings']['win_points']=0
+        # p1 still scores as the first member of every A team; all other
+        # players have zero goals. The other five tie for second place.
+        for p in s['final']['roster']:
+            if p!='p1':s['final']['players'][p]['goals']=[0]*8
         v=evaluate(s)
-        self.assertTrue(v['final']['complete'])
+        self.assertTrue(v['final']['complete'],'only a first-place tie requires a tiebreak')
         self.assertEqual(v['awarded'],40)
+        self.assertEqual(len([r for r in v['final']['rows'] if r['rank']==1]),1)
+        self.assertEqual(len([r for r in v['final']['rows'] if r['rank']==2]),5)
         self.assertEqual(len([r for r in v['final']['rows'] if r['prize']==40]),1)
         self.assertTrue(all(r['prize']==0 for r in v['final']['rows'] if r['rank']!=1))
     def test_blank_zero_and_fresh_average(self):
