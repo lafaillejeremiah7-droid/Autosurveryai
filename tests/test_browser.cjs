@@ -52,10 +52,10 @@ let browser,page;
    return {x:box.left,y:box.top,width:box.width,height:box.height,position:style.position,
     border:style.borderTopWidth,parent:el.parentElement?.tagName};
   });
-  assert.equal(scene.position,'fixed','3D city should fill the browser viewport, not a box');
-  assert.equal(scene.parent,'BODY','3D city should sit behind the entire page');
+  assert.equal(scene.position,'fixed','3D arena should fill the browser viewport, not a box');
+  assert.equal(scene.parent,'BODY','3D arena should sit behind the entire page');
   assert.equal(scene.x,0);assert.equal(scene.y,0);
-  assert(Math.abs(scene.width-width)<=1&&Math.abs(scene.height-height)<=1,'3D city must fill the screen');
+  assert(Math.abs(scene.width-width)<=1&&Math.abs(scene.height-height)<=1,'3D arena must fill the screen');
   assert.equal(scene.border,'0px','3D background cannot have a framed border');
   assert(await page.evaluate(()=>window.CityWorld.getStatus().cameraEye[1]>15),'POV camera should be elevated');
   await snap(label+'-room');

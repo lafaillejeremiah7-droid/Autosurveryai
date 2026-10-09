@@ -26,8 +26,7 @@ let browser,page;
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
  for(const [key,last,label] of [['round1',4,'Be Better'],['round2',4,'Enough'],['final',7,'Forget The Past']]){
   await restore(fixtures[key]);
-  await page.evaluate(()=>{window.audioEvents=[];for(const name of ['portal','scream','cut','explosion','finalOmen','finalPurge','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
-  await page.evaluate(()=>{window.towerCalls=[];const world=window.CityWorld||{};const original=world.eliminateTower?.bind(world);world.eliminateTower=id=>{window.towerCalls.push(id);original?.(id);};window.CityWorld=world;});
+  await page.evaluate(()=>{window.audioEvents=[];for(const name of ['horn','boo','hook','cheer','slam','fanfare','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
   await page.evaluate(key=>openScreen(key),key);
   await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
   if(key!=='final')await page.locator('#cutscene[open]').waitFor();
@@ -36,20 +35,20 @@ let browser,page;
   if(key!=='final')assert(await page.locator('#cutscene-skip').evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===e;}),'scoring dialog covered the cutscene');
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
   assert.equal(expected.length,key==='final'?3:2);
-  if(key!=='final')await page.waitForFunction(name=>document.querySelector('#cutscene').classList.contains('portal-grab')&&document.querySelector('#cutscene-caption').textContent.includes(name),expected[0]);
-  else await page.waitForFunction(()=>!!CityWorld.getStatus().strike);
-  if(key!=='final'){assert.equal(await page.locator('.portal-walker').count(),1);assert.equal(await page.locator('.portal-hand').count(),3);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-portal.png')});}}
+  if(key!=='final')await page.waitForFunction(name=>document.querySelector('#cutscene').classList.contains('verdict-hook')&&document.querySelector('#cutscene-caption').textContent.includes(name),expected[0]);
+  else await page.waitForFunction(()=>!!CityWorld.getStatus().ceremony);
+  if(key!=='final'){assert.equal(await page.locator('#cutscene .av-player').count(),1);assert.equal(await page.locator('#cutscene .av-hook').count(),1);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-verdict.png')});}}
   assert.equal(await page.locator('#cutscene .cut-figure').count(),0);
   if(key!=='final')assert.equal(await page.evaluate(()=>view.final.complete),false,'early-round cutscene waited for tournament end');
-  if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('portal-drag'));if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'portal-pull.png')});}
+  if(key==='round2'){await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('verdict-drag'));if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'verdict-drag.png')});}
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
-  else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().strike?.phase==='inbound',null,{timeout:14000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);await page.waitForFunction(()=>CityWorld.getStatus().strike?.phase==='impact');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'city-cube-impact.png')});await page.keyboard.press('Escape');}
+  else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='descend',null,{timeout:14000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);assert.equal(await page.locator('#ceremony-hud').isVisible(),true,'ceremony HUD shows during the gate ceremony');await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='crowned');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'gate-crowned.png')});await page.keyboard.press('Escape');}
   // Forget The Past also verifies automatic completion, with no skip.
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:18000});
-  assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','city strike exits the scoring room; portal-only skip keeps it');
-  assert.deepEqual(await page.evaluate(()=>window.towerCalls),[],'removed towers must not receive elimination events');
-  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.filter(s=>s!=='explosion'),['portal','scream','cut','portal','scream','cut']);assert.equal(sounds.filter(s=>s==='explosion').length,1,'cube has one impact sound');}if(key==='final')assert.equal(sounds.filter(s=>s==='explosion').length,1);
+  assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','the gate ceremony exits the scoring room; a verdict-only skip keeps it');
+  assert.equal(await page.locator('#ceremony-hud').isVisible(),false,'ceremony HUD hides when the cutscene ends');
+  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','boo','hook','cheer','slam','horn','boo','hook','cheer','slam'],'per gladiator: horn, boo, hook, cheer, slam');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'champions play victory');}
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
@@ -72,4 +71,4 @@ let browser,page;
  assert.equal(await page.evaluate(()=>cutsceneActive),false);
  assert.deepEqual(errors,[]);
  console.log('Cutscenes passed: all three rounds independently, native top layer, correct eliminated players, duplicate guard, Esc/Skip/natural completion, mobile reduced motion, and tie settlement without unrelated replay.');
-})().catch(async e=>{console.error(e);if(page)console.error(await page.evaluate(()=>({city:CityWorld.getStatus(),active:cutsceneActive,run:cutsceneRunId,stage:bombRoundStage,screen:document.querySelector('#screen-dialog').open,result:document.querySelector('#result-dialog').open,hud:document.querySelector('#round-strike-hud').hidden})));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();});
+})().catch(async e=>{console.error(e);if(page)console.error(await page.evaluate(()=>({city:CityWorld.getStatus(),active:cutsceneActive,run:cutsceneRunId,stage:ceremonyStage,screen:document.querySelector('#screen-dialog').open,result:document.querySelector('#result-dialog').open,hud:document.querySelector('#ceremony-hud').hidden})));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.kill();});

@@ -8,10 +8,10 @@ const root=path.resolve(__dirname,'..');
 const payload=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',
  "import sys,json;sys.path.insert(0,'tests');from test_tournament import fixture;from engine import evaluate;s=fixture();print(json.dumps({'state':s,'view':evaluate(s)}))"],{cwd:root,encoding:'utf8'}));
 const elements={},events={};
-// classList gains contains()/_set so FEAT-002's pause gating (document.body.classList
+// classList gains contains() so the Pause arena toggle (document.body.classList
 // .contains('world-paused')) can be exercised; element() gains createElement-friendly
-// extras (style.setProperty, remove, animate().cancel) used by the ambient blast loop.
-const makeClassList=()=>{const set=new Set();return {toggle(c){if(set.has(c)){set.delete(c);return false;}set.add(c);return true;},remove(c){set.delete(c);},add(c){set.add(c);},contains(c){return set.has(c);}};};
+// extras (style.setProperty, remove, animate().cancel).
+const makeClassList=()=>{const set=new Set();return {toggle(c){if(set.has(c)){set.delete(c);return false;}set.add(c);return true;},remove(...c){c.forEach(x=>set.delete(x));},add(...c){c.forEach(x=>set.add(x));},contains(c){return set.has(c);}};};
 const element=()=>({dataset:{},scrollTop:0,innerHTML:'',textContent:'',open:false,classList:makeClassList(),style:{setProperty(){}},addEventListener(){},removeChild(e){if(e)e.parentElement=null;},remove(){if(this.parentElement&&this.parentElement.removeChild)this.parentElement.removeChild(this);},focus(){},appendChild(e){e.parentElement=this;},showModal(){this.open=true;},close(){this.open=false;},animate(){return {finished:Promise.resolve(),cancel(){}};},querySelector(){return null;}});
 const document={querySelector:s=>elements[s]??=(element()),querySelectorAll:()=>[],addEventListener:(type,fn)=>events[type]=fn,body:element(),createElement:()=>element()};
 const context={document,window:{addEventListener(){},matchMedia:()=>({matches:true})},fetch:()=>new Promise(()=>{}),setTimeout:()=>1,clearTimeout(){},setInterval(){},console,fixture:payload,confirm:()=>true};
@@ -209,10 +209,13 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  const r1Adv=payload.view.round1.rows.filter(r=>r.status==='ADVANCE').map(r=>r.name);
  const r1Stage=context.document.querySelector('#cutscene-stage').innerHTML;
  assert.equal(r1Cut.length,2,'round1 settles with two CUT players');
- assert(r1Stage.includes(r1Cut[0]),'portal labels the first eliminated player');
- for(const n of r1Adv)assert(!r1Stage.includes(n),'advancing player cannot appear in portal scene');
- assert(r1Stage.includes('portal-walker')&&r1Stage.includes('portal-hand'),'round1 uses an articulated silhouette and portal hand');
- assert(context.document.querySelector('#cutscene-caption').innerHTML.includes(r1Cut[0]),'first engine-cut player is selected');
+ // The harness defaults to reduced motion, so round1 shows the static verdict summary.
+ assert.equal((r1Stage.match(/class="av-player"/g)||[]).length,r1Cut.length,'one labelled stickman per cut player');
+ const r1Labels=[...r1Stage.matchAll(/<span class="av-name">([^<]*)<\/span>/g)].map(m=>m[1]);
+ assert.deepEqual([...r1Labels].sort(),[...r1Cut].sort(),'the summary labels exactly the eliminated players');
+ for(const n of r1Adv)assert(!r1Labels.includes(n),'advancing player cannot appear in the verdict scene');
+ const r1Caption=context.document.querySelector('#cutscene-caption').innerHTML;
+ assert(r1Caption.includes('ELIMINATED')&&r1Caption.includes(r1Cut[0]),'caption names the first engine-cut player as ELIMINATED');
  vm.runInContext('endCutscene();',context);
  await r1Submit;
  assert.equal(vm.runInContext('cutsceneActive',context),false,'dismissing the cutscene clears the active flag');
@@ -236,6 +239,9 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(finalStage.includes('fc-judgment'),'final renders the judgment sequence markup');
  assert(context.document.querySelector('#cutscene-caption').innerHTML.includes('FORGET THE PAST'),'completed final shows the judgment caption');
  assert(!context.document.querySelector('#cutscene-caption').innerHTML.includes(finalPodium[0]),'podium player is not selected');
+ const finalLosers=[...finalStage.matchAll(/class="fc-person fc-loser"[^>]*>.*?<span class="fc-name">([^<]*)<\/span>/g)].map(m=>m[1]);
+ assert.equal(finalLosers.length,3,'three non-podium finalists are hooked');
+ for(const n of finalPodium)assert(!finalLosers.includes(n),'no podium player is a loser');
  vm.runInContext('endCutscene();',context);
  await finalSubmit;
  assert(vm.runInContext('resultFinal',context)===true,'final match 8 opens the fullscreen');
@@ -550,47 +556,25 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  context.fetch=()=>new Promise(()=>{});
  console.log('Extra-games delete controls: per-extra-game Remove (splices one), Clear all extra games (empties the list), both with one-level undo and full isolation passed.');
 
- // ---- FEAT-002: ambient background blast loop (nukes/explosions every 1-5s) with a
- //      WORLD-LAYER-ONLY shake, gated by Pause-world + prefers-reduced-motion, exposing
- //      start/stop, and leaving a cutsceneActive guard for the FEAT-003 cutscene. ----
- // (a) The ambient loop exposes start/stop functions that can be invoked without throwing.
- assert.equal(vm.runInContext('typeof startWorldBlasts',context),'function','startWorldBlasts is exposed');
- assert.equal(vm.runInContext('typeof stopWorldBlasts',context),'function','stopWorldBlasts is exposed');
+ // ---- Pause arena: #world-toggle toggles body.world-paused, swaps the label and glyph,
+ //      and calls CityWorld.setPaused. The old DOM ambient effect loop is gone. ----
+ assert.equal(vm.runInContext('typeof startWorldBlasts',context),'undefined','the DOM ambient effect loop is deleted');
+ assert.equal(vm.runInContext('typeof stopWorldBlasts',context),'undefined','the DOM ambient effect stop is deleted');
  assert.equal(vm.runInContext('typeof cutsceneActive',context),'boolean','a shared cutsceneActive guard exists for the cutscene');
- // (b1) GATED BY REDUCED MOTION: matchMedia defaults to {matches:true} so reducedMotion()
- //      is true. Starting must be a no-op (no timer scheduled).
- vm.runInContext('document.body.classList.remove("world-paused");stopWorldBlasts();',context);
- assert.equal(vm.runInContext('window.matchMedia("(prefers-reduced-motion: reduce)").matches',context),true,'sandbox defaults to reduced motion');
- vm.runInContext('startWorldBlasts();',context);
- assert.equal(vm.runInContext('blastTimer',context),null,'startWorldBlasts is a no-op under prefers-reduced-motion');
- // (c) Flip reduced motion OFF so the loop may run, then assert start schedules a timer
- //     and stop cancels it (blastTimer back to null).
- context.window.matchMedia=()=>({matches:false});
- vm.runInContext('document.body.classList.remove("world-paused");stopWorldBlasts();startWorldBlasts();',context);
- assert.notEqual(vm.runInContext('blastTimer',context),null,'with motion allowed and world running, start schedules a blast timer');
- vm.runInContext('stopWorldBlasts();',context);
- assert.equal(vm.runInContext('blastTimer',context),null,'stopWorldBlasts cancels the pending timer');
- // (b2) GATED BY PAUSE-WORLD: with motion allowed but body.world-paused set, start is a no-op.
- vm.runInContext('document.body.classList.add("world-paused");stopWorldBlasts();startWorldBlasts();',context);
- assert.equal(vm.runInContext('blastTimer',context),null,'startWorldBlasts is a no-op while the world is paused');
+ const pausedCalls=[];const savedWorld=context.window.CityWorld;
+ context.window.CityWorld={setPaused:p=>pausedCalls.push(p)};
  vm.runInContext('document.body.classList.remove("world-paused");',context);
- // (d) worldClick on #world-toggle wires start/stop: pausing stops the loop, resuming
- //     restarts it (motion is allowed in this branch).
- const worldToggleBtn={id:'world-toggle',dataset:{},setAttribute(){},querySelector:()=>null,firstChild:null};
- vm.runInContext('stopWorldBlasts();',context);
+ const toggleSpan={textContent:'Pause arena'},toggleGlyph={textContent:'Ⅱ '},toggleAttrs={};
+ const worldToggleBtn={id:'world-toggle',dataset:{},setAttribute(k,v){toggleAttrs[k]=v;},querySelector:s=>s==='span'?toggleSpan:null,firstChild:toggleGlyph};
  events.click({target:{closest:()=>worldToggleBtn}});   // first toggle -> paused
- assert.equal(vm.runInContext('document.body.classList.contains("world-paused")',context),true,'toggle pauses the world');
- assert.equal(vm.runInContext('blastTimer',context),null,'pausing via #world-toggle stops the ambient loop');
+ assert.equal(vm.runInContext('document.body.classList.contains("world-paused")',context),true,'toggle pauses the arena');
+ assert.equal(toggleSpan.textContent,'Resume arena');assert.equal(toggleGlyph.textContent,'▶ ');assert.equal(toggleAttrs['aria-pressed'],'true');
  events.click({target:{closest:()=>worldToggleBtn}});   // second toggle -> resumed
- assert.equal(vm.runInContext('document.body.classList.contains("world-paused")',context),false,'toggle resumes the world');
- assert.notEqual(vm.runInContext('blastTimer',context),null,'resuming via #world-toggle restarts the ambient loop');
- vm.runInContext('stopWorldBlasts();',context);
- // (e) The cutsceneActive guard suppresses the world shake path (shakeWorld is a no-op
- //     while a cutscene is active, so the ambient effect never vibrates the overlay).
- vm.runInContext('cutsceneActive=true;shakeWorld();',context);   // must not throw
- vm.runInContext('cutsceneActive=false;',context);
- context.window.matchMedia=()=>({matches:true});   // restore the sandbox default
- console.log('FEAT-002 ambient blasts: start/stop exposed, gated by reduced-motion and Pause-world, #world-toggle wiring, stop cancels the timer, and the cutsceneActive shake guard passed.');
+ assert.equal(vm.runInContext('document.body.classList.contains("world-paused")',context),false,'toggle resumes the arena');
+ assert.equal(toggleSpan.textContent,'Pause arena');assert.equal(toggleGlyph.textContent,'Ⅱ ');assert.equal(toggleAttrs['aria-pressed'],'false');
+ assert.deepEqual(pausedCalls,[true,false],'CityWorld.setPaused follows the toggle');
+ context.window.CityWorld=savedWorld;
+ console.log('Pause arena: #world-toggle toggles world-paused, Pause arena / Resume arena label and glyph, aria-pressed, CityWorld.setPaused(true/false), and no DOM ambient effect loop passed.');
 
  // ---- FEAT-003: the elimination cutscene itself — eliminatedNames per stage, the
  //      no-trigger-on-non-final case, the single-dismiss (skip) path, and the
@@ -619,7 +603,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext('cutsceneActive',context),true,'playCutscene marks the cutscene active and shows the overlay');
  assert.equal(overlayEl.hidden,false,'the overlay is visible while the cutscene plays');
  const carryStage=context.document.querySelector('#cutscene-stage').innerHTML;
- assert(carryStage.includes('round-bomb-cube')&&!carryStage.includes('cut-escort'),'tower scene replaces all carrying figures');
+ assert(carryStage.includes('crown-card')&&!carryStage.includes('cut-escort'),'crown card replaces all carrying figures');
 
  vm.runInContext('endCutscene();',context);
  assert.equal(vm.runInContext('cutsceneActive',context),false,'endCutscene (Skip/click/Esc) clears the active flag');
@@ -638,21 +622,18 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext("reducedMotion()",context),true,'sandbox defaults to reduced motion');
  vm.runInContext("playCutscene(['Casey','Dakota']);",context);
  const captionEl=context.document.querySelector('#cutscene-caption');
- assert(/LOCKED OFF/.test(captionEl.innerHTML),'reduced motion shows static LOCKED OFF');
- assert(captionEl.innerHTML.includes('Final'),'static beat labels the round cube');
+ assert(/GATE CROWNED/.test(captionEl.innerHTML),'reduced motion shows the static GATE CROWNED card');
+ assert(captionEl.innerHTML.includes('Final'),'static beat labels the crowned gate');
  vm.runInContext('endCutscene();',context);
  // (E) EMPTY eliminated list: playCutscene resolves immediately and never flags active.
  vm.runInContext('cutsceneActive=false;',context);
  await vm.runInContext('playCutscene([])',context);
  assert.equal(vm.runInContext('cutsceneActive',context),false,'playCutscene with no names resolves without showing the overlay');
- // Portal completion and Skip must mark each engine-cut player's tower once.
- context.towerCalls=[];context.window.CityWorld={eliminateTower:id=>context.towerCalls.push(id),setSuspended(){}};
- const cutIds=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.id);
- context.portalCuts=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name);
- vm.runInContext("playCutscene(portalCuts,'Be Better','round1');",context);
- assert.equal(context.towerCalls.length,0,'player towers are removed');
+ // Verdict play and a double dismiss stay harmless.
+ context.window.CityWorld={setSuspended(){}};
+ context.verdictCuts=payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name);
+ vm.runInContext("playCutscene(verdictCuts,'Be Better','round1');",context);
  vm.runInContext('endCutscene();',context);
- assert.equal(context.towerCalls.length,0,'Skip must not update removed towers');
- vm.runInContext('endCutscene();',context);assert.equal(context.towerCalls.length,0,'dismiss cannot update removed towers');
- console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, tower strike replaces furnace, skippable single-dismiss path, reduced-motion static LOCKED OFF, and empty-list skip passed.');
+ vm.runInContext('endCutscene();',context);assert.equal(vm.runInContext('cutsceneActive',context),false,'a second dismiss is harmless');
+ console.log('FEAT-003 elimination cutscene: eliminatedNames per stage, no-trigger on non-final, crown card fallback, skippable single-dismiss path, reduced-motion static GATE CROWNED, and empty-list skip passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

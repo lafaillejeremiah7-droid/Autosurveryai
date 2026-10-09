@@ -2,61 +2,59 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#101a21">
-<meta name="description" content="Brawl Hockey tournament headquarters. Enter a room, enter your players, record every goal, and survive Doomsday.">
-<title>Doomsday — Brawl Hockey</title>
+<meta name="theme-color" content="#2a1c14">
+<meta name="description" content="Brawl Hockey tournament arena. Pick a gate, enter your gladiators, record every goal, and win the crowd.">
+<title>Coliseum - Brawl Hockey</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/city.css">
 </head>
 <body>
-<!-- Full-viewport 3D world sits behind the tournament HUD. -->
-<section id="walkway-view" aria-label="Aerial first-person tournament world"><div id="world" class="world city-world" aria-hidden="true"><canvas id="city-canvas"></canvas><div class="city-vignette"></div></div><div id="door-labels" aria-hidden="true"></div><div class="walkway-caption"><span>AERIAL VIEW / FIRST PERSON</span><span>SELECT A ROOM TO ENTER</span></div></section>
+<!-- Full-viewport 3D arena sits behind the tournament HUD. -->
+<section id="walkway-view" aria-label="Aerial first-person Coliseum arena"><div id="world" class="world city-world" aria-hidden="true"><canvas id="city-canvas"></canvas><div class="city-vignette"></div></div><div id="door-labels" aria-hidden="true"></div><div class="walkway-caption"><span>ARENA VIEW / FIRST PERSON</span><span>SELECT A GATE TO ENTER</span></div></section>
 
 <header class="room-header">
- <a href="#" class="brand" id="home-link" aria-label="Brawl Hockey headquarters"><span class="brand-mark">BH</span><span>BRAWL HOCKEY<small>DOOMSDAY DIVISION</small></span></a>
- <div class="header-controls"><div class="connection"><i></i> LOCAL SESSION <span id="room-clock"></span></div><button id="sound-toggle" type="button" aria-pressed="true">Sound on</button><button id="world-toggle" class="world-toggle" aria-pressed="false">Ⅱ <span>Pause world</span></button></div>
+ <a href="#" class="brand" id="home-link" aria-label="Brawl Hockey arena"><span class="brand-mark">BH</span><span>BRAWL HOCKEY<small>COLISEUM DIVISION</small></span></a>
+ <div class="header-controls"><div class="connection"><i></i> LOCAL SESSION <span id="room-clock"></span></div><button id="sound-toggle" type="button" aria-pressed="true">Arena sound on</button><button id="world-toggle" class="world-toggle" aria-pressed="false">Ⅱ <span>Pause arena</span></button></div>
 </header>
 <div id="error" role="alert" hidden></div>
 <main class="room" id="room">
- <section class="command-deck" aria-label="Tournament headquarters">
-  <div class="room-intro"><div class="eyebrow"><span class="sector-line"></span> SURVIVAL SERIES / 001</div><h1>THE WORLD ENDS.<br><em>YOUR GAME BEGINS.</em></h1><p>Be Better. Enough. Forget The Past.<span>Ten enter. One takes the crown.</span></p><div class="room-stats" id="room-stats"></div></div>
-  <section class="doomsday-clock" aria-labelledby="doomsday-heading">
-   <div class="clock-heading"><h2 id="doomsday-heading"><i></i> DOOMSDAY</h2><span id="countdown-phase">AWAITING START TIME</span></div>
+ <section class="command-deck" aria-label="Tournament arena">
+  <div class="room-intro"><div class="eyebrow"><span class="sector-line"></span> ARENA GAMES / 001</div><h1>THE CROWD ROARS.<br><em>YOUR GAME BEGINS.</em></h1><p>Be Better. Enough. Forget The Past.<span>Ten gladiators enter. One takes the laurel.</span></p><div class="room-stats" id="room-stats"></div></div>
+  <section class="games-clock" aria-labelledby="games-heading">
+   <div class="clock-heading"><h2 id="games-heading"><i></i> THE GAMES BEGIN</h2><span id="countdown-phase">AWAITING START TIME</span></div>
    <div id="countdown" class="countdown" role="timer" aria-live="off" aria-label="Tournament start time is not set">
     <div><strong id="countdown-days">--</strong><small>DAYS</small></div><b>:</b><div><strong id="countdown-hours">--</strong><small>HOURS</small></div><b>:</b><div><strong id="countdown-minutes">--</strong><small>MINUTES</small></div><b>:</b><div><strong id="countdown-seconds">--</strong><small>SECONDS</small></div>
    </div>
-   <p id="doomsday-status" role="status">Set a start time. Let the countdown begin.</p>
+   <p id="games-status" role="status">Set a start time. Let the crowd gather.</p>
    <button class="schedule-button" data-action="edit-start"><span id="schedule-label">SET START TIME</span> <span>↗</span></button>
   </section>
  </section>
- <section class="shelter" aria-labelledby="shelter-heading">
-  <div class="shelter-heading"><div><span class="eyebrow">HEADQUARTERS / CITY SECTOR 01</span><h2 id="shelter-heading">Survey the survival city.</h2></div><p>CLICK TO ENTER <span>/</span> <kbd>ESC</kbd> TO ZOOM OUT</p></div>
-  <div class="city-condition"><span id="city-status">CITY AT PEACE</span><span id="city-damage">0%</span><div><i id="city-progress"></i></div></div>
-  <nav id="survival-route" class="survival-route" aria-label="Tournament survival path"></nav>
+ <section class="arena-hub" aria-labelledby="arena-hub-heading">
+  <div class="arena-hub-heading"><div><span class="eyebrow">THE ARENA / GATE RING 01</span><h2 id="arena-hub-heading">Survey the arena.</h2></div><p>CLICK TO ENTER <span>/</span> <kbd>ESC</kbd> TO ZOOM OUT</p></div>
+  <div class="city-condition" role="group" aria-label="Crowd bloodlust"><small class="bloodlust-label">CROWD BLOODLUST</small><span id="city-status">ARENA AT REST</span><span id="city-damage">0%</span><div><i id="city-progress"></i></div></div>
+  <nav id="gate-route" class="gate-route" aria-label="Tournament path through the gates"></nav>
   
-  <div class="street-controls"><button data-action="street-home">↶ Aerial overview</button><button data-action="visit-podium">View podium plaza</button><span>ESC returns to the aerial overview</span></div>
+  <div class="street-controls"><button data-action="street-home">↶ Aerial overview</button><button data-action="visit-podium">View victors' podium</button><span>ESC returns to the aerial overview</span></div>
   <div id="monitors" class="room-grid"></div>
   <section id="city-podium" aria-label="Live final podium"></section>
-  <div class="shelter-bottom"><span><i></i> FIVE ROOMS. ONE TOURNAMENT.</span><span>23 MATCHES / 3 CHAPTERS</span></div>
+  <div class="arena-hub-bottom"><span><i></i> FIVE GATES. ONE TOURNAMENT.</span><span>23 MATCHES / 3 CHAPTERS</span></div>
  </section>
 </main>
 <footer class="room-footer"><span>BE BETTER <b>→</b> ENOUGH <b>→</b> FORGET THE PAST</span><div id="room-save-slot"><div id="save-controls"><span id="save-status" role="status" aria-live="polite">Connecting…</span><button id="undo-action" class="danger" hidden>↶ <span id="undo-label">Undo</span></button><button id="retry-save" hidden>Retry save</button></div></div></footer>
 <dialog id="screen-dialog" aria-labelledby="screen-title">
- <div class="screen-shell"><div class="room-ceiling" aria-hidden="true"><span></span><span></span><span></span><span></span></div><header class="screen-header"><div><span class="live-dot"></span><span id="breadcrumb">HEADQUARTERS</span></div><button id="close-screen" aria-label="Zoom out to headquarters">↙ <span>LEAVE ROOM</span> <kbd>ESC</kbd></button></header>
+ <div class="screen-shell"><div class="room-ceiling" aria-hidden="true"><span></span><span></span><span></span><span></span></div><header class="screen-header"><div><span class="live-dot"></span><span id="breadcrumb">THE ARENA</span></div><button id="close-screen" aria-label="Return to the arena">↙ <span>BACK TO ARENA</span> <kbd>ESC</kbd></button></header>
  <nav id="nav" aria-label="Room navigation"></nav><div id="screen-scroll"><div id="content"></div></div>
  <footer class="screen-footer"><span><i class="legend input-dot"></i> INPUT <i class="legend output-dot"></i> AUTOMATIC</span><div id="screen-save-slot"></div><div class="backup-controls"><button id="backup">Download backup</button><label class="file-button">Restore backup<input type="file" id="restore" accept=".json,application/json"></label></div></footer></div>
 </dialog>
 <dialog id="result-dialog" aria-labelledby="result-title"><div class="result-shell" id="result-content" role="status" aria-live="polite"></div><div id="result-save-slot"></div></dialog>
-<!-- FEAT-003: full-screen nuclear elimination cutscene overlay. Each eliminated player
-     is targeted individually before the end-of-round standings; skippable (button + click + Esc).
-     Hidden by default; app.js fills #cutscene-stage and flips the `open` attribute. -->
-<div id="round-strike-hud" hidden><strong id="round-strike-status">EXITING ROOM</strong><button id="round-strike-skip" type="button">Skip / Esc</button></div>
+<!-- Gate ceremony HUD and elimination verdict overlay. -->
+<div id="ceremony-hud" hidden><strong id="ceremony-status">RETURNING TO THE ARENA</strong><button id="ceremony-skip" type="button">Skip / Esc</button></div>
 <dialog id="cutscene" class="cutscene" aria-modal="true" aria-labelledby="cutscene-label" aria-hidden="true" hidden tabindex="-1">
- <div class="cutscene-head"><div class="eyebrow">STRIKE AUTHORIZATION</div><h2 id="cutscene-label">Nuclear elimination</h2></div>
+ <div class="cutscene-head"><div class="eyebrow">THE EMPEROR'S VERDICT</div><h2 id="cutscene-label">Thumbs down</h2></div>
  <div id="cutscene-stage" class="cutscene-stage" aria-hidden="true"></div>
  <p id="cutscene-caption" class="cutscene-caption" role="status" aria-live="polite"></p>
  <button id="cutscene-skip" class="cutscene-skip" type="button">Skip ✕</button>
- <p class="cutscene-hint" aria-hidden="true">Click anywhere or press Esc to skip · 5 seconds per target</p>
+ <p class="cutscene-hint" aria-hidden="true">Click anywhere or press Esc to skip · 5 seconds per gladiator</p>
 </dialog>
 <script src="/city-timeline.js"></script>
 <script src="/monuments.js"></script>

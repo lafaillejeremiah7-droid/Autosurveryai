@@ -1,10 +1,13 @@
 """Regression cases for corrections made after the first full tournament run."""
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import urlopen
 from engine import IDS, TIE, evaluate, validate
-from app import Store
+from app import Store, make_server
 from test_tournament import fixture, cut_tie_state, final_tie_state
 
 
@@ -100,5 +103,19 @@ class Regressions(unittest.TestCase):
         self.assertEqual(migrated['version'],6)
         self.assertEqual(len(migrated['round2']['players']['p1']['goals']),5)
 
+
+    def test_static_routes_and_removed_svg(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            server=make_server(Store(Path(tmp)/'state.json'),0)
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            url=f'http://127.0.0.1:{server.server_port}'
+            try:
+                for route in ['/','/app.js','/city.js','/city.css','/style.css','/city-timeline.js','/monuments.js']:
+                    with self.subTest(route=route),urlopen(url+route) as response:
+                        self.assertEqual(response.status,200)
+                with self.assertRaises(HTTPError) as caught:urlopen(url+'/tower-strike.svg')
+                self.assertEqual(caught.exception.code,404);caught.exception.close()
+            finally:
+                server.shutdown();server.server_close()
 
 if __name__=='__main__':unittest.main()
