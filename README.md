@@ -1,6 +1,6 @@
 # Brawl Hockey Tournament Dashboard
 
-A local Python dashboard for 10 players, **Face Your Weakness** and **Abandon Your Comfort** cutting rounds, and the **Prove Your Resolve** final. All calculations run in Python. No extra packages, accounts, or internet connection are needed to run it.
+A local Python dashboard for 10 players, **Know Thy Nature** and **Adapt or Wither** cutting rounds, and the **The Last Bloom** final. All calculations run in Python. No extra packages, accounts, or internet connection are needed to run it.
 
 ## Run
 
@@ -22,9 +22,9 @@ The round titles describe the mental development each competitor is challenged t
 
 | Round | Psychological requirement | What advancement means |
 |---|---|---|
-| **1 · Face Your Weakness** | Recognize personal shortcomings, confront mistakes and adjust your play instead of denying them | Be among the top **8 of 10** |
-| **2 · Abandon Your Comfort** | Let go of rigid expectations and adapt to shifting teammates, pressure and limited options | Be among the top **6 of 8** |
-| **3 · Prove Your Resolve** | Maintain composure, make decisive plays and stay committed under final-round pressure | Earn a top-three podium finish |
+| **1 · Know Thy Nature** | Recognize personal shortcomings, confront mistakes and adjust your play instead of denying them | Be among the top **8 of 10** |
+| **2 · Adapt or Wither** | Let go of rigid expectations and adapt to shifting teammates, pressure and limited options | Be among the top **6 of 8** |
+| **3 · The Last Bloom** | Maintain composure, make decisive plays and stay committed under final-round pressure | Earn a top-three podium finish |
 
 The sequence moves from **self-awareness → adaptability → mental fortitude**. Round 3 is the final psychological test; the podium is its outcome, not a fourth competitive round.
 
@@ -34,35 +34,35 @@ The landing screen is a live **royal hedge maze garden** rendered in WebGL with 
 
 The opening timer is **The Garden Opens**. Set the tournament's date and time under Players & rules, or use **Set start time** on the home screen. The countdown persists in the saved tournament state and survives page refreshes, backups, and Undo. Ambient birds and local sound effects accompany the opening. **Pause garden** and reduced-motion preferences stop decorative movement without stopping the countdown. **Garden sound off** silences the synthesized audio.
 
-The flowers follow tournament progress independently of the countdown. Before the first cut settles, **all 112 roses are closed buds**. After **Face Your Weakness**, the first 38 roses bloom; after **Abandon Your Comfort**, a second group opens; after the **Prove Your Resolve** final, all 112 roses are in full bloom. Scoring corrections and Undo recalculate the correct bloom stage instead of permanently advancing it. The Garden Bloom indicator measures this three-stage progression.
+The flowers follow tournament progress independently of the countdown. Before the first cut settles, **all 112 roses are closed buds**. After **Know Thy Nature**, the first 38 roses bloom; after **Adapt or Wither**, a second group opens; after the **The Last Bloom** final, all 112 roses are in full bloom. Scoring corrections and Undo recalculate the correct bloom stage instead of permanently advancing it. The Garden Bloom indicator measures this three-stage progression.
 
 ### Elimination: the gardener's pruning verdict
 
-After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Face Your Weakness and Abandon Your Comfort prune their two cut players. The final prunes exactly the three non-podium finalists, then reveals the top three on the gold/silver/bronze podium. All eliminated names and placements come from the existing scoring engine, not from the animation.
+After a settled round, an eliminated player's name is shown, the gardener raises **oversized shears**, the blades snap shut with an impact shake and metallic sound, and the player is **flung into the compost heap**. The verdict ends with **PRUNED**. Know Thy Nature and Adapt or Wither prune their two cut players. The final prunes exactly the three non-podium finalists, then reveals the top three on the gold/silver/bronze podium. All eliminated names and placements come from the existing scoring engine, not from the animation.
 
 The cutscene appears above the scoring and results screens. **Skip**, **Escape**, or natural completion exits cleanly; reduced-motion preference shows a still summary instead. Once a round is pruned, its pavilion opens with a cascade of flowers. The normal standings and result dialogs remain available afterwards, including when ties are resolved through extra games.
 
 ### Pavilions and tournament path
 
 - **Players & rules:** enter ten names, scoring weights, start time, and prizes.
-- **Face Your Weakness:** five 5v5 games, cutting 10 players to 8.
-- **Abandon Your Comfort:** five 4v4 games with reshuffle controls, cutting 8 to 6.
-- **Prove Your Resolve:** eight 3v3 final games, goals, wins and prizes.
+- **Know Thy Nature:** five 5v5 games, cutting 10 players to 8.
+- **Adapt or Wither:** five 4v4 games with reshuffle controls, cutting 8 to 6.
+- **The Last Bloom:** eight 3v3 final games, goals, wins and prizes.
 - **Leaderboard:** advancing players, cuts, settled podium and CSV.
 
 The path only unlocks the next playable pavilion after the preceding round is complete. Undo or an earlier score correction can reseal it. The royal podium reflects the actual final results, including unresolved ties.
 
-## Face Your Weakness per-game teams
+## Know Thy Nature per-game teams
 
 Enter the ten players directly in **Players & rules**.
 
-Each of the five Face Your Weakness games gets its own **fresh random 5v5 split**, generated automatically on the server with cryptographic randomness. Advancement is decided by each player's **total goals** (and goals-per-match average) across all five games. Teams define which players share each game's three-goal limit; qualification is still ranked across all ten players.
+Each of the five Know Thy Nature games gets its own **fresh random 5v5 split**, generated automatically on the server with cryptographic randomness. Advancement is decided by each player's **total goals** (and goals-per-match average) across all five games. Teams define which players share each game's three-goal limit; qualification is still ranked across all ten players.
 
-The five splits are generated once, saved, and included in backups, so they stay stable across reloads. If you want to vary the matchups for a specific game, use its **Reshuffle teams** button on the Face Your Weakness screen to draw a new random split for that game. Reshuffling is **locked once a game has any score entered**, so it can never silently invalidate recorded goals; clear the game's scores first if you need to reshuffle it.
+The five splits are generated once, saved, and included in backups, so they stay stable across reloads. If you want to vary the matchups for a specific game, use its **Reshuffle teams** button on the Know Thy Nature screen to draw a new random split for that game. Reshuffling is **locked once a game has any score entered**, so it can never silently invalidate recorded goals; clear the game's scores first if you need to reshuffle it.
 
-## Abandon Your Comfort — five reshuffleable 4v4 games
+## Adapt or Wither — five reshuffleable 4v4 games
 
-1. After Face Your Weakness, choose **Generate balanced 4v4 games**. This draws five saved 4v4 matchups for the eight survivors, varying teammates and opponents across games.
+1. After Know Thy Nature, choose **Generate balanced 4v4 games**. This draws five saved 4v4 matchups for the eight survivors, varying teammates and opponents across games.
 2. Before scoring the current game, click **Reshuffle teams** if you want a different 4v4 lineup. The new draw replaces *only that game's* teams and prioritizes balanced teammate exposure across the whole five-game schedule.
 3. Once any player has a score entered for the game, the reshuffle button locks. Clear that game's scores to re-enable reshuffling. Past completed games cannot be reshuffled.
 4. Enter scores for all eight players in each of **five games**, including explicit zeroes; nobody sits out. Teams must obey the three-goal combined limit and cannot tie 3–3.
@@ -73,29 +73,29 @@ Lineups are saved, so reloads do not change them. The reshuffle action does not 
 ## Tournament flow
 
 1. **Players & rules:** enter 10 unique names. Win points default to 1, goal points to 1.5, and the games 1–2 multiplier to 2. Prizes default to $18, $8, and $4.
-2. **Face Your Weakness:** each of the five games gets an automatic fresh random 5v5 split. Ranking is by individual total goals rather than team wins; an optional per-game **Reshuffle teams** button draws a new split and locks once that game has any score. Enter all five games, with a score for every one of the ten players each game including explicit zeroes. Rank all ten players together by total goals (and goals per match): the top eight advance, the bottom two are cut. A tie across eighth and ninth requires extra games.
-3. **Abandon Your Comfort:** the eight survivors play five 4v4 matches with balanced, changing teammates and opponents. A **Reshuffle teams** button is available before recording any goals for the current game; completed games and saved scores are protected. No player sits out. Enter eight scores including zeroes per game. Rank all individuals by average goals per match: the top six advance, bottom two are cut, and ties across sixth/seventh require extra games.
-4. **Prove Your Resolve:** the six survivors start at zero. Follow the displayed schedule of eight balanced 3v3 matches. Every player plays eight matches; teammate and opponent counts are kept as even as possible. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–8 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all eight games are complete.
+2. **Know Thy Nature:** each of the five games gets an automatic fresh random 5v5 split. Ranking is by individual total goals rather than team wins; an optional per-game **Reshuffle teams** button draws a new split and locks once that game has any score. Enter all five games, with a score for every one of the ten players each game including explicit zeroes. Rank all ten players together by total goals (and goals per match): the top eight advance, the bottom two are cut. A tie across eighth and ninth requires extra games.
+3. **Adapt or Wither:** the eight survivors play five 4v4 matches with balanced, changing teammates and opponents. A **Reshuffle teams** button is available before recording any goals for the current game; completed games and saved scores are protected. No player sits out. Enter eight scores including zeroes per game. Rank all individuals by average goals per match: the top six advance, bottom two are cut, and ties across sixth/seventh require extra games.
+4. **The Last Bloom:** the six survivors start at zero. Follow the displayed schedule of eight balanced 3v3 matches. Every player plays eight matches; teammate and opponent counts are kept as even as possible. Keep the finalist slots and game order fixed before play. Select a game, type goals or use the +/− counters, then mark the winning team. This adds one win for each teammate and a loss for each opponent; it cannot assign mixed outcomes to the same team. All points in games 1 and 2 receive the multiplier; games 3–8 use normal points. Goal points and win points update independently as each value is entered. The table also displays raw goals, wins, and completed matches. Missing scores or results keep prizes provisional until all eight games are complete.
 5. **Leaderboard:** follow cuts, final standings, and prizes. Prizes appear after all regulation results are entered. Tied podium prizes remain unassigned.
 
 Yellow controls are editable. Gray cells are calculated. Advance is green, cut is red, and relevant ties display **TIE - EXTRA GAMES NEEDED**. Rankings during incomplete rounds are provisional; nobody advances until the round is complete.
 
 ### Team goal limit
 
-Every scheduled game in Face Your Weakness, Abandon Your Comfort, and Prove Your Resolve allows **at most three goals per team**, summed across its players. Once either team reaches three, its opponents can have at most two. A 3–0, 3–1, or 3–2 score is valid; 3–3 and any total above three are rejected. Scores below three can still be entered normally.
+Every scheduled game in Know Thy Nature, Adapt or Wither, and The Last Bloom allows **at most three goals per team**, summed across its players. Once either team reaches three, its opponents can have at most two. A 3–0, 3–1, or 3–2 score is valid; 3–3 and any total above three are rejected. Scores below three can still be entered normally.
 
-The match screen shows the current team totals. **When either team scores its third goal, all remaining blank player goal fields on BOTH teams automatically become 0**. Existing goal entries are preserved, other games remain unchanged, and the zeroes are saved with the other scores. This applies to all three scheduled rounds (5v5, 4v4, and 3v3); extra-game inputs are unaffected. Goal inputs and + buttons use the remaining team allowance immediately, including the Face Your Weakness score table. Lowering or clearing a score reopens the allowance; use **Clear this game** to reset all goal entries for that match. The server enforces the same goal limits for saves and backup restores, so a direct request cannot bypass the caps.
+The match screen shows the current team totals. **When either team scores its third goal, all remaining blank player goal fields on BOTH teams automatically become 0**. Existing goal entries are preserved, other games remain unchanged, and the zeroes are saved with the other scores. This applies to all three scheduled rounds (5v5, 4v4, and 3v3); extra-game inputs are unaffected. Goal inputs and + buttons use the remaining team allowance immediately, including the Know Thy Nature score table. Lowering or clearing a score reopens the allowance; use **Clear this game** to reset all goal entries for that match. The server enforces the same goal limits for saves and backup restores, so a direct request cannot bypass the caps.
 
 Old saved scores above these limits are retained for correction. They block round completion; lower or clear the incorrect scores before continuing. Extra-game entries are capped at three per player; team-total validation uses the assigned teams in the scheduled matches.
 
 ### Per-match submit, standings popup, and final fullscreen
 
-Each round has a per-match **Submit Match N of X** control: Face Your Weakness has five games, Abandon Your Comfort has five matches, and Prove Your Resolve has eight games. The control stays disabled until that match is ready (every active player in it has a score, including explicit zeroes) and the stage is not stale.
+Each round has a per-match **Submit Match N of X** control: Know Thy Nature has five games, Adapt or Wither has five matches, and The Last Bloom has eight games. The control stays disabled until that match is ready (every active player in it has a score, including explicit zeroes) and the stage is not stale.
 
 - **Submitting a non-final match** opens a dismissible popup with the cumulative round standings through that match. It lists each player's rank, name, running total, average, and provisional status. The totals and averages are summed over the matches played so far, not just the one match you submitted. Close the popup to continue to the next match.
-- **Submitting the final match** of a round opens a fullscreen total round ranking for all players, with totals, an average column, and a status badge each. For the two cutting rounds (Face Your Weakness and Abandon Your Comfort) the badge is **ADVANCE**, **CUT**, or **TIE** and the average column shows goals per match. For Prove Your Resolve, which decides the podium rather than a cut, the badge is **FINAL** or **TIE** (there is no "cut" to a next round) and the average column shows average points per game (total points / games played). When no tie exists the fullscreen reports that the round is settled. When a tie sits across the cut line, the fullscreen states that extra games are needed and hosts the **Add extra game** controls directly. As you enter and save extra scores the fullscreen recomputes live and flips **TIE** to the settled badge as the bubble resolves; if players stay tied it asks for another extra game. Close the fullscreen to return to the dashboard.
+- **Submitting the final match** of a round opens a fullscreen total round ranking for all players, with totals, an average column, and a status badge each. For the two cutting rounds (Know Thy Nature and Adapt or Wither) the badge is **ADVANCE**, **CUT**, or **TIE** and the average column shows goals per match. For The Last Bloom, which decides the podium rather than a cut, the badge is **FINAL** or **TIE** (there is no "cut" to a next round) and the average column shows average points per game (total points / games played). When no tie exists the fullscreen reports that the round is settled. When a tie sits across the cut line, the fullscreen states that extra games are needed and hosts the **Add extra game** controls directly. As you enter and save extra scores the fullscreen recomputes live and flips **TIE** to the settled badge as the bubble resolves; if players stay tied it asks for another extra game. Close the fullscreen to return to the dashboard.
 
-Abandon Your Comfort uses a **Match N of 5 done** server flow, advancing the saved per-game team match, and then shows the same popup or fullscreen. Face Your Weakness and Prove Your Resolve use client-side submit controls that read the already-entered per-game scores, so no extra server round-trip is needed to show their standings.
+Adapt or Wither uses a **Match N of 5 done** server flow, advancing the saved per-game team match, and then shows the same popup or fullscreen. Know Thy Nature and The Last Bloom use client-side submit controls that read the already-entered per-game scores, so no extra server round-trip is needed to show their standings.
 
 Normal final points = **1.5 × goals + 1 for a win**. Games 1–2 double the entire score. Rotation balances match counts, but double games mean weighted exposure is not identical. Set the multiplier to 1 before play if all matches should have equal weight.
 
@@ -104,26 +104,26 @@ Normal final points = **1.5 × goals + 1 for a win**. Games 1–2 double the ent
 A few quality-of-life controls make the dashboard easier to operate:
 
 - **Clear this round.** Every round screen has a visible **Clear this round** panel, available at any time (not only when a round is out of sync). It clears that round and every later round, but never an earlier one:
-  - **Clear Face Your Weakness** clears Face Your Weakness, Abandon Your Comfort, and Prove Your Resolve.
-  - **Clear Abandon Your Comfort** clears Abandon Your Comfort and Prove Your Resolve, keeping Face Your Weakness.
-  - **Clear Prove Your Resolve** clears Prove Your Resolve only, keeping Face Your Weakness and Abandon Your Comfort.
+  - **Clear Know Thy Nature** clears Know Thy Nature, Adapt or Wither, and The Last Bloom.
+  - **Clear Adapt or Wither** clears Adapt or Wither and The Last Bloom, keeping Know Thy Nature.
+  - **Clear The Last Bloom** clears The Last Bloom only, keeping Know Thy Nature and Adapt or Wither.
   The panel copy states exactly which rounds it clears, and the action can be undone immediately afterwards.
 - **Clear names and clear scoring (Players & rules).** The Players & rules screen has two separate controls so you can reset the roster or the scoring independently:
   - **Clear player names** blanks all ten name slots only. Scoring, prizes, and every round score stay exactly as they are. (With the roster empty, the rounds show the usual "enter 10 unique names" state until you refill it.)
   - **Clear scoring** resets the point values that apply to all rounds back to defaults: win points to 1, goal points to 1.5, and the games 1-2 multiplier to 2. Names, prizes, and round scores are untouched.
   Each is a separate button with copy stating exactly what it clears, and both can be undone immediately afterwards.
-- **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit Face Your Weakness, resolve a tie, draw and play Abandon Your Comfort, play Prove Your Resolve, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
-- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the Face Your Weakness **Reshuffle teams**, the Abandon Your Comfort **Generate balanced 4v4 games** / **Reshuffle teams** / **Match N done** / match tabs, or the Prove Your Resolve **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
-- **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle Face Your Weakness teams, clear player names, clear scoring, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
+- **What to do next.** The Leaderboard shows a prominent next-step banner that names the next concrete action (enter 10 names, score and submit Know Thy Nature, resolve a tie, draw and play Adapt or Wither, play The Last Bloom, or review the podium) and includes a button that opens the relevant screen. The wording follows the current stage and its first unmet requirement, and the round path still highlights the next step.
+- **Self-explaining disabled controls.** When a primary action is disabled (a per-match **Submit**, the Know Thy Nature **Reshuffle teams**, the Adapt or Wither **Generate balanced 4v4 games** / **Reshuffle teams** / **Match N done** / match tabs, or the The Last Bloom **Mark win**), it shows a short reason next to it and as a tooltip, for example "Enter a score for every player in Game 3 first", "This game already has scores. Clear them before reshuffling.", or "Finish Match 2 before opening the next." No control silently does nothing.
+- **One-level Undo.** Every destructive action (clear a round, clear a single game, reshuffle Know Thy Nature teams, clear player names, clear scoring, or clear the whole tournament) now acts immediately and then offers an **Undo** button near the save status. Clicking it restores the exact prior state and saves it. Undo is one level deep: taking a second destructive action replaces what Undo would restore.
 
 
-## Abandon Your Comfort matchup balancing
+## Adapt or Wither matchup balancing
 
 Each game independently contains four players on Team A and four on Team B. The system saves five different team compositions, tries to avoid repeated teammate pairings, and balances appearances on the A and B sides. The **Reshuffle teams** button replaces the upcoming unscored game's matchup with another division of the same eight players. Existing matchups are untouched.
 
 ## Extra games
 
-Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 8th and 9th across all ten players in Face Your Weakness, the cluster straddling 6th and 7th in Abandon Your Comfort, and the tied podium group in Prove Your Resolve. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
+Extra games use a boundary-bubble model. Only the players tied across the cut line play extra games: the cluster straddling 8th and 9th across all ten players in Know Thy Nature, the cluster straddling 6th and 7th in Adapt or Wither, and the tied podium group in The Last Bloom. Players who were never in the tie are not disturbed. A clear advancer, such as a unique rank 1 or 2, keeps its place, and a clear cut stays cut.
 
 Click **Add extra game** after regulation play for the tied group. Enter a score for every player in that tied group. For a final extra game, enter both goals and W/L; it uses normal scoring without the games 1–2 multiplier.
 
@@ -133,15 +133,15 @@ Extra-game goals fold into the tied players' numbers rather than acting as a sep
 average = (regulation goals + extra goals) / (regulation matches + extra matches)
 ```
 
-A player's displayed total and average update as extra scores are entered, but the entire unresolved group stays marked **TIE** until everyone has a score (and W/L in Prove Your Resolve). Later extra games cannot bypass missing entries. Final win points, goal points, goal/win counts, and games played include the same scored extra games as the total. Re-ranking is contained to the tied bubble, which means a cut or tied player can overtake a tied-advancing player and take their spot, while players who were never in the tie keep their ranks. The Prove Your Resolve final folds the same way on points instead of goals: each extra game's points are scored normally, without the games 1–2 multiplier, and added to the bubble players' totals.
+A player's displayed total and average update as extra scores are entered, but the entire unresolved group stays marked **TIE** until everyone has a score (and W/L in The Last Bloom). Later extra games cannot bypass missing entries. Final win points, goal points, goal/win counts, and games played include the same scored extra games as the total. Re-ranking is contained to the tied bubble, which means a cut or tied player can overtake a tied-advancing player and take their spot, while players who were never in the tie keep their ranks. The The Last Bloom final folds the same way on points instead of goals: each extra game's points are scored normally, without the games 1–2 multiplier, and added to the bubble players' totals.
 
 If players remain tied after an extra game, add another extra game and score only the remaining tied subgroup; already resolved places are preserved. The fullscreen total ranking recomputes live as extra scores are saved and flips **TIE** to **ADVANCE** or **CUT** as the bubble resolves. Up to 50 extra games per stage are supported.
 
 ## Saving and recovery
 
 - Changes save automatically to `tournament.json` in this folder. Wait for **All changes saved** before closing the browser. Save status, **Retry save**, and **Undo** stay accessible inside whichever round or results window is open.
-- Initial and migrated Face Your Weakness lineups are saved at startup, so restarting before the first score cannot reshuffle them.
-- **Existing eight-match sit-out rotation saves are not silently reinterpreted.** Their Round 2 scores, final scores, and prior settings are copied to `legacy_round2_rotation` in the downloadable backup. The five-game 4v4 Round 2 and dependent final restart with blank scores and new team assignments. Player names, Face Your Weakness results, and settings are retained.
+- Initial and migrated Know Thy Nature lineups are saved at startup, so restarting before the first score cannot reshuffle them.
+- **Existing eight-match sit-out rotation saves are not silently reinterpreted.** Their Round 2 scores, final scores, and prior settings are copied to `legacy_round2_rotation` in the downloadable backup. The five-game 4v4 Round 2 and dependent final restart with blank scores and new team assignments. Player names, Know Thy Nature results, and settings are retained.
 - Version 5 saves with already scored fixed-team Round 2 matches upgrade without losing scored games or final results. Completed/scored matches keep their original teams, while future unscored games receive balanced lineups.
 - Original five-game-final saves also archive their old final under `legacy_final`; scoring defaults become goal 1.5 / win 1. The archived records include the old scoring settings and remain in downloadable backups.
 - **Download backup** saves the full tournament as JSON. **Restore backup** validates and restores it.
@@ -173,6 +173,6 @@ node tests/test_theme_copy.cjs
 
 For the optional real-browser checks, install Playwright and its Chromium browser in your development environment, then run `node tests/test_browser.cjs`. This covers all five screens at desktop and phone sizes, cursor preservation, changed-roster recovery, extra-game entry and correction, Undo, failed-save recovery, and all five rotating 4v4 games. `PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE` can select existing installations. Browser-test dependencies are not required to run the dashboard.
 
-The tests cover the current five-game Face Your Weakness, five-game Abandon Your Comfort, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and podium ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
+The tests cover the current five-game Know Thy Nature, five-game Adapt or Wither, and eight-game final formats: advancement, balanced and saved lineups, score-entry guards, blank versus zero, team goal limits, independent round totals, final multipliers, cut and podium ties, extra-game scoring, prizes, autosave, revision conflicts, Undo, and backup migration. Older formats and wheel data remain covered as compatibility cases for existing saves.
 
 Run `node tests/test_cutscene_browser.cjs` with the same optional Playwright/Chromium environment to check all three round verdict cutscenes, the pavilion bloom ceremony, tie settlement, native-dialog visibility, and skip behavior.
