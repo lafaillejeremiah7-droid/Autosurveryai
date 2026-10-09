@@ -41,10 +41,10 @@ const url=new Promise((resolve,reject)=>{
    return {running:s.running,triangles:s.triangles,portalAxis:window.Divine3D._geometry(models,['p2','p9'],-1,0).portalAxis};
   });
   assert(status.running&&status.triangles>1000&&status.portalAxis==='y','real GPU-style scene must render many triangles');
-  await page.waitForTimeout(1900);
+  await page.waitForTimeout(2950);
   const gateShot=await page.screenshot({type:'jpeg',quality:50});
   console.log('DIVINE_PORTAL_JPEG_BASE64='+gateShot.toString('base64'));
-  await page.waitForTimeout(1800);
+  await page.waitForTimeout(750);
   const stage=await page.evaluate(()=>{
    const s=window.Divine3D._debug();
    return {running:s.running,triangles:s.triangles,phase:s.phase,handY:s.hand?.[1]};
