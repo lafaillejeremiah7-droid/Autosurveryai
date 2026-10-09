@@ -264,32 +264,8 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
    rose(m,x,.1,-18.4,4,(x+20)/4);
    rose(m,x,.1,19.4,4,(x+24)/4);
   }
-  // PS2-style distant environmental meshes: rolling landscape, low-detail
-  // tree canopy, layered mountain silhouettes and soft atmospheric perspective.
-  // They are not competitors and never change the scored flower models.
-  for(const side of [-1,1]){
-   for(let row=0;row<9;row++)for(let col=0;col<9;col++){
-    const z=-42-row*9,x=side*(37+col*9),n=pseudoRand(row*31+col*7+side*11);
-    const hill=2+Math.sin(row*.6+col*.42)*2+n*5;
-    const grassColor=[.17+n*.05,.28+n*.11,.17+n*.08];
-    const p=[x,hill,z],q=[x+side*9,2+Math.sin(row*.7+(col+1)*.4)*2+pseudoRand(col*7+row+4)*5,z],
-      r=[x,hill+.8,z-9],t=[q[0],q[1]+1,z-9];
-    m.tri(p,q,r,grassColor);m.tri(q,t,r,grassColor);
-   }
-  }
-  for(let row=0;row<4;row++)for(let col=0;col<30;col++){
-   const n=pseudoRand(row*101+col*13+9),x=(col-14.5)*7.8+n*2,z=-51-row*15+n*4;
-   const h=4.5+n*5.5;
-   m.cylinder([x,0,z],[x,h*.64,z],.21,[.31,.31,.23],.13,5);
-   m.softSphere([x,h*.75,z],1.45+n*.9,h*.36,1.4+n*.8,
-     [.10+n*.08,.29+n*.10,.18+n*.06],0,5,7);
-  }
-  // Hills beyond the palace fade to fog-blue instead of ending abruptly.
-  for(let i=0;i<25;i++){
-   const x=(i-12)*10,z=-130;
-   const h=15+9*Math.sin(i*.48)+12*pseudoRand(i*17);
-   m.tri([x,3,z],[x+10,3,z],[x+5,h,z-4],[.40,.49,.47]);
-  }
+  // Keep the horizon clear: no distant forest or floating terrain meshes.
+  // The painted sky and atmospheric fog provide the backdrop at lower GPU cost.
   // Palace terrace background, parapets and tall stone towers.
   m.box(0,5.8,-33.8,52,11.6,3.0,[.65,.64,.56],1);
   m.box(0,12.3,-34.2,54,1.1,4.0,[.30,.39,.34]);

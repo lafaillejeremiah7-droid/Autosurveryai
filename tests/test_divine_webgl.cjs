@@ -45,6 +45,14 @@ assert.equal(geo.positions.length,10);
 assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows of roses');
 assert(geo.triangles>1000);
 assert(geo.gardenTriangles>3000,'detailed 3D garden includes thousands of architectural triangles');
+assert(!rendererHasFloatingForest(),
+  'distant trees, floating hills and mountains are removed from cinematic geometry');
+function rendererHasFloatingForest(){
+ const source=fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8');
+ return source.includes('for(let row=0;row<4;row++)for(let col=0;col<30;col++)')
+   || source.includes('tree canopy, layered mountain silhouettes')
+   || source.includes('for(let i=0;i<25;i++){\n   const x=(i-12)*10,z=-130;');
+}
 assert.equal(geo.plantStages,7,'all seven competitive flower growth stages have dedicated meshes');
 const meshes=three._growthMeshes();
 assert.equal(meshes.length,7);
