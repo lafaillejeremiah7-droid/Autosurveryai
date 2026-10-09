@@ -110,13 +110,6 @@ main{max-width:1550px;margin:0 auto;padding:16px}.nav{display:flex;gap:8px;align
    const path=Array.from({length:33},(_,i)=>[c[0]+Math.cos(i*TAU/32)*rx,c[1]+Math.sin(i*TAU/32)*ry,c[2]]);
    this.softTube(path,path.map(()=>tube),col,kind,8);
   }
-  blade(start,tip,breadth,col){
-   const d=unit(vec(tip,start)),s=unit(cross(d,[0,0,1]));
-   const left=add(start,mul(s,breadth)),right=add(start,mul(s,-breadth));
-   const mid=add(mul(start,.56),mul(tip,.44)),shoulder=add(mid,mul(s,breadth*.85));
-   this.tri(left,shoulder,tip,col,2);this.tri(right,tip,shoulder,[.80,.95,1],2);
-   this.tri(left,tip,right,[.38,.62,.76]);this.cylinder(start,tip,.045,PALE,.012,5,2);
-  }
  }
 
  // The same geometry style as the 3D garden, rebuilt into a richly layered,

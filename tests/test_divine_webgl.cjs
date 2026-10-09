@@ -61,6 +61,7 @@ assert.equal(new Set(meshes.map(x=>x.triangles)).size,7,'all growth levels have 
 assert(meshes[6].triangles>meshes[0].triangles*4,'full-bloom rose has substantially more modeled geometry than the zero-goal seedling');
 const rendererSource=fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8');
 assert(rendererSource.includes('v_pos.y>44.0'),'skin and shears are clipped ABOVE the horizontal portal plane');
+assert(!rendererSource.includes('this.cylinder(start,tip,.045,PALE'), 'retired unused blade helper must not reference undefined PALE');
 assert(rendererSource.includes("'xz',2"),'portal rings are modeled in the horizontal XZ plane');
 assert(geo.details.includes('fountains')&&geo.details.includes('gazebos')&&geo.details.includes('hedge maze')&&geo.details.includes('palace'),'3D field includes royal garden architecture');
 assert.equal(geo.portalAxis,'y','portal opens overhead, normal to the vertical emergence axis');
