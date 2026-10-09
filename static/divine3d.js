@@ -11,6 +11,13 @@
  const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),unit=a=>mul(a,1/(Math.hypot(...a)||1));
  const GOLD=[1,.79,.38],PALE=[1,.97,.76],STEEL=[.65,.86,.95],SHADOW=[.05,.22,.14];
  const positions=Array.from({length:10},(_,i)=>[(i%5-2)*5.8,0,i<5?-5.3:6.2]);
+ // Keep the dimensional scale fixed across all three rounds. The giant hand
+ // passes through a portal above the center of the ten plants, not a palm halo.
+ const PORTAL_CENTER=[0,25.5,-11.0],PORTAL_RADIUS=8.8,HAND_SCALE=2.6;
+ const EMERGENCE_SECONDS=1.8;
+ const ease=t=>t*t*(3-2*t);
+ const portalOpening=(step,age)=>step<0?ease(clamp(age/.95)):1;
+ const handEmergence=(step,age)=>step<0?ease(clamp(age/EMERGENCE_SECONDS)):1;
  function multiply(a,b){const c=new Float32Array(16);for(let j=0;j<4;j++)for(let i=0;i<4;i++)for(let k=0;k<4;k++)c[j*4+i]+=a[k*4+i]*b[j*4+k];return c;}
  function perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,2*far*near/(near-far),0]);}
  function lookAt(eye,target){const z=unit(vec(eye,target)),x=unit(cross([0,1,0],z)),y=cross(z,x);return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);}
@@ -98,13 +105,50 @@
    }
   }
  }
+
+ // A physical circular dimensional gate in the XY plane, suspended over the
+ // garden. Its dark center, concentric luminous rim, swirling interior and
+ // sparks are all WebGL geometry rather than a flat CSS/SVG overlay.
+ function portal(mesh,step,age,elapsed){
+  const open=portalOpening(step,age);
+  if(open<.005)return;
+  const [x,y,z]=PORTAL_CENTER,r=PORTAL_RADIUS*open;
+  const center=[x,y,z],N=42;
+  const bands=[[.025,.022,.09],[.073,.035,.18],[.16,.06,.32],[.08,.04,.20]];
+  const point=(a,rr,depth=0)=>[x+Math.cos(a)*rr,y+Math.sin(a)*rr,z+depth];
+  for(let k=0;k<4;k++){
+   const a0=k*r/4,a1=(k+1)*r/4;
+   for(let i=0;i<N;i++){
+    const t=i*TAU/N+elapsed*(k%2?-.3:.22),t1=(i+1)*TAU/N+elapsed*(k%2?-.3:.22);
+    mesh.quad(point(t,a0,-.13-k*.015),point(t1,a0,-.13-k*.015),
+      point(t1,a1,-.13-k*.015),point(t,a1,-.13-k*.015),bands[k]);
+   }
+  }
+  mesh.ring(center,r,.26,[.98,.76,.27],'xy',2);
+  mesh.ring([x,y,z+.18],r*.91,.12,[.49,.82,1],'xy',2);
+  mesh.ring([x,y,z+.24],r*1.13,.085,[.73,.53,1],'xy',2);
+  for(let arm=0;arm<7;arm++){
+   const offset=arm*TAU/7+elapsed*.57;
+   for(let j=0;j<12;j++){
+    const a=offset+j*.19,rr=r*(.15+j*.063),b=a+.21,rr2=r*(.15+(j+1)*.063);
+    mesh.cylinder(point(a,rr,.33),point(b,rr2,.33),.055*open,[.63,.55+(.2*j/12),1],.032*open,5,2);
+   }
+  }
+  for(let i=0;i<22;i++){
+   const a=i*TAU/22+elapsed*(i%2?.29:-.17),rad=r*(1.03+Math.sin(elapsed*1.4+i*5.1)*.07);
+   mesh.gem(...point(a,rad,.3),(.11+(i%4)*.045)*open,i%3?[1,.82,.43]:[.65,.86,1],2,1.7);
+  }
+  // The portal mouth stays fixed while the forearm emerges downward.
+  for(let i=0;i<9;i++){
+   const a=i*TAU/9+elapsed*.25;
+   const root=point(a,r*.42,.6),tip=[root[0]*.8,root[1]-.6*open,root[2]+1.5*open];
+   mesh.cylinder(root,tip,.07*open,[.97,.81,.43],.025*open,6,2);
+  }
+ }
  function hand(mesh,position,elapsed,step,age){
   const [x,y,z]=position,coord=(a,b,c)=>[x+a,y+b,z+c];
   const radiance=.18+.045*Math.sin(elapsed*2);
-  // Two wide rings sit physically behind the enormous hand as a radiant halo.
-  mesh.ring(coord(0,1.3,-1.6),4.1,.075,[1,.73,.3],'xy',2);
-  mesh.ring(coord(0,1.3,-1.63),5.1,.035,[.94,.85,.54],'xy',2);
-  for(let i=0;i<12;i++){const a=i*TAU/12;mesh.cylinder(coord(Math.cos(a)*4.5,1.3+Math.sin(a)*4.5,-1.7),coord(Math.cos(a)*6,1.3+Math.sin(a)*6,-1.7),.11,GOLD,.012,5,2);}
+  // The rotating halo is now part of the giant portal, not attached to the palm.
   // Low-poly sculpted divine wrist and palm; each finger is an articulated 3D tube.
   mesh.cylinder(coord(0,6.9,-.5),coord(0,1.5,.2),1.05,[.95,.76,.38],1.5,12,2);
   mesh.sphere(coord(0,.65,.1),1.55,1.55,.73,[1,.82,.49],2);
@@ -145,12 +189,27 @@
    m.cylinder([x,-.02,z],[x,.2,z],1.32,[.61,.57,.42],1.35,10);
    if(models[i])plant(m,models[i],i,cutIds,step,age,elapsed);
   }
-  let hx=0,hy=14.9+.22*Math.sin(elapsed*1.7),hz=-.3;
+  portal(m,step,age,elapsed);
+  // Begin hidden high in the portal and descend over 1.8 seconds. The hand is
+  // 2.6x the old mesh in every dimension, including enormous articulated shears.
+  // A per-cut camera-independent approach still chooses only the scored loser.
+  const emergence=handEmergence(step,age);
+  let hx=0,hy=lerp(36,22,emergence)+.18*Math.sin(elapsed*1.7),hz=-8.1;
   if(step>=0){
    const index=models.findIndex(p=>p.id===cutIds[step]);
-   if(index>=0){const p=positions[index];let t=clamp(age/.72);t*=t*(3-2*t);hx=lerp(0,p[0],t);hz=lerp(-.3,p[2],t);hy=lerp(14.9,10.3,t);}
+   if(index>=0){
+    const p=positions[index],t=ease(clamp(age/.72));
+    hx=lerp(0,p[0],t);hz=lerp(-8.1,p[2],t);hy=lerp(22,17.6,t);
+   }
   }
+  // Scale the vertex positions, not the normals, uniformly around the palm.
+  const first=m.data.length;
   hand(m,[hx,hy,hz],elapsed,step,age);
+  for(let i=first;i<m.data.length;i+=10){
+   m.data[i]=hx+(m.data[i]-hx)*HAND_SCALE;
+   m.data[i+1]=hy+(m.data[i+1]-hy)*HAND_SCALE;
+   m.data[i+2]=hz+(m.data[i+2]-hz)*HAND_SCALE;
+  }
   return m;
  }
  function compile(gl,type,source){
@@ -193,11 +252,12 @@
    const w=Math.max(1,Math.floor(rect.width*dpr)),h=Math.max(1,Math.floor(rect.height*dpr));
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
    const {gl,program,buffer,attrs,uniform}=instance;
-   gl.viewport(0,0,w,h);gl.clearColor(.06,.16,.15,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   gl.viewport(0,0,w,h);gl.clearColor(.035,.055,.11,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
    const now=performance.now(),age=(now-instance.start)/1000,elapsed=now/1000;
-   const eye=[0,21.4,32.2],target=[0,4.1,.4];
-   const vp=multiply(perspective(53*Math.PI/180,w/h,.1,125),lookAt(eye,target));
+   // Wider, slightly higher framing fits the enormous portal and all ten pots.
+   const eye=[0,29,47],target=[0,9,0];
+   const vp=multiply(perspective(63*Math.PI/180,w/h,.1,150),lookAt(eye,target));
    const mesh=sceneGeometry(models,cuts,step,age,elapsed);
    instance.triangles=mesh.triangles;instance.floats=mesh.data.length;
    gl.useProgram(program);gl.uniformMatrix4fv(uniform,false,vp);
@@ -218,6 +278,8 @@
   mount,stop,
   // Nonmutating inspection for regression checks.
   _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,webgl:true}:null;},
-  _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice())})
+  _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice()),
+   portalOpen:portalOpening(step,age),handScale:HAND_SCALE,portalCenter:PORTAL_CENTER.slice(),
+   portalRadius:PORTAL_RADIUS,handEmergence:handEmergence(step,age)})
  };
 })();

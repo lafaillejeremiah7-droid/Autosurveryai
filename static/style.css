@@ -546,3 +546,44 @@ body{background:#10271e}
 #cutscene-stage.divine-webgl .divine-plant small{font-size:clamp(8px,.8vw,11px)}
 #cutscene-stage.divine-webgl .divine-plant.severed .divine-name,
 #cutscene-stage.divine-webgl .divine-plant.prior-pruned .divine-name{opacity:.4}
+
+/* Giant gateway: canvas displays true 3D geometry; CSS is the no-WebGL fallback.
+   The portal mouth sits directly above the central flowers, not around the hand. */
+#cutscene .divine-portal{
+ position:absolute;left:50%;top:-22%;width:min(78%,660px);aspect-ratio:1;
+ z-index:6;border-radius:50%;transform:translateX(-50%);
+ background:radial-gradient(circle at 50% 50%,#070519 0 22%,#201046 40%,#513b8d 63%,#f9d579 69%,#91dbff 73%,transparent 79%);
+ box-shadow:0 0 32px 12px #a78aff66,0 0 100px 30px #f3bc6448,inset 0 0 34px #faffcb;
+ animation:divine-portal-open 1.1s cubic-bezier(.16,.8,.25,1) both;
+}
+#cutscene .divine-portal:before{
+ content:"";position:absolute;inset:7%;border:9px dashed #af9cff77;border-radius:50%;
+ box-shadow:inset 0 0 30px #fff6be44;animation:divine-portal-spin 9s linear infinite;
+}
+#cutscene .divine-portal:after{
+ content:"";position:absolute;inset:21%;border:7px dotted #a9eeffbb;border-radius:50%;
+ filter:drop-shadow(0 0 15px #ffe69e);animation:divine-portal-spin 6s linear infinite reverse;
+}
+#cutscene .divine-scene .divine-judge{
+ width:clamp(320px,65%,850px);top:0%;filter:drop-shadow(0 0 32px #fff0a8) drop-shadow(0 0 68px #ffbf55);
+}
+#cutscene .divine-scene.is-thinking .divine-judge{
+ animation:divine-giant-emerge 2s cubic-bezier(.17,.83,.21,1) both;
+}
+#cutscene .divine-scene.is-cutting .divine-judge{
+ top:var(--strike-y);transform:translateX(-50%);
+}
+#cutscene-stage.divine-webgl .divine-portal{display:none}
+@keyframes divine-portal-open{
+ from{opacity:0;transform:translateX(-50%) scale(.06) rotate(-55deg)}
+ to{opacity:1;transform:translateX(-50%) scale(1) rotate(0deg)}
+}
+@keyframes divine-portal-spin{to{transform:rotate(360deg)}}
+@keyframes divine-giant-emerge{
+ 0%{opacity:.12;transform:translate(-50%,-110%) scale(.55)}
+ 65%{opacity:1}100%{opacity:1;transform:translate(-50%,0) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+ #cutscene .divine-portal,#cutscene .divine-portal:before,
+ #cutscene .divine-portal:after,#cutscene .divine-scene .divine-judge{animation:none!important}
+}
