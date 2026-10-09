@@ -36,7 +36,7 @@ let browser,page;
   assert((await page.locator('#cutscene-label').textContent()).includes(label),key+': '+await page.locator('#cutscene-label').textContent());
   if(key!=='final')assert(await page.locator('#cutscene-skip').evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===e;}),'scoring dialog covered the cutscene');
   const expected=await page.evaluate(key=>eliminatedNames(key),key);
-  assert.equal(expected.length,key==='final'?3:2);
+  assert.equal(expected.length,key==='final'?5:2);
   if(key!=='final')await page.waitForFunction(name=>document.querySelector('#cutscene').classList.contains('verdict-hook')&&document.querySelector('#cutscene-caption').textContent.includes(name),expected[0]);
   else await page.waitForFunction(()=>document.querySelector('#cutscene').classList.contains('verdict-hook'));
   if(key!=='final'){assert.equal(await page.locator('#cutscene .av-player').count(),1);assert.equal(await page.locator('#cutscene .gv-shears').count(),1);assert.equal(await page.locator('#cutscene .gv-compost').count(),1);if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,key+'-verdict.png')});}}
@@ -47,10 +47,10 @@ let browser,page;
   if(key==='round1')await page.keyboard.press('Escape');
   else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='descend',null,{timeout:22000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);assert.equal(await page.locator('#ceremony-hud').isVisible(),true,'ceremony HUD shows during the garden bloom ceremony');await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='crowned');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'pavilion-bloom.png')});await page.keyboard.press('Escape');}
   // The Last Bloom also verifies automatic completion, with no skip.
-  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:40000});
+  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:55000});
   assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','the garden bloom ceremony exits the scoring room; a verdict-only skip keeps it');
   assert.equal(await page.locator('#ceremony-hud').isVisible(),false,'ceremony HUD hides when the cutscene ends');
-  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','shears','hook','compost','slam','horn','shears','hook','compost','slam'],'per player: gardener raises shears, snip, fling, compost impact');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'champions play victory');}
+  const sounds=await page.evaluate(()=>window.audioEvents);if(key==='round2'){assert.deepEqual(sounds.slice(0,10),['horn','shears','hook','compost','slam','horn','shears','hook','compost','slam'],'per player: gardener raises shears, snip, fling, compost impact');assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');}if(key==='final'){assert.equal(sounds.filter(s=>s==='fanfare').length,1,'one fanfare at the crown');assert.equal(sounds.filter(s=>s==='victory').length,1,'sole champion plays victory');}
  }
  // Resolving a submitted cut tie must reveal the cutscene over the result dialog.
  await page.emulateMedia({reducedMotion:'reduce'});
