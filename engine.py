@@ -39,7 +39,7 @@ def validate_goal_changes(s, previous=None):
     Backups/new states without a previous record must satisfy every limit.
     """
     schedules=stage_schedules(s);old_schedules=stage_schedules(previous) if previous else {}
-    labels={'round1':'Face Your Weakness','round2':'Abandon Your Comfort','final':'Prove Your Resolve'}
+    labels={'round1':'Know Thy Nature','round2':'Adapt or Wither','final':'The Last Bloom'}
     for key in labels:
         stage=s[key];old=previous[key] if previous else None
         for g in range({'round1':5,'round2':5,'final':FINAL_GAMES}[key]):
@@ -273,7 +273,7 @@ def validate(s):
         s['round1'].setdefault('lineups',[])
         lineups=s['round1']['lineups']
         if not isinstance(lineups,list) or (lineups and not _valid_lineups(lineups)):
-            raise ValueError('Invalid Face Your Weakness game teams.')
+            raise ValueError('Invalid Know Thy Nature game teams.')
         for stage in ['round1','round2','final']:
             a=s[stage]
             if set(a['players'])!=set(IDS) or len(a['extras'])>50: raise ValueError('Invalid player records or too many extra games.')
@@ -292,7 +292,7 @@ def validate(s):
                 if (order and not _round2_valid_lineups(draw.get('lineups'),order)) or (not order and draw.get('lineups')!=[]):
                     raise ValueError('Round 2 saved teams must be five complete 4v4 splits.')
             for d in a['players'].values():
-                if len(d['goals'])!={'round1':5,'round2':5,'final':FINAL_GAMES}[stage]: raise ValueError('Face Your Weakness needs 5 games, Abandon Your Comfort 5 games, and Prove Your Resolve 8 games.')
+                if len(d['goals'])!={'round1':5,'round2':5,'final':FINAL_GAMES}[stage]: raise ValueError('Know Thy Nature needs 5 games, Adapt or Wither 5 games, and The Last Bloom 8 games.')
                 for v in d['goals']: numeric(v,True,True)
                 if stage=='final':
                     if len(d['results'])!=FINAL_GAMES or any(v not in ['','W','L'] for v in d['results']): raise ValueError('Results must be W or L.')
@@ -409,7 +409,7 @@ def round1_view(s, names_ok):
         ready=bool(lineups) and not score_error and all(stage['players'][p]['goals'][g] is not None for p in roster)
         games.append({'game':g+1,'teams':teams,'counts':counts,'goals':match_goals(stage,teams,g),'score_error':score_error,'ready':ready})
         if score_error:issues.append(f'Game {g+1}: {score_error}')
-    if not lineups: issues.append('Generating game teams. Reload Face Your Weakness to shuffle the first split.')
+    if not lineups: issues.append('Generating game teams. Reload Know Thy Nature to shuffle the first split.')
     if not all(g['ready'] for g in games): issues.append('Complete all five games: enter a score for every player each game. Enter 0 for no goals.')
     ready=not issues
     rowmap={r['id']:r for r in rows}
@@ -434,10 +434,10 @@ def round2_view(s, roster, names_ok, upstream=True):
     stage=s['round2'];draw=stage['draw'];schedule=round2_schedule(draw)
     rows=[];scores={};issues=extra_goal_issues(stage)
     stale=bool(stage['roster'] and stage['roster']!=roster)
-    if not upstream: issues.append('Complete Face Your Weakness and resolve its cut ties.')
-    if stale: issues.append('The survivor list changed. Reset Abandon Your Comfort before entering new scores.')
+    if not upstream: issues.append('Complete Know Thy Nature and resolve its cut ties.')
+    if stale: issues.append('The survivor list changed. Reset Adapt or Wither before entering new scores.')
     if not names_ok: issues.append('Enter 10 unique player names in Players & rules.')
-    if not draw['order']: issues.append('Draw the 4v4 team rotations to start Abandon Your Comfort.')
+    if not draw['order']: issues.append('Draw the 4v4 team rotations to start Adapt or Wither.')
     games=[]
     for match in schedule:
         g=match['game']-1
@@ -482,7 +482,7 @@ def evaluate(s):
     r2=round2_view(s,r1['survivors'],names_ok,r1['complete'])
     roster=r2['survivors']; stage=s['final']; settings=s['settings']; rows=[]; scores={}; issues=extra_goal_issues(stage,True)
     stale=bool(stage['roster'] and stage['roster']!=roster)
-    if not r2['complete']: issues.append('Complete Abandon Your Comfort and resolve its cut ties.')
+    if not r2['complete']: issues.append('Complete Adapt or Wither and resolve its cut ties.')
     if stale: issues.append('The finalist list changed. Reset the final before entering new scores.')
     for p in roster:
         d=stage['players'][p]; wins=Decimal(0); goals=Decimal(0); game_points=[]
@@ -560,7 +560,7 @@ def bind_rosters(s):
 def round2_draw_action(s, action, game=None):
     s=deepcopy(s);view=evaluate(s);stage=s['round2'];draw=stage['draw']
     if not view['round1']['complete'] or view['round2']['stale']:
-        raise ValueError('Complete Face Your Weakness and resolve any changed Round 2 roster first.')
+        raise ValueError('Complete Know Thy Nature and resolve any changed Round 2 roster first.')
     if action=='start':
         if draw['order']: return s  # Repeat clicks/retries never reroll a saved draw.
         if has_inputs(stage): raise ValueError('Existing scores cannot be assigned to a new draw.')
@@ -627,7 +627,7 @@ def round1_lineups(s):
     return stage['lineups']
 
 def round1_lineup_action(s, action, game=None):
-    """Optional guarded per-game re-roll of a cosmetic Face Your Weakness split.
+    """Optional guarded per-game re-roll of a cosmetic Know Thy Nature split.
 
     'game' is 1-based (matches the frontend's game numbering). A reroll RAISES
     if any player already has an entered score for that game, so a reroll never
