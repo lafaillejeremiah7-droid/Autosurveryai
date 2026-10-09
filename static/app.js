@@ -317,10 +317,31 @@ function renderDivineScene(stage,cuts,latest=-1){
  const flowers=models.map((p,n)=>{
   const idx=cuts.indexOf(p.id),severed=idx>=0&&idx<latest,severing=idx>=0&&idx===latest;
   const cls=p.priorPruned?'prior-pruned':severed?'severed':severing?'severing':'';
-  return `<div class="divine-plant ${cls}" data-player="${p.id}" data-goals="${p.goals}"><div class="divine-stems">${plantSvg(p.tier)}</div><strong class="divine-name">${esc(p.name)}</strong><small>${p.goals} ${p.goals===1?'GOAL':'GOALS'}</small><em class="divine-stage-name">${esc(plantNames[p.tier]||'Rose')}</em><b class="divine-cut-label">${p.priorPruned||severed||severing?'PRUNED':''}</b></div>`;
+  return `<div class="divine-plant ${cls}" data-player="${p.id}" data-goals="${p.goals}"><div class="divine-stems">${plantSvg(p.tier)}</div><strong class="divine-name">${esc(p.name)}</strong><small>${p.goals} ${p.goals===1?'GOAL':'GOALS'}</small><em class="divine-stage-name">${esc(plantNames[p.tier]||'Rose')}</em><b class="divine-cut-label">${p.priorPruned||severed?'PRUNED':severing?'TARGETED':''}</b></div>`;
  }).join('');
  const html=`<div class="divine-scene ${latest>=0?'is-cutting':'is-thinking'}" data-stage="${stage}" style="--strike-x:${strikeX}%;--strike-y:${strikeY}%"><canvas class="divine-canvas" aria-label="A gigantic luminous hand and silver shears emerging from a portal above ten three-dimensional player plants"></canvas><div class="divine-stars"></div><div class="divine-halo"></div><div class="divine-portal" aria-hidden="true"></div><div class="divine-judge">${divineHandSvg()}</div><div class="divine-oracle">${latest<0?'THE HAND DELIBERATES':'THE VERDICT IS ABSOLUTE'}</div><div class="divine-plants">${flowers}</div><div class="divine-flash"></div><div class="divine-progress">${latest<0?'JUDGEMENT IN 5 SECONDS':`PRUNING ${latest+1} OF ${cuts.length}`}</div></div>`;
- const host=$('#cutscene-stage');host.innerHTML=html;
+ const host=$('#cutscene-stage');
+ // One continuous WebGL scene: do not destroy the canvas, reset the portal
+ // clock, or teleport the camera between targets.
+ if(latest>=0&&host.classList.contains('divine-webgl')&&
+    window.Divine3D?.setAction?.(latest,models,cuts)){
+  const scene=host.querySelector('.divine-scene');
+  scene?.classList.remove('is-thinking');scene?.classList.add('is-cutting');
+  for(const p of models){
+   const idx=cuts.indexOf(p.id),old=idx>=0&&idx<latest,selected=idx===latest;
+   const plant=Array.from(host.querySelectorAll('.divine-plant')).find(e=>e.dataset.player===p.id);
+   if(!plant)continue;
+   plant.className='divine-plant '+(p.priorPruned?'prior-pruned':old?'severed':selected?'severing':'');
+   const badge=plant.querySelector('.divine-cut-label');
+   if(badge)badge.textContent=p.priorPruned||old?'PRUNED':selected?'TARGETED':'';
+  }
+  const oracle=host.querySelector('.divine-oracle');
+  if(oracle)oracle.textContent='THE VERDICT IS ABSOLUTE';
+  const progress=host.querySelector('.divine-progress');
+  if(progress)progress.textContent='PRUNING '+(latest+1)+' OF '+cuts.length;
+  return;
+ }
+ host.innerHTML=html;
  const canvas=host.querySelector?.('.divine-canvas');
  const live=window.Divine3D?.mount?.(canvas,models,cuts,latest,host.querySelectorAll?.('.divine-plant'))||false;
  host.classList.toggle('divine-webgl',live);
@@ -334,8 +355,18 @@ function strikeDivinePlant(stage,cuts,i){
  }
  renderDivineScene(stage,cuts,i);
  const p=view[stage].rows.find(r=>r.id===cuts[i]);
- $('#cutscene-caption').innerHTML='<strong>SNIP! · PRUNED</strong><br>'+esc(p?.name||'');
- window.BrawlAudio?.shears?.();
+ $('#cutscene-caption').innerHTML='<strong>THE HAND CHOOSES.</strong><br>'+esc(p?.name||'');
+ // Contact happens 950ms after the movement starts; the name, blade closure,
+ // collapse and metallic audio belong to that same moment, not the scene start.
+ schedule(()=>{
+  window.BrawlAudio?.shears?.();
+  const plant=Array.from($('#cutscene-stage').querySelectorAll?.('.divine-plant')||[])
+    .find(e=>e.dataset.player===cuts[i]);
+  plant?.classList.remove('severing');plant?.classList.add('severed');
+  const badge=plant?.querySelector('.divine-cut-label');
+  if(badge)badge.textContent='PRUNED';
+  $('#cutscene-caption').innerHTML='<strong>SNIP! · PRUNED</strong><br>'+esc(p?.name||'');
+ },950);
  schedule(()=>strikeDivinePlant(stage,cuts,i+1),1750);
 }
 function beginDivineJudgement(stage,cuts){

@@ -632,3 +632,52 @@ body{background:#10271e}
  #cutscene-stage.divine-webgl .divine-name{font-size:9px}
  #cutscene .divine-scene .divine-portal{top:-14%;width:120%}
 }
+
+/* Readable five-by-two player identification HUD. Do not project HTML name
+   plates at the flowers: wide-angle perspective makes them overlap by design.
+   The camera can now make cinematic close-ups without scrambling the labels. */
+#cutscene-stage.divine-webgl .divine-plants{
+ position:absolute;inset:auto 2% 2%;z-index:6;
+ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+ grid-template-rows:repeat(2,minmax(0,1fr));
+ gap:5px 8px;pointer-events:none;
+}
+#cutscene-stage.divine-webgl .divine-plant{
+ position:relative;left:auto!important;top:auto!important;
+ transform:none;min-width:0;width:auto;min-height:0;
+ display:flex;align-items:center;justify-content:center;flex-direction:row;
+ flex-wrap:wrap;column-gap:5px;row-gap:1px;
+ padding:4px 6px;
+ border:1px solid #c7a9726c;border-radius:6px;
+ background:#092015e8;
+ animation:none;
+}
+#cutscene-stage.divine-webgl .divine-name{
+ max-width:100%;font-size:clamp(9px,1vw,13px);
+ line-height:1.08;white-space:normal;overflow-wrap:anywhere;
+}
+#cutscene-stage.divine-webgl .divine-plant small{
+ font-size:clamp(8px,.7vw,10px);white-space:nowrap;
+}
+#cutscene-stage.divine-webgl .divine-stage-name{
+ flex-basis:100%;font-size:clamp(7px,.68vw,10px);
+}
+#cutscene-stage.divine-webgl .divine-cut-label{
+ font-size:clamp(8px,.7vw,10px);
+}
+#cutscene-stage.divine-webgl .divine-plant.severing{
+ border-color:#fff4b3;background:#473124e8;
+ box-shadow:0 0 15px #fff0a467;
+}
+#cutscene-stage.divine-webgl .divine-plant.severed,
+#cutscene-stage.divine-webgl .divine-plant.prior-pruned{
+ border-color:#75635a;background:#1a201ce8;
+}
+#cutscene-stage.divine-webgl .divine-plant.severing:before{display:none}
+@media(max-width:600px){
+ #cutscene-stage.divine-webgl .divine-plants{inset:auto 1% 2%;gap:3px}
+ #cutscene-stage.divine-webgl .divine-plant{padding:3px 1px}
+ #cutscene-stage.divine-webgl .divine-name{font-size:9px}
+ #cutscene-stage.divine-webgl .divine-plant small{font-size:8px}
+ #cutscene-stage.divine-webgl .divine-stage-name{font-size:7px}
+}

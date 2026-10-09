@@ -256,7 +256,7 @@
   const [x,,z]=positions[index],tier=clamp(Math.floor(Number(model.tier)||0),0,6);
   const cutIndex=cutIds.indexOf(model.id),
    prior=!!model.priorPruned||cutIndex>=0&&cutIndex<step,cutting=cutIndex===step;
-  const fall=prior?1:cutting?ease(clamp((age-.76)/.78)):0;
+  const fall=prior?1:cutting?ease(clamp((age-.93)/.72)):0;
   const sway=prior?0:Math.sin(elapsed*1.4+index*1.31)*.055;
   const height=[.48,1.18,1.98,2.78,3.65,4.63,5.58][tier]*(prior?.64:1);
   const leafColor=prior?[.25,.27,.22]:tier>3?[.23,.56,.29]:[.21,.48,.24];
@@ -312,9 +312,9 @@
     }
    }
   }
-  if(cutting&&age>.75&&age<1.6){
+  if(cutting&&age>.94&&age<1.68){
    for(let j=0;j<12;j++){
-    const a=j*TAU/12,spread=clamp((age-.75)/.8);
+    const a=j*TAU/12,spread=clamp((age-.94)/.75);
     m.gem(x+Math.cos(a)*spread*1.8,height+Math.sin(j)*.3,
      z+Math.sin(a)*spread*1.8,.12,[1,.86,.51],2,1.45);
    }
@@ -382,9 +382,11 @@
   m.cylinder(at(-2.4,-1.2,1.86),at(-1.49,-2.17,2.26),.43,high,.25,9,7);
   // Giant steel shears pivot between the thumb and four curled fingers.
   const pivot=at(.86,-2.75,2.3);
-  const close=step>=0?Math.sin(clamp((age-.47)/.42)*Math.PI)*.88:0,spread=.58-close;
-  m.blade(pivot,at(3.82,-7.13,2.56),.71,chrome);
-  m.blade(pivot,at(-1.48-spread*2.1,-7.24,2.48),.76,[.88,.94,.99]);
+  // Both blades actually meet above the selected stem, 0.95s into the strike.
+  // The giant hand is positioned so the shared tips touch that player's plant.
+  const contact=ease(clamp((age-.62)/.33)),spread=(1-contact)*1.70;
+  m.blade(pivot,at(.86+spread,-7.13,2.56),.71,chrome);
+  m.blade(pivot,at(.86-spread,-7.24,2.48),.76,[.88,.94,.99]);
   m.sphere(pivot,.36,.38,.30,high,8);
   m.cylinder(pivot,at(1.15,-.81,2.49),.19,[.67,.60,.54],.11,8,7);
   m.ring(at(-.15,-3.36,2.70),.83,.18,[.96,.77,.35],'xy',8);
@@ -394,12 +396,40 @@
   }
   m.gem(...at(0,3.4,.1),.48,[.97,.80,.38],8,1.5);
  }
- function sceneGeometry(models,cutIds,step,age,elapsed){
+ // World-space scissor tips stay aligned with the selected player rather than
+ // pointing to an unrelated pot. Action starts at the previous frame's position.
+ function handPosition(models,cutIds,step,age,previous){
+  if(step<0)return [0,40.7,lerp(-53,-9.3,handEmergence(step,age))];
+  const id=cutIds[step],index=models.findIndex(p=>p.id===id);
+  if(index<0)return previous||[0,40.7,-9.3];
+  const [x,,z]=positions[index],tier=Number(models[index].tier)||0;
+  const target=[x-.86*HAND_SCALE,36.2+Math.min(6,tier)*.35+1.8,z-2.48*HAND_SCALE];
+  const from=previous||[0,40.7,-9.3],t=ease(clamp(age/.76));
+  return from.map((v,i)=>lerp(v,target[i],t));
+ }
+ function shotCamera(models,cuts,step,age,previous){
+  const wide={eye:[0,39,64],target:[0,20,-12],fov:66*Math.PI/180};
+  const garden={eye:[0,17.5,27],target:[0,3.6,-.4],fov:54*Math.PI/180};
+  if(step<0){
+   const t=ease(clamp((age-2.20)/1.65));
+   return {eye:wide.eye.map((v,i)=>lerp(v,garden.eye[i],t)),
+    target:wide.target.map((v,i)=>lerp(v,garden.target[i],t)),
+    fov:lerp(wide.fov,garden.fov,t),phase:t<.95?'arrival':'judgement'};
+  }
+  const index=models.findIndex(p=>p.id===cuts[step]);
+  if(index<0)return {...garden,phase:'pruning'};
+  const [x,,z]=positions[index],offset=x>0?3.4:-3.4;
+  const close={eye:[x+offset,12.8,z+15.4],target:[x,3.5,z],fov:52*Math.PI/180};
+  const from=previous||garden,t=ease(clamp(age/.72));
+  return {eye:from.eye.map((v,i)=>lerp(v,close.eye[i],t)),
+   target:from.target.map((v,i)=>lerp(v,close.target[i],t)),
+   fov:lerp(from.fov,close.fov,t),phase:'pruning'};
+ }
+ function sceneGeometry(models,cutIds,step,age,elapsed,previous=null){
   if(!baseField)baseField=createField();
   const m=new Mesh();
   m.data=baseField.data.slice();m.triangles=baseField.triangles;
   for(let i=0;i<10;i++)if(models[i])plant(m,models[i],i,cutIds,step,age,elapsed);
-  // Airborne petals draw attention to the arena but do not replace any player.
   for(let j=0;j<22;j++){
    const x=(pseudoRand(j+2)*2-1)*16.5,z=(pseudoRand(j+44)*2-1)*13;
    const y=.3+pseudoRand(j+13)*8;
@@ -407,18 +437,7 @@
    m.gem(...p,.10,pseudoRand(j)>.5?[.97,.68,.73]:[1,.84,.49],2,.32);
   }
   portal(m,step,age,elapsed);
-  // All parts behind the portal plane remain invisible to the fragment shader.
-  // The forearm, palm, fingers and shears move *forward through* the vortex,
-  // rather than being teleported in front of it or simply dropped from above.
-  const emergence=handEmergence(step,age);
-  let hx=0,hy=40.7,hz=lerp(-53,-9.3,emergence);
-  if(step>=0){
-   const idx=models.findIndex(p=>p.id===cutIds[step]);
-   if(idx>=0){
-    const p=positions[idx],t=ease(clamp(age/.74));
-    hx=lerp(0,p[0],t);hy=lerp(40.7,38.6,t);hz=lerp(-9.3,p[2],t);
-   }
-  }
+  const [hx,hy,hz]=handPosition(models,cutIds,step,age,previous);
   const start=m.data.length;
   if(step>=0||age>=PORTAL_LEAD){
    hand(m,[hx,hy,hz],elapsed,step,age);
@@ -463,7 +482,9 @@
   let renderer;
   try{renderer=init(canvas);}catch(e){console.warn('Divine 3D renderer unavailable:',e.message);return false;}
   if(!renderer)return false;
-  const instance={...renderer,canvas,models,cuts,step,labels:Array.from(labels||[]),start:performance.now(),raf:0,stopped:false,triangles:0};
+  const instance={...renderer,canvas,models,cuts,step,labels:Array.from(labels||[]),
+    start:performance.now(),actionAt:performance.now(),raf:0,stopped:false,
+    triangles:0,floats:0,actionFrom:null,cameraFrom:null,lastHand:null,lastCamera:null,phase:'arrival'};
   active=instance;
   const frame=()=>{
    if(instance.stopped||active!==instance)return;
@@ -473,33 +494,40 @@
    const {gl,program,buffer,attrs,uniform}=instance;
    gl.viewport(0,0,w,h);gl.clearColor(.027,.049,.074,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
-   const now=performance.now(),age=(now-instance.start)/1000,elapsed=now/1000;
-   // Wider, slightly higher framing fits the enormous portal and all ten pots.
-   const eye=[0,37,69],target=[0,17,-2];
-   const vp=multiply(perspective(70*Math.PI/180,w/h,.1,165),lookAt(eye,target));
-   const mesh=sceneGeometry(models,cuts,step,age,elapsed);
+   const now=performance.now(),age=(now-(stepAgeStart(instance)))/1000,elapsed=(now-instance.start)/1000;
+   const shot=shotCamera(instance.models,instance.cuts,instance.step,age,instance.cameraFrom);
+   instance.phase=shot.phase;instance.lastCamera=shot;
+   const vp=multiply(perspective(shot.fov,w/h,.1,165),lookAt(shot.eye,shot.target));
+   const mesh=sceneGeometry(instance.models,instance.cuts,instance.step,age,elapsed,instance.actionFrom);
+   instance.lastHand=handPosition(instance.models,instance.cuts,instance.step,age,instance.actionFrom);
    instance.triangles=mesh.triangles;instance.floats=mesh.data.length;
    gl.useProgram(program);gl.uniformMatrix4fv(uniform,false,vp);
    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(mesh.data),gl.DYNAMIC_DRAW);
    for(const [loc,size,offset] of attrs)if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,40,offset);}
    gl.drawArrays(gl.TRIANGLES,0,mesh.data.length/10);
-   instance.labels.forEach((el,i)=>{
-    const p=positions[i];if(!p||!el||!el.style)return;
-    const xy=project([p[0],.36,p[2]],vp);
-    el.style.left=xy[0].toFixed(2)+'%';el.style.top=xy[1].toFixed(2)+'%';
-   });
+   // Labels are a stable 5x2 HUD grid. World projection is deliberately not
+   // used: at the wide portal camera, projected labels mathematically overlap.
    instance.raf=requestAnimationFrame(frame);
   };
   frame();
   return true;
  }
+ function stepAgeStart(instance){return instance.step<0?instance.start:instance.actionAt;}
+ function setAction(step,models,cuts){
+  if(!active||active.stopped||step<0||step===active.step)return false;
+  const from=active.lastHand?.slice()||[0,40.7,-9.3],camera=active.lastCamera;
+  active.models=models;active.cuts=cuts;active.step=step;
+  active.actionAt=performance.now();active.actionFrom=from;
+  active.cameraFrom=camera?{eye:camera.eye.slice(),target:camera.target.slice(),fov:camera.fov}:null;
+  return true;
+ }
  window.Divine3D={
-  mount,stop,
+  mount,stop,setAction,
   // Nonmutating inspection for regression checks.
-  _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,webgl:true}:null;},
+  _debug(){return active?{running:!active.stopped,triangles:active.triangles,floats:active.floats,plants:active.models.length,step:active.step,phase:active.phase,canvas:active.canvas,hand:active.lastHand,webgl:true}:null;},
   _geometry:(models,cuts,step,age=0)=>({triangles:sceneGeometry(models,cuts,step,age,0).triangles,positions:positions.map(x=>x.slice()),
    portalOpen:portalOpening(step,age),handScale:HAND_SCALE,portalCenter:PORTAL_CENTER.slice(),
-   portalRadius:PORTAL_RADIUS,portalPlane:PORTAL_PLANE,handEmergence:handEmergence(step,age),portalLead:PORTAL_LEAD,
+   portalRadius:PORTAL_RADIUS,portalPlane:PORTAL_PLANE,handEmergence:handEmergence(step,age),portalLead:PORTAL_LEAD,handPosition:handPosition(models,cuts,step,age),cameraPhase:shotCamera(models,cuts,step,age).phase,
    gardenTriangles:baseField.triangles,plantStages:7,details:['marble paths','hedge maze','fountains','gazebos','rose arches','topiary','lamps','flower beds','palace']}),
   _growthMeshes:()=>Array.from({length:7},(_,tier)=>{
    const sample=new Mesh();
