@@ -33,16 +33,6 @@ window.BrawlAudio=(()=>{
   for(const cents of [0,4]){const o=ctx.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(freq*Math.pow(2,cents/1200),t0);o.connect(f);o.start(t0);o.stop(t0+dur+.12);track(o);first=first||o;}
   return first;
  }
- // Crowd voice: shaped noise through a wide bandpass.
- function crowd(dur,vol,center,delay=0){
-  if(silent())return null;
-  const t0=ctx.currentTime+delay,len=Math.max(1,Math.ceil(ctx.sampleRate*dur)),b=ctx.createBuffer(1,len,ctx.sampleRate),data=b.getChannelData(0);
-  for(let i=0;i<len;i++)data[i]=(Math.random()*2-1)*Math.pow(Math.sin(Math.PI*i/len),.7);
-  const source=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
-  source.buffer=b;f.type='bandpass';f.frequency.value=center;f.Q.value=.7;g.gain.value=vol;
-  source.connect(f);f.connect(g);g.connect(ctx.destination);source.start(t0);
-  return track(source);
- }
  function stop(){for(const n of active)try{n.stop();}catch{}active.clear();birdsOn=false;}
  function roar(big=false){return noise(big?2.4:1.4,big?.10:.055,600);} // Wind rising through the hedges
  function cheer(big=false){const a=roar(big);if(!a)return null;const notes=big?[392,494,587,784,1047]:[392,494,587];notes.forEach((hz,i)=>tone(hz,.5,.035,'sine',hz*.97,i*.15));return a;}
@@ -50,8 +40,8 @@ window.BrawlAudio=(()=>{
  function horn(){const a=brass(196,1.1,.06);brass(293.66,1.1,.05);return a;}
  function fanfare(){const notes=[392,523.25,659.25,783.99];let first=null;notes.forEach((hz,i)=>{const n=tone(hz,.85,.06,'sine',hz*.99,i*.19);first=first||n;});return first;}
  function hook(){return tone(900,.6,.05,'sine',300);}
- function shears(){noise(.18,.30,3600);tone(980,.12,.12,'square',220);tone(140,.24,.11,'triangle',45,.07);}
- function compost(){noise(.55,.24,230);tone(63,.55,.17,'sine',32);}
+ function shears(){const snap=noise(.18,.30,3600);tone(980,.12,.12,'square',220);tone(140,.24,.11,'triangle',45,.07);return snap;}
+ function compost(){const thud=noise(.55,.24,230);tone(63,.55,.17,'sine',32);return thud;}
  function slam(){const a=noise(.35,.2,300);tone(60,.4,.15,'sine',40);return a;}
  function victory(){const a=fanfare();cheer(true);return a;}
  // Rising wind and soft chimes build toward the Garden Opens countdown.
@@ -683,7 +673,6 @@ function verdictBackdrop(){
   +'<svg class="gv-shears" viewBox="0 0 190 170" aria-hidden="true"><path class="gv-blade gv-blade-a" d="M84 102L22 4L95 80Z"/><path class="gv-blade gv-blade-b" d="M84 102L164 13L95 80Z"/><circle class="gv-pivot" cx="84" cy="102" r="8"/><circle class="gv-handle" cx="52" cy="139" r="19"/><circle class="gv-handle" cx="120" cy="140" r="19"/><path class="gv-handle-bar" d="M84 102L52 125M84 102L120 126"/></svg>'
   +'<div class="gv-snip">SNIP!</div><div class="gv-pruned">PRUNED</div>';
 }
-const hookSvg=(cls='',style='')=>'<svg class="av-hook'+cls+'"'+(style?' style="'+style+'"':'')+' viewBox="0 0 400 80" aria-hidden="true"><path d="M0 50H340"/><path d="M340 50C384 50 388 6 356 6C334 6 330 26 344 32"/></svg>';
 const stickman=name=>'<div class="av-player"><svg class="av-stickman" viewBox="0 0 60 120" aria-hidden="true"><circle class="av-head" cx="30" cy="14" r="10"/><line class="av-body" x1="30" y1="24" x2="30" y2="70"/><line class="av-arm av-arm-l" x1="30" y1="36" x2="12" y2="56"/><line class="av-arm av-arm-r" x1="30" y1="36" x2="48" y2="56"/><line class="av-leg av-leg-l" x1="30" y1="70" x2="16" y2="112"/><line class="av-leg av-leg-r" x1="30" y1="70" x2="44" y2="112"/></svg><span class="av-name">'+esc(name)+'</span></div>';
 const laurelSvg=cls=>'<svg class="'+cls+'" viewBox="0 0 120 80" aria-hidden="true"><path d="M60 74C30 70 14 48 18 14M60 74C90 70 106 48 102 14"/>'+[[20,56,-50],[16,40,-20],[20,24,10],[100,56,50],[104,40,20],[100,24,-10]].map(([x,y,r])=>'<ellipse cx="'+x+'" cy="'+y+'" rx="9" ry="4.5" transform="rotate('+r+' '+x+' '+y+')"/>').join('')+'</svg>';
 // Each scene contains exactly one contestant, one shears impact and its own index.
@@ -743,7 +732,7 @@ async function startGateCeremony(){
   finally{roomTransition=false;if(cutsceneActive&&run===cutsceneRunId){if(ceremonyStage==='final')revealFinalWinners(run);else endCutscene();}}
   return;
  }
- setVerdictClass('');overlay.classList.remove('verdict-mode','final-mode','fc-intro','fc-judge','fc-hook');overlay.classList.add('crown-mode');
+ setVerdictClass('');overlay.classList.remove('verdict-mode','final-mode');overlay.classList.add('crown-mode');
  $('#cutscene .eyebrow').textContent='ROUND COMPLETE';$('#cutscene-label').textContent=titled(ceremonyLabel,'The pavilion blooms');
  runCrownFallback(ceremonyLabel);
 }
@@ -759,15 +748,14 @@ function runCrownFallback(label){
 
 // Final verdict: the gardener prunes the five losing finalists; one $30 champion survives.
 let finalWinners=null;
-function finalRoster(cuts){
+function finalRoster(){
  const rows=Array.isArray(view?.final?.rows)?view.final.rows:[];
- const winners=[{rank:1,name:rows.find(x=>x.rank===1)?.name||'CHAMPION'}];
- return {winners,lineup:cuts.map(name=>({rank:0,name})).concat(winners)};
+ return [{rank:1,name:rows.find(x=>x.rank===1)?.name||'CHAMPION'}];
 }
 function finalTitle(a,b){$('#cutscene-caption').innerHTML='<strong>'+a+'</strong><br>'+esc(b);}
 function startFinalSequence(cuts){
  if(!cutsceneActive)return;
- finalWinners=finalRoster(cuts).winners;
+ finalWinners=finalRoster();
  // Five finalists are pruned. Only the first-place player survives to
  // claim the entire $30, with no runner-up payout.
  if(reducedMotion())runReducedFinalPruning(cuts);
@@ -776,7 +764,7 @@ function startFinalSequence(cuts){
 function revealFinalWinners(run){
  if(!cutsceneActive||run!==cutsceneRunId)return;
  const overlay=$('#cutscene');
- overlay.classList.remove('crown-mode','fc-intro','fc-judge','fc-hook');overlay.classList.add('final-mode','fc-winners');
+ overlay.classList.remove('crown-mode');overlay.classList.add('final-mode','fc-winners');
  const name=rank=>finalWinners?.find(x=>x.rank===rank)?.name||'-';
  const block=(rank,cls)=>'<div class="fc-medal '+cls+'">'+laurelSvg('fc-laurel')+'<span class="fc-winner-name">'+esc(name(rank))+'</span><div class="fc-plinth">'+rank+'</div></div>';
  const petals=Array.from({length:25},(_,i)=>'<span class="fc-petal" style="--x:'+((i*41)%98+1)+'%;--y:'+((i*61)%87+5)+'%;--delay:'+(-(i%8)*.29)+'s"></span>').join('');
@@ -791,7 +779,7 @@ function revealFinalWinners(run){
 
 // ONE dismiss path for Skip / click / Esc / natural completion. Stops audio, cancels the
 // gate ceremony, clears timers, hides the overlay and resolves so the standings can show.
-const cutsceneClasses=['open','verdict-mode','verdict-enter','verdict-judge','verdict-down','verdict-hook','verdict-drag','verdict-gone','verdict-summary','final-mode','fc-intro','fc-judge','fc-hook','fc-winners','crown-mode'];
+const cutsceneClasses=['open','verdict-mode',...verdictPhases.map(p=>'verdict-'+p),'final-mode','fc-winners','crown-mode'];
 function endCutscene(){
  if($('#ceremony-hud'))$('#ceremony-hud').hidden=true;
  cutsceneRunId++;window.BrawlAudio?.stop();window.CityWorld?.cancelCeremony?.();
