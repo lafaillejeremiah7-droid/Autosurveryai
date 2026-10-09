@@ -85,7 +85,7 @@
  let tournament=[],unlocks={},routeTime=0,ceremony=null,ceremonyGeneration=0;
  let monuments=null,podiumSites=[],podiumTime=0,riseAt=null;
  const roomKeys=['settings','round1','round2','final','overview'];
- // Bronze (rules), crimson (Face Your Weakness), imperial purple (Abandon Your Comfort), ochre (Prove Your Resolve), gold (leaderboard).
+ // Bronze (rules), crimson (Know Thy Nature), imperial purple (Adapt or Wither), ochre (The Last Bloom), gold (leaderboard).
  const roomColors=[[.71,.85,.60],[.95,.58,.68],[.70,.68,.92],[.97,.79,.43],[.70,.88,.77]];
  const GATES=[
   {key:'settings',deg:210,size:8},{key:'round1',deg:240,size:8},{key:'round2',deg:270,size:8},
@@ -511,7 +511,7 @@
  }
  function positionLabels(){
   const host=document.getElementById('door-labels');if(!host||!vp)return;
-  const names=['Players & rules','Face Your Weakness','Abandon Your Comfort','Prove Your Resolve','Leaderboard'];
+  const names=['Players & rules','Know Thy Nature','Adapt or Wither','The Last Bloom','Leaderboard'];
   const labelAt=g=>add(add(g.pos,[0,g.size*1.05+.6,0]),mul(g.N,.4));
   const items=sceneView==='podium'&&monuments?podiumSites.map(site=>({id:'place'+site.place,pos:add(site.pos,[0,6,0]),label:site.place+'. '+(monuments.slots.find(s=>s.place===site.place)?.names.join(' · ')||'Awaiting finalist')})):
    [...rooms.map((g,i)=>({id:g.key,pos:labelAt(g),label:ROMAN[i]+' / '+names[i],locked:gateState(g.key)==='sealed'})),
