@@ -507,7 +507,7 @@ def evaluate(s):
         if consistent:
             winning_team='A' if outcomes[0]=={'W'} else 'B'
             losing_team='B' if winning_team=='A' else 'A'
-            consistent=goal_totals[winning_team]>goal_totals[losing_team]
+            consistent=goal_totals[winning_team]>=goal_totals[losing_team]
         score_error=match_goal_error(stage,teams,g)
         games.append({'game':g+1,'scores':count,'wins':w,'losses':l,'teams':teams,'goals':match_goals(stage,teams,g),'score_error':score_error,
                       'ready':count==6 and consistent and not score_error})
