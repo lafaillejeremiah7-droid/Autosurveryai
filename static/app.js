@@ -12,7 +12,7 @@ const money=v=>v===null||v===undefined?'Unassigned':Number(v).toLocaleString('en
 const tabs=[['settings','Players & rules'],['round1','Be Better'],['round2','Enough'],['final','Forget The Past'],['overview','Leaderboard']];
 const roman=['I','II','III','IV','V'];
 const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-// Synthesized arena audio: crowd, brass, hook whistle, gate slam and morning birds. No recordings.
+// Royal garden audio: birds, shear snaps, compost impacts and floral fanfares. No recordings.
 window.BrawlAudio=(()=>{
  let ctx=null,muted=false,active=new Set(),lastRoar=0,lastArrived=false,birdsOn=false,lastChirp=0,nextChirpGap=0;
  function unlock(){try{const C=window.AudioContext||window.webkitAudioContext;if(!ctx&&C)ctx=new C();ctx?.resume();}catch{}}
@@ -50,6 +50,8 @@ window.BrawlAudio=(()=>{
  function horn(){const a=brass(196,1.1,.06);brass(293.66,1.1,.05);return a;}
  function fanfare(){const a=brass(392,.2,.05,0);brass(523.25,.2,.05,.18);brass(659.25,.2,.05,.36);brass(783.99,1,.05,.54);return a;}
  function hook(){return tone(900,.6,.05,'sine',300);}
+ function shears(){noise(.18,.30,3600);tone(980,.12,.12,'square',220);tone(140,.24,.11,'triangle',45,.07);}
+ function compost(){noise(.55,.24,230);tone(63,.55,.17,'sine',32);}
  function slam(){const a=noise(.35,.2,300);tone(60,.4,.15,'sine',40);return a;}
  function victory(){const a=fanfare();cheer(true);return a;}
  // Countdown crowd: murmurs mid-countdown, roars near the start, one fanfare when the games begin.
@@ -66,12 +68,12 @@ window.BrawlAudio=(()=>{
  }
  // A single morning birdsong phrase: a few quick, high, frequency-swept blips.
  function chirp(){if(muted||!ctx||ctx.state!=='running'||document.hidden)return;const base=1850+Math.random()*1500,blips=2+Math.floor(Math.random()*3);for(let i=0;i<blips;i++){const f=base*(.78+Math.random()*.5);tone(f,.06+Math.random()*.05,.03,'sine',f*(1.25+Math.random()*.5));}}
- return {unlock,stop,roar,cheer,boo,horn,fanfare,hook,slam,victory,ambience,
+ return {unlock,stop,roar,cheer,boo,horn,fanfare,hook,slam,shears,compost,victory,ambience,
  // Gentle morning birdsong while the arena is still quiet. The world tick passes
  // on=true only during the low-progress morning; chirps obey mute and document.hidden
  // and stop the moment the crowd builds (or a mute) turns them off.
  ambientBirds(on){if(!on){birdsOn=false;return;}if(muted||document.hidden||!ctx||ctx.state!=='running')return;const now=Date.now();if(!birdsOn){birdsOn=true;lastChirp=now;nextChirpGap=0;}if(now-lastChirp>=nextChirpGap){chirp();lastChirp=now;nextChirpGap=1400+Math.random()*2600;}},
- toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Arena sound off':'Arena sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
+ toggle(){muted=!muted;if(muted)stop();else unlock();const b=$('#sound-toggle');if(b){b.textContent=muted?'Garden sound off':'Garden sound on';b.setAttribute('aria-pressed',String(!muted));}return !muted;},getStatus(){return {muted,unlocked:ctx?.state==='running'};}};
 })();
 const value=path=>path.split('.').reduce((a,k)=>a[k],state);
 const setValue=(path,v)=>{const a=path.split('.');const k=a.pop();a.reduce((o,p)=>o[p],state)[k]=v;};
@@ -638,11 +640,11 @@ function updateCountdown(){
  if(state)window.CityWorld?.setSettings(state.settings);
  const target=state?.settings?.start_at, box=$('#countdown');
  if(!box)return;
- if(!target){if($('#schedule-label'))$('#schedule-label').textContent='SET START TIME';const card=$('.games-clock');if(card)card.dataset.phase='unset';['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});$('#countdown-phase').textContent='AWAITING START TIME';$('#games-status').textContent='Set a start time. Let the crowd gather.';if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');return;}
+ if(!target){if($('#schedule-label'))$('#schedule-label').textContent='SET START TIME';const card=$('.games-clock');if(card)card.dataset.phase='unset';['days','hours','minutes','seconds'].forEach(k=>{const e=$('#countdown-'+k);if(e)e.textContent='--';});$('#countdown-phase').textContent='AWAITING START TIME';$('#games-status').textContent='Set a start time. The garden will open.';if(box.setAttribute)box.setAttribute('aria-label','Tournament start time is not set');return;}
  const ms=Math.max(0,new Date(target).getTime()-Date.now()), total=Math.ceil(ms/1000);
  const d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),sec=total%60;
  [['days',d],['hours',h],['minutes',m],['seconds',sec]].forEach(([k,v])=>{const e=$('#countdown-'+k);if(e)e.textContent=String(v).padStart(2,'0');});
- const started=ms<=0;$('#countdown-phase').textContent=started?'THE GAMES HAVE BEGUN':'COUNTDOWN TO THE GAMES';$('#games-status').textContent=started?'THE GAMES HAVE BEGUN. Enter the gates.':'Gates open '+new Date(target).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});if(box.setAttribute)box.setAttribute('aria-label',started?'The games have begun':'Tournament starts in '+d+' days '+h+' hours '+m+' minutes '+sec+' seconds');
+ const started=ms<=0;$('#countdown-phase').textContent=started?'THE GARDEN IS OPEN':'COUNTDOWN TO THE GARDEN OPENS';$('#games-status').textContent=started?'THE GARDEN IS OPEN. Enter the pavilions.':'Garden opens '+new Date(target).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});if(box.setAttribute)box.setAttribute('aria-label',started?'The garden is open':'Tournament starts in '+d+' days '+h+' hours '+m+' minutes '+sec+' seconds');
  if($('#schedule-label'))$('#schedule-label').textContent='CHANGE START TIME';const card=$('.games-clock');if(card)card.dataset.phase=started?'started':'waiting';
 }
 async function setStartTime(){
@@ -652,7 +654,7 @@ async function setStartTime(){
 function clock(){$('#room-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});updateCountdown();}clock();setInterval(clock,1000);
 // Shared guard: true while the elimination cutscene owns the screen.
 let cutsceneActive=false;
-const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume arena':'Pause arena';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);}};
+const worldClick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='world-toggle'){const paused=document.body.classList.toggle('world-paused');b.setAttribute('aria-pressed',String(paused));const span=b.querySelector&&b.querySelector('span');if(span)span.textContent=paused?'Resume garden':'Pause garden';if(b.firstChild)b.firstChild.textContent=paused?'▶ ':'Ⅱ ';window.CityWorld?.setPaused(paused);}};
 
 // Elimination cutscene: the emperor's verdict and the hook. Plays BEFORE the end-of-round
 // fullscreen standings, once per settled round when its final match is submitted.
@@ -673,23 +675,21 @@ let ceremonyLabel="",ceremonyStage="",cutsceneRunId=0,cutsceneReturnResult=false
 const titled=(label,suffix)=>(label?label+': ':'')+suffix;
 const schedule=(fn,ms)=>cutsceneTimers.push(setTimeout(()=>{if(cutsceneActive)fn();},ms));
 const verdictPhases=['enter','judge','down','hook','drag','gone','summary'];
-const verdictCaptions={enter:'INTO THE ARENA',judge:'THE EMPEROR DECIDES',down:'THUMBS DOWN',hook:'GET THE HOOK',drag:"OFF TO THE LOSERS' GATE",gone:'ELIMINATED'};
-const verdictSounds={judge:a=>a.horn(),down:a=>a.boo(),hook:a=>a.hook(),drag:a=>a.cheer(false),gone:a=>a.slam()};
-// Shared arena backdrop: sky, three rows of crowd heads, the emperor's box and the Losers' Gate.
+const verdictCaptions={enter:'THE GARDENER CALLS YOUR NAME',judge:'THE SHEARS RISE',down:'SNIP!',hook:'FLUNG INTO THE COMPOST',drag:'COMPOST IMPACT',gone:'PRUNED'};
+const verdictSounds={judge:a=>a.horn(),down:a=>a.shears(),hook:a=>a.hook(),drag:a=>a.compost(),gone:a=>a.slam()};
 function verdictBackdrop(){
- const row='<div class="av-row">'+'<i></i>'.repeat(22)+'</div>';
- return '<div class="av-sky"></div><div class="av-crowd">'+row+row+row+'</div>'
-  +'<div class="av-emperor"><svg class="av-emperor-figure" viewBox="0 0 80 70" aria-hidden="true"><rect class="av-drape" x="4" y="38" width="72" height="30" rx="4"/><circle class="av-emperor-head" cx="40" cy="16" r="8"/><path class="av-wreath" d="M30 13Q40 1 50 13"/><line x1="40" y1="24" x2="40" y2="40"/><line x1="40" y1="29" x2="28" y2="37"/><line x1="40" y1="29" x2="54" y2="24"/></svg>'
-  +'<svg class="av-thumb" viewBox="0 0 40 40" aria-hidden="true"><rect x="9" y="17" width="20" height="17" rx="6"/><rect x="22" y="5" width="7" height="17" rx="3.5"/></svg></div>'
-  +'<div class="av-gate"><span class="av-gate-sign">LOSERS\' GATE</span><div class="av-portcullis"></div></div>';
+ return '<div class="gv-sky"></div><div class="gv-palace"></div><div class="gv-hedge gv-hedge-left"></div><div class="gv-hedge gv-hedge-right"></div>'
+  +'<div class="gv-path"></div><div class="gv-rose-arch"></div><div class="gv-compost"><b>COMPOST HEAP</b><i></i><i></i><i></i></div>'
+  +'<div class="gv-gardener"><svg viewBox="0 0 130 190" aria-hidden="true"><path class="gv-hat" d="M14 45L62 7L110 45Z M0 47H125V57H0Z"/><circle cx="63" cy="66" r="21"/><path class="gv-coat" d="M37 91L87 91L108 145L20 145Z"/><path class="gv-body" d="M43 144L36 189M83 144L91 189M38 103L17 134M87 103L112 131"/></svg></div>'
+  +'<svg class="gv-shears" viewBox="0 0 190 170" aria-hidden="true"><path class="gv-blade gv-blade-a" d="M84 102L22 4L95 80Z"/><path class="gv-blade gv-blade-b" d="M84 102L164 13L95 80Z"/><circle class="gv-pivot" cx="84" cy="102" r="8"/><circle class="gv-handle" cx="52" cy="139" r="19"/><circle class="gv-handle" cx="120" cy="140" r="19"/><path class="gv-handle-bar" d="M84 102L52 125M84 102L120 126"/></svg>'
+  +'<div class="gv-snip">SNIP!</div><div class="gv-pruned">PRUNED</div>';
 }
 const hookSvg=(cls='',style='')=>'<svg class="av-hook'+cls+'"'+(style?' style="'+style+'"':'')+' viewBox="0 0 400 80" aria-hidden="true"><path d="M0 50H340"/><path d="M340 50C384 50 388 6 356 6C334 6 330 26 344 32"/></svg>';
 const stickman=name=>'<div class="av-player"><svg class="av-stickman" viewBox="0 0 60 120" aria-hidden="true"><circle class="av-head" cx="30" cy="14" r="10"/><line class="av-body" x1="30" y1="24" x2="30" y2="70"/><line class="av-arm av-arm-l" x1="30" y1="36" x2="12" y2="56"/><line class="av-arm av-arm-r" x1="30" y1="36" x2="48" y2="56"/><line class="av-leg av-leg-l" x1="30" y1="70" x2="16" y2="112"/><line class="av-leg av-leg-r" x1="30" y1="70" x2="44" y2="112"/></svg><span class="av-name">'+esc(name)+'</span></div>';
 const laurelSvg=cls=>'<svg class="'+cls+'" viewBox="0 0 120 80" aria-hidden="true"><path d="M60 74C30 70 14 48 18 14M60 74C90 70 106 48 102 14"/>'+[[20,56,-50],[16,40,-20],[20,24,10],[100,56,50],[104,40,20],[100,24,-10]].map(([x,y,r])=>'<ellipse cx="'+x+'" cy="'+y+'" rx="9" ry="4.5" transform="rotate('+r+' '+x+' '+y+')"/>').join('')+'</svg>';
 // One verdict beat, rebuilt per gladiator so every CSS animation restarts.
 function buildVerdictScene(name){
- $('#cutscene-stage').innerHTML='<div class="arena-verdict">'+verdictBackdrop()+hookSvg()+stickman(name)
-  +'<div class="av-boos"><b>BOO!</b><b>BOO!</b><b>BOO!</b></div><div class="av-sand"></div><div class="av-dust"><i></i><i></i><i></i><i></i></div></div>';
+ $('#cutscene-stage').innerHTML='<div class="arena-verdict garden-verdict">'+verdictBackdrop()+stickman(name)+'</div>';
 }
 function setVerdictClass(phase){
  const overlay=$('#cutscene');
