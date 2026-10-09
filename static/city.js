@@ -86,7 +86,7 @@
  let monuments=null,podiumSites=[],podiumTime=0,riseAt=null;
  const roomKeys=['settings','round1','round2','final','overview'];
  // Bronze (rules), crimson (Be Better), imperial purple (Enough), ochre (Forget The Past), gold (leaderboard).
- const roomColors=[[.85,.72,.45],[.78,.25,.20],[.55,.30,.62],[.90,.55,.20],[.95,.80,.40]];
+ const roomColors=[[.71,.85,.60],[.95,.58,.68],[.70,.68,.92],[.97,.79,.43],[.70,.88,.77]];
  const GATES=[
   {key:'settings',deg:210,size:8},{key:'round1',deg:240,size:8},{key:'round2',deg:270,size:8},
   {key:'final',deg:300,size:8},{key:'overview',deg:330,size:9},
@@ -104,14 +104,15 @@
  // threshold. The audio chirps in BrawlAudio use the same cutoff so the sky birds and
  // their song appear and disappear together.
  const BIRD_THRESHOLD=.2;
- let settings={},state={progress:0,phase:'ARENA AT REST'},width=1,height=1,rooms=[],gates=[],dirty=true,geometryDirty=true;
+ let settings={},state={progress:0,phase:'THE GARDEN IS WAITING'},width=1,height=1,rooms=[],gates=[],dirty=true,geometryDirty=true;
+ let bloomLevel=0,gardenFlowers=0,gardenHedges=0;
  let staticMesh=new Mesh(),staticArray=new Float32Array();
  let elapsed=0,lastFrame=0,lastSample=0,paused=false,suspended=false,inside=false,transition=null,lastBuild='',needsLayout=true;
  let dusk=0,duskTarget=0,seats=0,spectators=0,torchesLit=0,torchCount=0,torchSites=[];
  let surgeAt=null,surgeBig=false,surgeEnv=0;
  let partTris={},rebuilds=0,dynamicTriangles=0,ceremonyRange=[0,0],lastDynamic=[];
  // The viewer hovers high over the near rim, looking down into the arena.
- const baseCamera={eye:[0,60,16],target:[0,0,-64]};
+ const baseCamera={eye:[0,56,25],target:[0,2,-54]};
  let sceneView='street',returnRoute=[];
  let camera={eye:baseCamera.eye.slice(),target:baseCamera.target.slice()},vp;
  let gl=null,ctx=null,program,skyProgram,staticBuffer,dynamicBuffer,skyBuffer,uniforms,skyUniforms;
@@ -159,20 +160,17 @@
  }
  const gatePoint=(g,t,u,n=0)=>add(add(add(g.pos,mul(g.T,t)),mul(g.U,u)),mul(g.N,n));
  function layout(){
-  gates=GATES.map(def=>{
-   const th=def.deg*Math.PI/180,s=def.size,half=s*.65/speed(th),rows=Math.ceil((s*1.05-WALL_H)/ROW_RISE),sBack=1.06+rows*ROW_S;
-   const Em=ep(1,th-half,0),Ep=ep(1,th+half,0),T=norm(sub(Ep,Em));
-   let N=[-T[2],0,T[0]];if(dot(N,inward(th))<0)N=mul(N,-1);
-   const pos=add(mul(add(Em,Ep),.5),mul(N,.06)),front=add(pos,mul(N,.2)),face=faceLayout(s);
-   const laurelAt=add(add(pos,[0,face.bannerCenter,0]),mul(N,face.laurelN));
-   const i=roomKeys.indexOf(def.key),col=def.decor?[.8,.6,.35]:roomColors[i];
-   const banner=def.key==='losers'?[.28,.12,.30]:def.key==='triumph'?[.95,.78,.35]:col;
-   return {...def,th,half,rows,sBack,Em,Ep,T,U:[0,1,0],N,pos,front,laurelAt,face,color:col,banner,
-    width:Math.hypot(...sub(Ep,Em)),depthN:dot(sub(pos,ep(sBack,th,0)),N)};
+  // Five garden pavilions at the ends of the winding palace hedge paths.
+  const sites=[[-26,-35],[-14,-68],[0,-42],[14,-68],[26,-35]];
+  rooms=roomKeys.map((key,i)=>{
+   const [x,z]=sites[i],size=i===4?9:8,N=[0,0,1],pos=[x,0,z];
+   return {key,pos,front:[x,0,z+size*.6],N,size,color:roomColors[i],
+    laurelAt:[x,size*1.55,z],face:{keystoneTop:size*1.5,bannerBottom:size*.8,bannerTop:size*1.2,
+     bannerHalfW:size*.25,bannerCenter:size*1.1,bannerFrontN:0,blockTop:size*1.6,
+     tunnelCeiling:size*.8,openTop:size*.8,archR:size*.2,tunnelLen:size*.6,laurelR:.9,laurelN:0}};
   });
-  rooms=gates.filter(g=>!g.decor);
-  // Victors' dais at the arena center.
-  podiumSites=[2,1,3].map((place,i)=>({place,pos:[(i-1)*5.5,0,ARENA.cz],size:2.1}));
+  gates=rooms;
+  podiumSites=[2,1,3].map((place,i)=>({place,pos:[(i-1)*5.2,0,-99],size:2.1}));
   geometryDirty=true;needsLayout=false;positionLabels();
  }
  function resize(){
