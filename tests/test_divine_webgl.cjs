@@ -45,6 +45,7 @@ assert.equal(geo.positions.length,10);
 assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows of roses');
 assert(geo.triangles>1000);
 assert(geo.gardenTriangles>3000,'detailed 3D garden includes thousands of architectural triangles');
+assert(geo.gardenTriangles>8000,'the distant mountain-forest-river backdrop adds substantial painted-vista geometry behind the garden');
 assert(!rendererHasFloatingForest(),
   'distant trees, floating hills and mountains are removed from cinematic geometry');
 function rendererHasFloatingForest(){
@@ -61,6 +62,19 @@ assert.equal(new Set(meshes.map(x=>x.triangles)).size,7,'all growth levels have 
 assert(meshes[6].triangles>meshes[0].triangles*4,'full-bloom rose has substantially more modeled geometry than the zero-goal seedling');
 const rendererSource=fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8');
 assert(rendererSource.includes('v_pos.y>44.0'),'skin and shears are clipped ABOVE the horizontal portal plane');
+// Re-skin invariants: weathered rusty shears, green foliage debris, and a
+// distant mountain-forest-river backdrop replace the old steel/gold look.
+assert(rendererSource.includes('metal=[.34,.21,.12]'),'shears use a weathered rusty metal base color, not cool steel');
+assert(!rendererSource.includes('metal=[.29,.34,.36]'),'the old cold steel shear color is gone');
+assert(rendererSource.includes('Weathered rusty metal'),'kind-8 shader branch reads as aged rust rather than chrome');
+assert(rendererSource.includes('Green leaf and foliage fragments'),'blade-contact debris is green foliage');
+assert(rendererSource.includes('leafTones'),'cut debris uses leaf-green tones');
+assert(!rendererSource.includes('.12,[1,.86,.51],2,1.45)'),'the old gold gem debris burst at the cut is removed');
+assert(rendererSource.includes('layered fog-blue mountain ridges'),'createField adds a distant mountain ridge vista');
+assert(rendererSource.includes('conifer forest skirt'),'createField adds a forest band behind the garden');
+assert(rendererSource.includes('Winding river'),'createField adds a meandering river to the backdrop');
+assert(rendererSource.includes('God-rays'),'portal emits god-ray light shafts through the cloudy sky');
+assert(!rendererSource.includes('Keep the horizon clear: no distant forest'),'the obsolete clear-horizon comment is gone');
 assert(!rendererSource.includes('this.cylinder(start,tip,.045,PALE'), 'retired unused blade helper must not reference undefined PALE');
 assert(rendererSource.includes("'xz',2"),'portal rings are modeled in the horizontal XZ plane');
 assert(geo.details.includes('fountains')&&geo.details.includes('gazebos')&&geo.details.includes('hedge maze')&&geo.details.includes('palace'),'3D field includes royal garden architecture');
