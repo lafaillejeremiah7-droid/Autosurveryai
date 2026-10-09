@@ -217,7 +217,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.deepEqual([...r1Labels].sort(),[...r1Cut].sort(),'the summary labels exactly the eliminated players');
  for(const n of r1Adv)assert(!r1Labels.includes(n),'advancing player cannot appear in the verdict scene');
  const r1Caption=context.document.querySelector('#cutscene-caption').innerHTML;
- assert(r1Caption.includes('ELIMINATED')&&r1Caption.includes(r1Cut[0]),'caption names the first engine-cut player as ELIMINATED');
+ assert(r1Caption.includes('PRUNED')&&r1Caption.includes(r1Cut[0]),'caption names the first engine-cut player as PRUNED');
  vm.runInContext('endCutscene();',context);
  await r1Submit;
  assert.equal(vm.runInContext('cutsceneActive',context),false,'dismissing the cutscene clears the active flag');
@@ -226,23 +226,23 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert(/ADVANCE/.test(resultEl.innerHTML)&&/CUT/.test(resultEl.innerHTML),'fullscreen shows ADVANCE/CUT badges');
  assert(resultEl.innerHTML.includes('ROUND SETTLED'),'a complete round reports no extra games needed');
  await click({action:'close-result'});
- // (3b) The The Last Bloom (final) fullscreen's average column shows average POINTS per game
+ // (3b) The Last Bloom (final) fullscreen's average column shows average POINTS per game
  //      (total/played), NOT a second copy of the total. Verify the computed value appears
  //      and that it differs from the total for a player whose total != average.
  vm.runInContext('state=fixture.state;view=fixture.view;',context);
  const finalSubmit=click({action:'submit-match',stage:'final',match:'7'});
  await flushMicro();
  assert.equal(vm.runInContext('cutsceneActive',context),true,'the settled The Last Bloom final triggers the elimination cutscene');
- // The Last Bloom throws the NON-PODIUM finishers (rank>3); the top-3 podium is spared.
- const finalThrown=payload.view.final.rows.filter(r=>r.rank>3).map(r=>r.name);
- const finalPodium=payload.view.final.rows.filter(r=>r.rank<=3).map(r=>r.name);
+ // The Last Bloom throws the five non-winners (rank>1); only first place survives.
+ const finalThrown=payload.view.final.rows.filter(r=>r.rank!==1).map(r=>r.name);
+ const finalPodium=payload.view.final.rows.filter(r=>r.rank===1).map(r=>r.name);
  const finalStage=context.document.querySelector('#cutscene-stage').innerHTML;
  assert(finalThrown.length>0,'The Last Bloom has non-podium finishers to throw');
  assert(finalStage.includes('garden-verdict'),'final renders the royal gardener elimination stage');
  assert(context.document.querySelector('#cutscene-caption').innerHTML.includes('PRUNED'),'completed final shows the pruning verdict');
  assert(!context.document.querySelector('#cutscene-caption').innerHTML.includes(finalPodium[0]),'podium player is not selected');
  const finalLosers=[...finalStage.matchAll(/class="av-name">([^<]*)<\/span>/g)].map(m=>m[1]);
- assert.equal(finalLosers.length,3,'three non-podium finalists are pruned');
+ assert.equal(finalLosers.length,5,'all five losing finalists are pruned');
  for(const n of finalPodium)assert(!finalLosers.includes(n),'no podium player is a loser');
  vm.runInContext('endCutscene();',context);
  await finalSubmit;
@@ -294,7 +294,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  const rebirthClear=vm.runInContext('finalGame=0;finalPage()',context);
  assert(rebirthClear.includes('data-action="clear-round" data-stage="final"'),'The Last Bloom renders the clear-round control for final');
  assert(rebirthClear.includes('>Clear The Last Bloom</'),'The Last Bloom clear copy is Clear The Last Bloom');
- assert(rebirthClear.toLowerCase().includes('clears forget the past only'),'The Last Bloom clear panel states it clears only The Last Bloom');
+ assert(rebirthClear.toLowerCase().includes('clears the last bloom only'),'The Last Bloom clear panel states it clears only The Last Bloom');
  // (B) EXTENDED ROUND1 CASCADE: resetStage('round1') clears round1 + round2 + final
  //     goals while array lengths stay 5/5/8, lineups cleared, round2 draw reset.
  vm.runInContext('state=fixture.state;',context);
@@ -582,12 +582,12 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  //      no-trigger-on-non-final case, the single-dismiss (skip) path, and the
  //      reduced-motion static summary. ----
  vm.runInContext('state=fixture.state;view=fixture.view;render=()=>{};flush=async()=>{};save=async()=>{};',context);
- // (A) eliminatedNames maps each stage to the right rows: round1/round2 CUT, final rank>3.
+ // (A) eliminatedNames maps each stage to the right rows: round1/round2 CUT, final rank>1.
  const en1=JSON.parse(vm.runInContext("JSON.stringify(eliminatedNames('round1'))",context));
  assert.deepEqual([...en1].sort(),[...payload.view.round1.rows.filter(r=>r.status==='CUT').map(r=>r.name)].sort(),'eliminatedNames(round1) = the CUT rows');
  const enF=JSON.parse(vm.runInContext("JSON.stringify(eliminatedNames('final'))",context));
- assert.deepEqual([...enF].sort(),[...payload.view.final.rows.filter(r=>r.rank>3).map(r=>r.name)].sort(),'eliminatedNames(final) = the rank>3 finishers');
- assert(enF.every(n=>!payload.view.final.rows.filter(r=>r.rank<=3).map(x=>x.name).includes(n)),'no podium finisher is in eliminatedNames(final)');
+ assert.deepEqual([...enF].sort(),[...payload.view.final.rows.filter(r=>r.rank!==1).map(r=>r.name)].sort(),'eliminatedNames(final) = everyone ranked below first');
+ assert(enF.every(n=>!payload.view.final.rows.filter(r=>r.rank===1).map(x=>x.name).includes(n)),'no podium finisher is in eliminatedNames(final)');
  // (B) A NON-FINAL match submit does NOT trigger the cutscene.
  vm.runInContext('cutsceneActive=false;',context);
  await click({action:'submit-match',stage:'round1',match:'0'});
@@ -624,7 +624,7 @@ const flushMicro=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
  assert.equal(vm.runInContext("reducedMotion()",context),true,'sandbox defaults to reduced motion');
  vm.runInContext("playCutscene(['Casey','Dakota']);",context);
  const captionEl=context.document.querySelector('#cutscene-caption');
- assert(/THE ROSES BLOOM/.test(captionEl.innerHTML),'reduced motion shows the static PAVILION OPEN card');
+ assert(/THE ROSES BLOOM/.test(captionEl.innerHTML),'reduced motion shows the static THE ROSES BLOOM card');
  assert(captionEl.innerHTML.includes('Final'),'static beat labels the opened pavilion');
  vm.runInContext('endCutscene();',context);
  // (E) EMPTY eliminated list: playCutscene resolves immediately and never flags active.
