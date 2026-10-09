@@ -145,7 +145,7 @@
   return true;
  }
  let mode='webgl';
- try{if(!initGL())mode='static';}catch(error){console.warn('Arena renderer uses static projection:',error.message);mode='static';}
+ try{if(!initGL())mode='static';}catch(error){console.warn('Garden renderer uses static projection:',error.message);mode='static';}
  if(mode==='static'){
   // A fresh canvas can obtain 2D even if an attempted WebGL setup already claimed one.
   const fallback=document.createElement('canvas');fallback.id=canvas.id;fallback.setAttribute('aria-hidden','true');canvas.replaceWith(fallback);ctx=fallback.getContext('2d');
@@ -612,9 +612,9 @@
    const gate=rooms.find(r=>r.key===key);if(!gate)return;
    const generation=++ceremonyGeneration;ceremony={key,phase:'approach',at:null};
    sceneView='ceremony';document.body.classList.add('gate-ceremony');resize();
-   const hud=document.getElementById('ceremony-status');if(hud)hud.textContent='RETURNING TO THE ARENA'+(label?': '+label.toUpperCase():'');
+   const hud=document.getElementById('ceremony-status');if(hud)hud.textContent='RETURNING TO THE GARDEN'+(label?': '+label.toUpperCase():'');
    const {front,N,size}=gate,gx=gate.pos[0];
-   await travel([{eye:[gx*.3,32,ARENA.cz+6],target:front.slice()},{eye:lifted(add(front,mul(N,20)),10),target:lifted(front,size*.8)}],false);
+   await travel([{eye:[gx*.25,32,-12],target:lifted(front,6)},{eye:lifted(add(front,mul(N,18)),12),target:lifted(front,size*.8)}],false);
    if(generation!==ceremonyGeneration)return;
    await new Promise(done=>{ceremony={key,phase:'descend',at:performance.now(),camera:{eye:camera.eye.slice(),target:camera.target.slice()},onCrown,done};dirty=true;});
   },
@@ -650,7 +650,7 @@
    if(needsLayout)layout();
    const gate=rooms.find(r=>r.key===(key==='sitout'?'round2':key));if(!gate)return Promise.resolve();
    const {front,N}=gate,gx=gate.pos[0];
-   const route=[{eye:[gx*.3,30,ARENA.cz+8],target:lifted(front,4)},{eye:lifted(add(front,mul(N,14)),5),target:lifted(front,4)},{eye:lifted(add(front,mul(N,3.2)),2.6),target:lifted(sub(front,mul(N,4)),2.4)}];
+   const route=[{eye:[gx*.28,35,-12],target:lifted(front,4)},{eye:lifted(add(front,mul(N,18)),13),target:lifted(front,5)},{eye:lifted(add(front,mul(N,5)),3.8),target:lifted(sub(front,mul(N,4)),3)}];
    returnRoute=route.slice(0,2).reverse();sceneView='street';return travel(route,true);
   },
   leaveRoom(){sceneView='street';return travel([...returnRoute,baseCamera],false);},
