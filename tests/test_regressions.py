@@ -111,9 +111,18 @@ class Regressions(unittest.TestCase):
             thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
             url=f'http://127.0.0.1:{server.server_port}'
             try:
-                for route in ['/','/app.js','/city.js','/city.css','/style.css','/city-timeline.js','/monuments.js']:
+                for route in ['/','/app.js','/city.js','/city.css','/style.css','/city-timeline.js','/monuments.js','/divine3d.js']:
                     with self.subTest(route=route),urlopen(url+route) as response:
                         self.assertEqual(response.status,200)
+                # The real HTML must load the WebGL script through the server;
+                # a missing route silently falls back to the flat SVG cutscene.
+                with urlopen(url+'/') as response:
+                    page=response.read().decode('utf-8')
+                self.assertIn('<script src="/divine3d.js"></script>',page)
+                with urlopen(url+'/divine3d.js') as response:
+                    renderer=response.read().decode('utf-8')
+                self.assertIn('window.Divine3D=',renderer)
+                self.assertIn('PORTAL_PLANE=44',renderer)
                 with self.assertRaises(HTTPError) as caught:urlopen(url+'/tower-strike.svg')
                 self.assertEqual(caught.exception.code,404);caught.exception.close()
             finally:
