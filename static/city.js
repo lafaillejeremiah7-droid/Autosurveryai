@@ -426,98 +426,44 @@
   if(sealed)m.obox(P(0,f.openTop,.06),g.T,g.U,g.N,.3*g.size,.04*g.size,.05,[.4,.19,.12],3);
  }
  function effects(t){
-  const m=new Mesh(),p=state.progress,still=media.matches||mode==='static',C=[ARENA.cx,0,ARENA.cz];
-  morningBirds(m,t);
-  // Flames: stand torches, then braziers and tunnel torches on every unsealed gate.
-  for(const site of torchSites)if(site.lit)flame(m,site.pos,1.4);
-  for(const g of gates){
-   if(gateState(g.key)==='sealed')continue;
-   for(const side of [-1,1]){
-    const b=gatePoint(g,side*g.size*.62,0,g.size*.5);flame(m,[b[0],1.55,b[2]],1.6);
-    flame(m,gatePoint(g,side*(g.face.openHalfW-.1),.4*g.size+.15,-g.face.tunnelLen*.5),.8);
+  const m=new Mesh(),still=media.matches||mode==='static';
+  // Four fountains remain active independently of round completions.
+  for(const [x,z,r] of [[0,-22,5],[0,-113,6],[-46,-66,4],[46,-66,4]]){
+   const count=still?5:10;
+   for(let i=0;i<count;i++){
+    const angle=i*TAU/count,u=still?.45:(t*.57+i*.113)%1;
+    const radius=r*.65*Math.sin(Math.PI*u),h=.5+Math.sin(Math.PI*u)*3.3;
+    m.gem(x+Math.cos(angle)*radius,h,z+Math.sin(angle)*radius,.12,[.61,.89,.91],3,1.1);
    }
   }
-  // Banners hang from every other mast and sway in the breeze.
-  for(let i=0;i<12;i++){
-   const th=i*4*DSEG,tn=tangent(th),out=mul(inward(th),-1),top=add(ep(FACADE_S,th,27),mul(out,.35)),col=roomColors[i%5];
-   const sway=still?0:Math.sin(t*1.3+i)*.6,at=(u,y)=>add(add(top,mul(tn,u)),[0,y,0]);
-   m.oquad(at(-.8,0),at(.8,0),at(.8+sway*.5,-2.5),at(-.8+sway*.5,-2.5),out,col);
-   m.oquad(at(-.8+sway*.5,-2.5),at(.8+sway*.5,-2.5),at(.8+sway,-5),at(-.8+sway,-5),out,col);
-  }
-  // Rose petals drift down over the sand; more as the crowd heats up.
-  const petals=still?12:Math.floor(6+p*40);
+  // Drifting rose petals increase after each round settles.
+  const petals=8+Math.round(bloomLevel*55);
   for(let i=0;i<petals;i++){
-   const x0=C[0]+(rand(i+200)-.5)*ARENA.rx*1.4,z0=C[2]+(rand(i+300)-.5)*ARENA.rz*1.4,col=PETALS[i%3];
-   if(still){m.gem(x0,.12,z0,.16,col,3,.4);continue;}
-   const u=(t*(.04+rand(i+400)*.03)+rand(i+520))%1;
-   m.gem(x0+Math.sin(t*1.7+i)*.9,26*(1-u)+.12,z0+Math.cos(t*1.3+i)*.6,.16,col,3,.5);
+   const x=(rand(i+201)-.5)*78,z=-17-rand(i+304)*99,u=still?.3:(t*(.03+rand(i+399)*.018)+rand(i+521))%1;
+   m.gem(x+Math.sin(t*.54+i)*.4,still?.2:17*(1-u)+.2,z,.16,PETALS[i%PETALS.length],3,.46);
   }
-  if(surgeBig&&surgeEnv>0&&!still){
-   const u=1-surgeEnv;
-   for(let i=0;i<16;i++){const a=i*TAU/16;m.gem(C[0]+Math.cos(a)*u*12,1+Math.sin(u*Math.PI)*8,C[2]+Math.sin(a)*u*8,.2,PETALS[i%3],3,.5);}
+  // Tournament podium stays bound to actual saved rank/results.
+  if(monuments)for(const site of podiumSites){
+   const slot=monuments.slots.find(s=>s.place===site.place);if(!slot)continue;
+   const [x,,z]=site.pos,w=site.size,rise=monuments.complete?(still||riseAt===null?1:smooth(clamp((podiumTime-riseAt)/2.4))):0;
+   const h=w*(.4+(4-site.place)*.28+rise*.9);
+   const medal=site.place===1?[.94,.77,.34]:site.place===2?[.78,.79,.81]:[.68,.42,.27];
+   m.box(x,h/2,z,w*1.6,h,w*1.3,slot.tied?[.37,.41,.36]:medal);
+   m.box(x,h+.07,z,w*1.75,.15,w*1.45,[.9,.85,.71],3);
+   if(monuments.complete)m.loop([x,h+.2,z],[1,0,0],[0,0,-1],w*.62,.15,[.93,.70,.35],3);
   }
-  if(mode==='webgl'&&!still&&p>.4){
-   const count=Math.min(6,1+Math.floor((p-.4)*10));
-   for(let i=0;i<count;i++){const side=i%2?1:-1,u=(t*.25+i*.37)%1;m.billboard(C[0]+side*12+Math.sin(i*2.1)*2.5,.6+u*2.2,C[2]+4+Math.cos(i*1.7)*2,2+u*3,1.6+u*2.4,[.86,.74,.54],4);}
-  }
-  // Two pairs of sparring gladiators circle each other on the sand.
-  for(const side of [-1,1]){
-   const cp=add(C,[side*12,0,4]),phase=still?side*.6:t*.7+side,dir=[Math.cos(phase),0,Math.sin(phase)],swing=still?0:t*6+side;
-   gladiator(m,add(cp,mul(dir,1.6)),mul(dir,-1),swing,[.78,.25,.20]);
-   gladiator(m,sub(cp,mul(dir,1.6)),dir,swing+Math.PI,[.85,.65,.35]);
-  }
-  // Gate portcullis, current-gate ring and the gold route between gates.
-  const stops=tournament.map(stage=>({...stage,gate:rooms.find(r=>r.key===stage.key)})).filter(s=>s.gate);
-  for(let i=0;i<stops.length;i++){
-   const stop=stops[i],g=stop.gate,s=g.size;
-   const opening=still||unlocks[stop.key]===undefined?1:clamp((routeTime-unlocks[stop.key]-1.1)/1.1);
-   const sealed=stop.status==='sealed',amount=sealed?0:opening;
-   if(sealed||amount<1)portcullis(m,g,amount,sealed);
-   if(stop.status==='current'){const c=add(g.front,mul(g.N,s*.7));m.loop([c[0],.08,c[2]],[1,0,0],[0,0,-1],.78*s,.25,g.color.map(v=>v*(.72+Math.sin(t*3)*.2)),3);}
-   if(i===0)continue;
-   const prev=stops[i-1].gate,pa=add(prev.front,mul(prev.N,3)),pb=add(g.front,mul(g.N,3)),a=[pa[0],.25,pa[2]],b=[pb[0],.25,pb[2]];
-   m.line(a,b,.11,sealed?[.25,.2,.15]:[1,.8,.35]);
-   if(!sealed){
-    const u=unlocks[stop.key]!==undefined&&routeTime-unlocks[stop.key]<1.1?clamp((routeTime-unlocks[stop.key])/1.1):(t*.28)%1;
-    const light=a.map((v,j)=>mix(v,b[j],u));m.gem(light[0],light[1]+.15,light[2],.25,[1,.9,.5],3);
-   }
-  }
-  // Victors' podium on the dais, driven solely by settled tournament results.
-  if(monuments){
-   for(const site of podiumSites){
-    const slot=monuments.slots.find(s=>s.place===site.place);if(!slot)continue;
-    const [x,,z]=site.pos,w=site.size;
-    const rise=monuments.complete?(still||riseAt===null?1:smooth(clamp((podiumTime-riseAt)/2.4))):0;
-    const h=w*(.4+(4-site.place)*.28+rise*.9);
-    const col=site.place===1?[.93,.7,.25]:site.place===2?[.78,.78,.80]:[.72,.39,.22];
-    m.box(x,h/2,z,w*1.6,h,w*1.25,slot.tied?[.35,.30,.26]:col);
-    m.box(x,h+.03,z,w*1.66,.09,w*1.3,slot.tied?[.52,.47,.42]:col.map(c=>Math.min(1,c*1.3)),3);
-    if(monuments.complete){m.ring(x,.35,z,w*1.15,.08,col);m.loop([x,h+.12,z],[1,0,0],[0,0,-1],w*.45,w*.12,[1,.8,.35],3);}
-   }
-  }
-  // Gate ceremony: the laurel descends onto the gate banner, then petals and a gold ring.
+  // Opening ceremony grows a halo of flowers around the cleared pavilion.
   const ceremonyStart=m.data.length;
   if(ceremony&&ceremony.at!==null){
    const g=rooms.find(r=>r.key===ceremony.key);
    if(g){
-    const age=(performance.now()-ceremony.at)/1000,s=g.size,L=g.laurelAt,fc=[g.front[0],.1,g.front[2]];
-    if(ceremony.phase!=='crowned'){
-     if(still)laurel(m,g,L);
-     else{
-      const k=Math.min(1,age/1.4),e=1-(1-k)*(1-k),c=add(L,[0,40*(1-e),0]);
-      laurel(m,g,c);
-      for(let i=0;i<6;i++)m.gem(c[0]+Math.sin(i*2.4+age*3)*1.2,c[1]+1+i*1.1,c[2]+Math.cos(i*1.9)*.6,.18,PETALS[i%3],3,.5);
-     }
-    }else{
-     const sand=[.87,.76,.55],gold=[1,.8,.35];
-     if(still)m.ring(fc[0],fc[1],fc[2],s*3,.3,color(sand,gold,.5),3);
-     else{
-      const u=clamp((age-1.4)/3.6);
-      if(u<1){
-       for(let i=0;i<24;i++){const a=i*TAU/24,r=u*s*1.6;m.gem(fc[0]+Math.cos(a)*r,s*.9+Math.sin(u*Math.PI)*4-u*s*.8,fc[2]+Math.sin(a)*r,.2,PETALS[i%3],3,.5);}
-       m.ring(fc[0],fc[1],fc[2],s*(.8+u*2.2),.3,color(sand,gold,1-u),3);
-      }
-     }
+    const age=(performance.now()-ceremony.at)/1000,[x,,z]=g.pos;
+    const spread=ceremony.phase==='crowned'?clamp((age-1.4)/3.6):0;
+    m.loop([x,.13,z],[1,0,0],[0,0,-1],g.size*(.5+2*spread),.21,[.92,.72,.45],3);
+    for(let i=0;i<24;i++){
+     const angle=i*TAU/24,r=g.size*(.16+spread*1.5);
+     const h=ceremony.phase==='crowned'?Math.max(.5,8*(1-spread)):10*(1-clamp(age/1.4))+3;
+     m.gem(x+Math.cos(angle)*r,h+Math.sin(angle*2+age)*.7,z+Math.sin(angle)*r,.31,PETALS[i%PETALS.length],3,.5);
     }
    }
   }
