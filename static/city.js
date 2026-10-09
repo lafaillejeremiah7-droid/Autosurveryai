@@ -263,133 +263,118 @@
   }
  }
  function rebuildArena(){
-  const p=state.progress,lite=mode==='static',m=new Mesh();
-  partTris={};rebuilds++;
+  // The former circular stadium is now an open royal maze garden. All geometry
+  // below is part of the same fullscreen WebGL scene, never an image backdrop.
+  const m=new Mesh(),still=mode==='static';partTris={};rebuilds++;
   const part=(name,fn)=>{const before=m.data.length;fn();partTris[name]=(m.data.length-before)/30;};
-  const C=[ARENA.cx,0,ARENA.cz];
-  part('ground',()=>{
-   m.box(ARENA.cx,-.5,ARENA.cz,900,1,720,color([.42,.38,.27],[.20,.15,.13],duskTarget));
-   for(let j=0;j<SEG;j++){const a=j*DSEG,b=a+DSEG;m.oquad(ep(FACADE_S,a,.01),ep(FACADE_S,b,.01),ep(2.4,b,.01),ep(2.4,a,.01),up,j%2?[.80,.76,.66]:[.76,.72,.62]);}
+  const stone=[.78,.77,.65],gravel=[.83,.77,.60],hedge=[.14,.36,.18],hedgeTip=[.21,.49,.25],gold=[.83,.67,.36];
+  const bloom=Math.round(bloomLevel*3);
+  const roseColors=[[.99,.42,.53],[.97,.73,.48],[.92,.67,.87],[.97,.93,.76]];
+  gardenFlowers=0;gardenHedges=0;
+  part('lawn',()=>{
+   m.box(0,-.6,-61,180,1.2,182,[.21,.39,.23]);
+   m.box(0,-.03,-61,111,.12,138,[.22,.45,.27]);
+   // Formal cobblestone walks between raised green hedge walls.
+   m.box(0,.035,-50,7,.08,120,gravel);
+   for(const z of [-30,-48,-66,-84,-101])m.box(0,.05,z,78,.08,5,gravel);
+   for(const x of [-34,-17,17,34])m.box(x,.045,-61,4,.08,100,gravel);
+   // Palace terrace and stairway, beyond the fountain court.
+   for(let k=0;k<6;k++)m.box(0,.15+k*.25,-127-k*1.7,78-k*2,.3,10,stone);
   });
-  part('hills',()=>{
-   if(lite)return;
-   for(let i=0;i<10;i++){const a=i*TAU/10+.3,r=260+rand(i+600)*60,h=10+rand(i+610)*22;
-    m.box(C[0]+Math.cos(a)*r,h/2-2,C[2]+Math.sin(a)*r,110+rand(i+620)*60,h,50,color([.45,.47,.30],[.22,.20,.20],duskTarget));}
+  part('maze-hedges',()=>{
+   const walls=[
+    [-39,-58,3,78],[-29,-46,3,40],[-29,-88,3,40],
+    [39,-58,3,78],[29,-46,3,40],[29,-88,3,40],
+    [-9,-24,32,3],[9,-24,32,3],[-9,-38,31,3],[9,-53,31,3],
+    [-9,-66,31,3],[9,-78,31,3],[-9,-92,31,3],[9,-106,31,3],
+    [-19,-46,3,22],[19,-65,3,23],[-20,-84,3,20],[20,-92,3,24],
+    [-47,-98,3,65],[47,-98,3,65],
+    [-44,-126,92,3]
+   ];
+   for(const [x,z,w,d] of walls){
+    const segments=Math.ceil(Math.max(w,d)/8),alongX=w>d;
+    for(let i=0;i<segments;i++){
+     const length=(alongX?w:d)/segments;
+     const px=x+(alongX?(i-(segments-1)/2)*length:0);
+     const pz=z+(alongX?0:(i-(segments-1)/2)*length);
+     m.box(px,1.7,pz,alongX?length+.05:w,3.4,alongX?d:length+.05,hedge);
+     m.box(px,3.35,pz,alongX?length+.04:w+.02,.55,alongX?d+.02:length+.04,hedgeTip);
+     gardenHedges++;
+    }
+   }
+   // Small hedge islands give the maze recognizable turns from above.
+   for(let k=0;k<14;k++){const x=(k%7-3)*12,z=-35-Math.floor(k/7)*49;
+    if(Math.abs(x)<10)continue;m.box(x,1.2,z,4,2.4,5,[.12,.34,.18]);}
   });
-  part('cypresses',()=>{
-   if(lite)return;
-   for(let i=0;i<24;i++){const th=rand(i)*TAU;if(Math.sin(th)>.6)continue;
-    const [x,,z]=ep(2.6+rand(i+50)*.8,th),r=1.1+rand(i+60)*.5;m.gem(x,r*3.5,z,r,[.13,.26,.14],0,3.5);}
+  part('rose-beds',()=>{
+   // Each round complete opens a fresh section of roses. At zero completions
+   // only rosebuds and stems exist; after Final, every section is in bloom.
+   for(let i=0;i<112;i++){
+    const lane=i%8,rank=Math.floor(i/8),side=lane<4?-1:1;
+    const x=side*(5+(lane%4)*8)+Math.sin(i*13.1)*1.4,z=-19-rank*7.3;
+    const y=.2+(i%4)*.05,col=roseColors[i%roseColors.length];
+    m.box(x,.3,z,.13,.6,.13,[.12,.42,.17]);
+    const open= (i%3)<bloom;
+    if(open){
+     m.gem(x,.95,z,.62,col,3,.55);gardenFlowers++;
+     for(let k=0;k<5;k++){const angle=k*TAU/5;m.gem(x+Math.sin(angle)*.4,.76,z+Math.cos(angle)*.4,.28,
+      color(col,[.95,.93,.78],.15),3,.4);}
+    }else m.gem(x,.75,z,.19,[.43,.20,.22],3,1.2);
+   }
   });
-  part('floor',()=>{
-   const pts=[];for(let j=SEG;j>0;j--)pts.push(ep(1,j*DSEG,.02));
-   const sand=[.87,.76,.55];m.fan([C[0],.02,C[2]],pts,i=>i%2?mul(sand,.97):sand,0,up);
-  });
-  part('rings',()=>{
-   if(lite)return;
-   for(const s of [.55,.85])for(let j=0;j<SEG;j++){const a=j*DSEG,b=a+DSEG;m.oquad(ep(s,a,.03),ep(s,b,.03),ep(s+.025,b,.03),ep(s+.025,a,.03),up,[.76,.64,.45]);}
-  });
-  part('wall',()=>{
-   for(let j=0;j<SEG;j++){
-    const col=j%2?[.88,.84,.76]:[.76,.30,.24];
-    for(const [a,b] of subtract(j*DSEG,(j+1)*DSEG,cutsFor('wall'))){
-     m.oquad(ep(1,a,0),ep(1,b,0),ep(1,b,WALL_H),ep(1,a,WALL_H),inward((a+b)/2),col,1);
-     m.oquad(ep(1,a,WALL_H),ep(1,b,WALL_H),sub(ep(1,b,WALL_H),mul(inward(b),.4)),sub(ep(1,a,WALL_H),mul(inward(a),.4)),up,[.90,.87,.80]);
+  part('pavilions',()=>{
+   for(const g of rooms){
+    const [x,,z]=g.pos,r=g.size,colorTop=g.color,stateGate=gateState(g.key),sealed=stateGate==='sealed';
+    m.box(x,.2,z,r*2.1,.4,r*1.8,stone);
+    for(const dx of [-r*.7,r*.7])for(const dz of [-r*.58,r*.58]){
+     m.box(x+dx,3.3,z+dz,.46,6.2,.46,[.93,.91,.81]);
+     m.box(x+dx,6.52,z+dz,.88,.34,.88,gold);
+    }
+    // A translucent-looking vaulted copper roof, lantern and finial.
+    m.box(x,6.85,z,r*2.1,.7,r*1.78,sealed?[.36,.35,.32]:colorTop);
+    m.gem(x,8.8,z,r*.75,sealed?[.35,.34,.31]:colorTop,0,.48);
+    m.box(x,9.5,z,.2,2,.2,gold);
+    m.gem(x,10.65,z,.35,gold,3,1.7);
+    if(sealed)for(let k=0;k<5;k++)m.box(x+(k-2)*r*.34,2.7,z+r*.77,.16,5.2,.17,[.32,.34,.32]);
+    else{
+     m.box(x,1,z+r*.7,r*.6,1.7,.14,[.18,.41,.24]);
+     m.loop([x,.55,z+r*1.02],[1,0,0],[0,0,-1],r*.55,.18,g.color,3);
     }
    }
   });
-  part('cavea',()=>{
-   for(let r=0;r<ROWS;r++){
-    const s0=1.06+r*ROW_S,y=WALL_H+r*ROW_RISE,low=r===0?WALL_H-.4:y-ROW_RISE,marble=r>0&&r%4===0;
-    for(let j=0;j<SEG;j++){
-     const shade=j%6===0?.74:1,tread=mul(r%2?[.80,.74,.62]:[.84,.78,.66],shade),riser=mul(marble?[.92,.89,.82]:[.70,.62,.50],shade);
-     for(const [a,b] of subtract(j*DSEG,(j+1)*DSEG,cutsFor('tread',r)))m.oquad(ep(s0,a,y),ep(s0,b,y),ep(s0+ROW_S,b,y),ep(s0+ROW_S,a,y),up,tread);
-     for(const [a,b] of subtract(j*DSEG,(j+1)*DSEG,cutsFor('riser',r)))m.oquad(ep(s0,a,low),ep(s0,b,low),ep(s0,b,y),ep(s0,a,y),inward((a+b)/2),riser,1);
-    }
+  part('royal-palace',()=>{
+   const z=-133;
+   m.box(0,9,z-1,56,18,18,[.89,.86,.77]);
+   m.box(0,19,z-1,60,2,21,[.41,.53,.35]);
+   m.box(0,24,z-1,28,8,12,[.91,.88,.78]);
+   m.gem(0,31,z,3.5,gold,0,1.5);
+   for(let k=-5;k<=5;k++){
+    const x=k*4.4;
+    m.box(x,9.2,z+8,.8,14,.8,[.97,.95,.85]);
+    m.box(x,16.7,z+8,2,.6,1.2,gold);
+    if(k%2===0)m.box(x,8,z+8.55,1.1,5,.2,[.17,.27,.22]);
+   }
+   for(const x of [-26,26]){m.box(x,14,z,5,28,5,stone);m.gem(x,30,z,4.5,gold,0,1.2);}
+  });
+  part('fountains',()=>{
+   for(const [x,z,r] of [[0,-22,5],[0,-113,6],[-46,-66,4],[46,-66,4]]){
+    m.loop([x,.18,z],[1,0,0],[0,0,-1],r,.8,stone);
+    m.box(x,.14,z,r*1.28,.28,r*1.28,[.30,.60,.66]);
+    m.gem(x,1.3,z,.7,[.91,.91,.79]);
+    m.gem(x,3,z,.3,gold,3,3);
    }
   });
-  part('facade',()=>{
-   for(let j=0;j<SEG;j++){
-    const a=j*DSEG,b=a+DSEG,mid=a+DSEG/2,inn=inward(mid),out=mul(inn,-1),A=ep(FACADE_S,a,0),B=ep(FACADE_S,b,0),len=Math.hypot(...sub(B,A));
-    const P=(t,y,off)=>add(add(add(mul(A,1-t),mul(B,t)),[0,y,0]),mul(out,off));
-    const stone=j%2?[.84,.78,.66]:[.80,.74,.62],light=[.93,.89,.79],dark=[.10,.08,.07];
-    m.oquad(P(0,0,0),P(1,0,0),P(1,FACADE_H,0),P(0,FACADE_H,0),out,stone,1);
-    m.oquad(P(0,0,-.05),P(1,0,-.05),P(1,FACADE_H,-.05),P(0,FACADE_H,-.05),inn,mul(stone,.92),1);
-    const rad=Math.min(.3*len,.3*LEVEL_H),pw=.25/len;
-    for(let l=0;l<3;l++){
-     const y0=l*LEVEL_H,top=y0+.75*LEVEL_H-rad;
-     m.oquad(P(.2,y0,.02),P(.8,y0,.02),P(.8,top,.02),P(.2,top,.02),out,dark);
-     const arc=[];for(let k=0;k<=4;k++){const phi=Math.PI*k/4;arc.push(P(.5+.3*Math.cos(phi),top+rad*Math.sin(phi),.02));}
-     m.fan(P(.5,top,.02),arc,dark,0,out,false);
-     m.oquad(P(-pw,y0,.04),P(pw,y0,.04),P(pw,y0+LEVEL_H,.04),P(-pw,y0+LEVEL_H,.04),out,light);
-    }
-    for(const y of [LEVEL_H,2*LEVEL_H,3*LEVEL_H,FACADE_H])m.oquad(P(0,y-.35,.06),P(1,y-.35,.06),P(1,y,.06),P(0,y,.06),out,[.90,.86,.76]);
-    if(j%2===0)m.oquad(P(.4,20,.03),P(.6,20,.03),P(.6,22,.03),P(.4,22,.03),out,dark);
+  part('rose-arches',()=>{
+   for(let n=0;n<7;n++){
+    const z=-19-n*15,x=n%2?-2:2;
+    for(const off of [-4.7,4.7])m.box(x+off,2.5,z,.45,5,.45,[.71,.72,.62]);
+    m.box(x,5.1,z,10,.5,.65,[.23,.44,.23]);
+    m.gem(x,6.1,z,.8,bloom>n%3?roseColors[n%4]:[.22,.46,.23],3,1.1);
    }
-  });
-  part('masts',()=>{
-   for(let j=0;j<SEG;j+=2){const th=j*DSEG;m.obox(ep(FACADE_S,th,FACADE_H+2),tangent(th),up,inward(th),.3,4,.3,[.45,.34,.22]);}
-  });
-  part('velarium',()=>{
-   for(let j=0;j<SEG;j++){const a=j*DSEG,b=a+DSEG;if(Math.sin(a+DSEG/2)>.35)continue;
-    m.oquad(ep(1.78,a,27.5),ep(1.78,b,27.5),ep(1.54,b,24.5),ep(1.54,a,24.5),up,j%2?[.66,.16,.14]:[.93,.88,.76]);}
-  });
-  part('pulvinar',()=>{
-   const th=PULV.th,a=th-PULV.half,b=th+PULV.half,y0=PULV_BASE,y1=PULV_TOP,marble=[.90,.86,.78];
-   const fr=[a,th,b].map(t=>ep(PULV_S0,t,0)),bk=[a,th,b].map(t=>ep(PULV_S1,t,0)),Y=(q,y)=>[q[0],y,q[2]];
-   for(let k=0;k<2;k++){
-    m.oquad(Y(fr[k],y0),Y(fr[k+1],y0),Y(fr[k+1],y1),Y(fr[k],y1),inward(th),[.62,.20,.20],1);
-    m.oquad(Y(fr[k],y1),Y(fr[k+1],y1),Y(bk[k+1],y1),Y(bk[k],y1),up,marble);
-   }
-   m.oquad(Y(fr[0],y0),Y(bk[0],y0),Y(bk[0],y1),Y(fr[0],y1),mul(tangent(a),-1),marble,1);
-   m.oquad(Y(fr[2],y0),Y(bk[2],y0),Y(bk[2],y1),Y(fr[2],y1),tangent(b),marble,1);
-   const deg=Math.PI/180;
-   for(const [s,d] of [[PULV_S0+.005,-7],[PULV_S0+.005,7],[1.58,-2.5],[1.58,2.5]]){const t=th+d*deg;m.obox(ep(s,t,y1+1.75),tangent(t),up,inward(t),.35,3.5,.35,marble);}
-   const span=Math.hypot(...sub(ep(1.5,b),ep(1.5,a))),depth=Math.hypot(...sub(ep(PULV_S1,th),ep(PULV_S0,th)));
-   m.obox(ep((PULV_S0+PULV_S1)/2,th,19.6),tangent(th),up,inward(th),span,.4,depth,[.42,.16,.48]);
-   m.obox(add(ep(PULV_S0,th,19.6),mul(inward(th),.125)),tangent(th),up,inward(th),Math.hypot(...sub(ep(PULV_S0,b),ep(PULV_S0,a))),.5,.25,[.95,.78,.35],3);
-  });
-  part('torches',()=>{
-   torchSites=[];torchesLit=0;
-   TORCHES.forEach((th,i)=>{
-    const lit=rand(i+900)<duskTarget||duskTarget>=1,base=ep(TORCH_S,th,TORCH_Y),bowl=add(base,[0,1.95,0]);
-    m.obox(add(base,[0,.9,0]),tangent(th),up,inward(th),.15,1.8,.15,[.35,.26,.16]);
-    m.gem(bowl[0],bowl[1],bowl[2],.32,lit?[1,.62,.25]:[.50,.36,.20],lit?3:0,.6);
-    torchSites.push({pos:bowl,lit});if(lit)torchesLit++;
-   });
-   torchCount=torchSites.length;
-  });
-  part('gates',()=>{for(const g of gates)gateMesh(m,g);});
-  part('spectators',()=>{
-   seats=0;spectators=0;
-   const tunics=[[.78,.25,.20],[.90,.86,.76],[.55,.30,.62],[.85,.62,.25],[.42,.50,.30],[.62,.42,.30]],skins=[[.93,.76,.60],[.80,.60,.45],[.64,.46,.33],[.46,.33,.25]];
-   for(let r=0;r<ROWS;r++){
-    const y=WALL_H+r*ROW_RISE,sm=1.06+r*ROW_S+ROW_S*.5;
-    for(let j=0;j<SEG;j++){
-     if(j%6===0)continue;
-     for(let k=0;k<2;k++){
-      const th=j*DSEG+(k+.5)*DSEG/2;
-      if(r>=6&&r<=10&&angDist(th,PULV.th)<PULV.half)continue;
-      if(gates.some(g=>r<g.rows&&angDist(th,g.th)<=g.half))continue;
-      const id=r*96+j*2+k;if(lite&&id%2)continue;
-      seats++;
-      if(!(rand(id+500)<.08+.92*p))continue;
-      spectators++;
-      const c=ep(sm,th,y),n=inward(th),t=tangent(th);
-      const q=(lift,w,h,fwd,col)=>{const o=add(c,mul(n,fwd));m.oquad(add(o,add(mul(t,-w/2),[0,lift,0])),add(o,add(mul(t,w/2),[0,lift,0])),add(o,add(mul(t,w/2),[0,lift+h,0])),add(o,add(mul(t,-w/2),[0,lift+h,0])),n,col,2);};
-      q(.05,.55,.9,0,tunics[Math.floor(rand(id+77)*6)]);
-      q(.95,.35,.35,.04,skins[Math.floor(rand(id+91)*4)]);
-     }
-    }
-   }
-  });
-  part('dais',()=>{
-   m.loop([C[0],.06,C[2]],[1,0,0],[0,0,-1],9,1.2,[.90,.87,.80]);
-   m.box(C[0],.15,C[2],15,.3,6,[.86,.82,.74]);
   });
   staticMesh=m;staticArray=new Float32Array(m.data);
   if(mode==='webgl'){gl.bindBuffer(gl.ARRAY_BUFFER,staticBuffer);gl.bufferData(gl.ARRAY_BUFFER,staticArray,gl.STATIC_DRAW);}
-  geometryDirty=false;lastBuild=p+'|'+duskTarget;dirty=true;
+  geometryDirty=false;lastBuild=state.progress+'|'+duskTarget+'|'+bloomLevel;dirty=true;
  }
  // A single low-poly bird: a shallow V of two wing triangles that gently flaps.
  function bird(mesh,x,y,z,scale,flap,col){
