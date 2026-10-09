@@ -27,6 +27,7 @@ jobs:
           node tests/test_verdict_cutscene.cjs
           node tests/test_round_cutscenes.cjs
           node tests/test_divine_timing.cjs
+          node tests/test_divine_webgl.cjs
           node tests/test_city_timeline.cjs
           node tests/test_arena_static.cjs
           node tests/test_theme_copy.cjs

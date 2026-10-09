@@ -1,0 +1,52 @@
+// Mock-WebGL regression: proves that the divine cutscene actually submits lit
+// 3D triangle geometry to a GPU-style renderer, rather than showing flat SVG.
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+let now=1000,frame=null,deleted=0,draws=0,uploaded=0,depthUsed=false;
+const gl={VERTEX_SHADER:1,FRAGMENT_SHADER:2,COMPILE_STATUS:3,LINK_STATUS:4,
+ ARRAY_BUFFER:5,DYNAMIC_DRAW:6,FLOAT:7,TRIANGLES:8,DEPTH_TEST:9,CULL_FACE:10,
+ COLOR_BUFFER_BIT:0x4000,DEPTH_BUFFER_BIT:0x100,
+ createShader(type){return {type};},shaderSource(){},compileShader(){},
+ getShaderParameter(){return true;},getShaderInfoLog(){return '';},
+ createProgram(){return {};},attachShader(){},linkProgram(){},
+ getProgramParameter(){return true;},getProgramInfoLog(){return '';},
+ createBuffer(){return {};},getAttribLocation(_p,name){return ['a_pos','a_normal','a_color','a_kind'].indexOf(name);},
+ getUniformLocation(){return {};},viewport(){},clearColor(){},clear(){},
+ enable(v){if(v===this.DEPTH_TEST)depthUsed=true;},disable(){},
+ useProgram(){},uniformMatrix4fv(){},bindBuffer(){},
+ bufferData(_target,mesh){uploaded=mesh.length;},enableVertexAttribArray(){},
+ vertexAttribPointer(){},drawArrays(_mode,_first,count){draws++;assert(count>1000,'submits thousands of 3D vertices');},
+ deleteBuffer(){deleted++;},deleteProgram(){deleted++;}
+};
+const canvas={width:0,height:0,getContext(type){assert.equal(type,'webgl');return gl;},
+ getBoundingClientRect(){return {width:1200,height:580};}};
+const model=Array.from({length:10},(_,i)=>({id:'p'+(i+1),tier:i%7,priorPruned:i===0||i===1,name:'Player '+(i+1)}));
+const labels=model.map(()=>({style:{}}));
+const context={window:{devicePixelRatio:1},performance:{now:()=>now},
+ console,Math,Float32Array,requestAnimationFrame(fn){frame=fn;return 1;},
+ cancelAnimationFrame(){frame=null;}};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/divine3d.js'),'utf8'),context);
+const three=context.window.Divine3D;
+assert.equal(typeof three.mount,'function');
+assert.equal(three.mount(canvas,model,['p3','p7'],-1,labels),true);
+assert.equal(three._debug().plants,10);
+assert(three._debug().triangles>1000,'scene includes many surface-lit 3D triangles');
+assert(uploaded>=three._debug().triangles*30,'vertices include 3D positions, normals, RGB and material');
+assert.equal(draws,1);
+assert.equal(depthUsed,true,'depth-tested perspective rendering');
+assert(labels.every(p=>p.style.left&&p.style.top),'labels use projection from 3D model space');
+const geo=three._geometry(model,['p3','p7'],-1,0);
+assert.equal(geo.positions.length,10);
+assert(geo.positions[0][2]!==geo.positions[5][2],'two spatially separated rows of roses');
+assert(geo.triangles>1000);
+now=1520;frame();assert.equal(draws,2,'animation redraws WebGL geometry each frame');
+assert.equal(three.mount(canvas,model,['p3','p7'],0,labels),true);
+assert.equal(three._debug().step,0,'first target drives a new 3D pruning phase');
+now=2650;frame();assert(three._debug().triangles>1000,'geometry rebuilds during cutting motion');
+three.stop();assert.equal(three._debug(),null);
+assert(deleted>=4,'GL resources are released between cut scenes');
+const fallback={getContext(){return null;}};
+assert.equal(three.mount(fallback,model,['p3','p7'],-1,labels),false,'no-WebGL fallback remains available');
+console.log('PASS Divine 3D: actual WebGL geometry and depth rendering, ten plants in two rows, articulated cut phases, projected labels, animation and resource cleanup.');
