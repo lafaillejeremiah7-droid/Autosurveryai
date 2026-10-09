@@ -15,7 +15,7 @@
  const norm=a=>mul(a,1/(Math.hypot(...a)||1));
  const rand=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);};
  const smooth=t=>t*t*(3-2*t);
- const TAU=Math.PI*2,up=[0,1,0],GARDEN_CENTER=[0,-62];
+ const TAU=Math.PI*2,GARDEN_CENTER=[0,-62];
  function multiply(a,b){const out=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)out[c*4+r]+=a[k*4+r]*b[c*4+k];return out;}
  function perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,2*far*near/(near-far),0]);}
  function lookAt(eye,target){const z=norm(sub(eye,target)),x=norm(cross([0,1,0],z)),y=cross(z,x);return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);}
@@ -65,7 +65,7 @@
  let dusk=0,duskTarget=0;
  let surgeAt=null,surgeBig=false,surgeEnv=0;
  let partTris={},rebuilds=0,dynamicTriangles=0,ceremonyRange=[0,0],lastDynamic=[];
- // The viewer hovers high over the near rim, looking down into the arena.
+ // Elevated first-person overview above the garden paths.
  const baseCamera={eye:[0,56,25],target:[0,2,-54]};
  let sceneView='street',returnRoute=[];
  let camera={eye:baseCamera.eye.slice(),target:baseCamera.target.slice()},vp;
@@ -139,9 +139,8 @@
   if(['round1','round2','final'].includes(key)&&stage?.status==='complete'&&!(ceremony?.key===key&&ceremony.phase!=='crowned'))return 'crowned';
   return 'open';
  }
- function rebuildArena(){
-  // The former circular stadium is now an open royal maze garden. All geometry
-  // below is part of the same fullscreen WebGL scene, never an image backdrop.
+ function rebuildGarden(){
+  // Build the fixed hedge maze and seasonal flowers in the full-viewport WebGL scene.
   const m=new Mesh(),still=mode==='static';partTris={};rebuilds++;
   const part=(name,fn)=>{const before=m.data.length;fn();partTris[name]=(m.data.length-before)/30;};
   const stone=[.78,.77,.65],gravel=[.83,.77,.60],hedge=[.14,.36,.18],hedgeTip=[.21,.49,.25],gold=[.83,.67,.36];
@@ -388,7 +387,7 @@
   if(next.progress!==state.progress)dirty=true;
   state=next;
   if(!suspended&&!paused){
-   // Crowd ambience rides the countdown; roars and the games-begin fanfare surge the crowd.
+   // Gentle garden wind and opening chimes follow the countdown progress.
    const ev=window.BrawlAudio?.ambience?.(next.progress,arrived);
    if((ev==='roar'||ev==='big'||ev==='begin')&&isMoving()){surgeAt=elapsed;surgeBig=ev!=='roar';}
    // Morning birdsong: on while the arena is calm and no round is settled, off once the crowd gathers.
@@ -438,7 +437,7 @@
    dirty=true;
   }
   if(needsLayout)layout();
-  if(geometryDirty||lastBuild!==state.progress+'|'+duskTarget+'|'+bloomLevel)rebuildArena();
+  if(geometryDirty||lastBuild!==state.progress+'|'+duskTarget+'|'+bloomLevel)rebuildGarden();
   if(!moving&&!transition&&!dirty)return;
   updateCamera(now,moving);
   vp=multiply(perspective(fov,width/height,.3,900),lookAt(camera.eye,camera.target));
