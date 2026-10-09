@@ -24,11 +24,11 @@ let browser,page;
   await page.reload();await page.waitForFunction(()=>!!view);
  };
  const saved=()=>page.waitForFunction(()=>!dirty&&!saving&&!saveFailed);
- for(const [key,last,label] of [['round1',4,'Face Your Weakness'],['round2',4,'Abandon Your Comfort'],['final',7,'Prove Your Resolve']]){
+ for(const [key,last,label] of [['round1',4,'Know Thy Nature'],['round2',4,'Adapt or Wither'],['final',7,'The Last Bloom']]){
   await restore(fixtures[key]);
   await page.evaluate(()=>{window.audioEvents=[];for(const name of ['horn','shears','hook','compost','slam','fanfare','victory']){const original=BrawlAudio[name];BrawlAudio[name]=(...args)=>{window.audioEvents.push(name);return original(...args);};}});
   await page.evaluate(key=>openScreen(key),key);
-  // Abandon Your Comfort finishes through its real 'Match 5 of 5 done' button, not the generic Submit.
+  // Adapt or Wither finishes through its real 'Match 5 of 5 done' button, not the generic Submit.
   if(key==='round2'){const done=page.locator('#screen-dialog [data-action="r2-done"][data-match="5"]');await done.scrollIntoViewIfNeeded();await done.click();}
   else await page.evaluate(([key,last])=>{void openMatchResult(key,last);},[key,last]);
   if(key!=='final')await page.locator('#cutscene[open]').waitFor();
@@ -46,7 +46,7 @@ let browser,page;
   await page.evaluate(([key,last])=>openMatchResult(key,last),[key,last]); // duplicate cannot replace active promise
   if(key==='round1')await page.keyboard.press('Escape');
   else if(key==='round2'){await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='descend',null,{timeout:22000});assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),false);assert.equal(await page.evaluate(()=>CityWorld.getStatus().inside),false);assert.equal(await page.locator('#ceremony-hud').isVisible(),true,'ceremony HUD shows during the garden bloom ceremony');await page.waitForFunction(()=>CityWorld.getStatus().ceremony?.phase==='crowned');if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'pavilion-bloom.png')});await page.keyboard.press('Escape');}
-  // Prove Your Resolve also verifies automatic completion, with no skip.
+  // The Last Bloom also verifies automatic completion, with no skip.
   await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open,null,{timeout:40000});
   assert.equal(await page.locator('#screen-dialog').evaluate(e=>e.open),key==='round1','the garden bloom ceremony exits the scoring room; a verdict-only skip keeps it');
   assert.equal(await page.locator('#ceremony-hud').isVisible(),false,'ceremony HUD hides when the cutscene ends');
@@ -63,7 +63,7 @@ let browser,page;
  assert.equal(await page.evaluate(()=>cutsceneActive),false,'partial tie must not eliminate anyone');
  await page.locator('#result-content [data-path="round1.extras.0.p9"]').fill('0');
  await page.locator('#cutscene[open]').waitFor();
- assert((await page.locator('#cutscene-label').textContent()).includes('Face Your Weakness'));
+ assert((await page.locator('#cutscene-label').textContent()).includes('Know Thy Nature'));
  assert((await page.locator('#cutscene-caption').innerText()).includes('PRUNED'));
  await page.locator('#cutscene-skip').click();await saved();
  assert(await page.locator('#result-dialog').evaluate(e=>e.open));
@@ -79,7 +79,7 @@ let browser,page;
  assert.equal(await page.evaluate(()=>cutsceneActive),false,'partial tie must not eliminate anyone');
  await page.locator('#screen-dialog [data-path="round2.extras.0.p8"]').fill('0');
  await page.locator('#cutscene[open]').waitFor();
- assert((await page.locator('#cutscene-label').textContent()).includes('Abandon Your Comfort'));
+ assert((await page.locator('#cutscene-label').textContent()).includes('Adapt or Wither'));
  assert.deepEqual(await page.evaluate(()=>eliminatedNames('round2')),['Player 8','Player 9']);
  await page.locator('#cutscene-skip').click();
  await page.waitForFunction(()=>!cutsceneActive&&document.querySelector('#result-dialog').open&&resultStage==='round2');
