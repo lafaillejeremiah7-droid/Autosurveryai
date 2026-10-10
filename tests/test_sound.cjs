@@ -66,10 +66,15 @@ clock.now+=5000;assert.equal(a.ambience(.95,false),null,'high-progress band is s
 clock.now+=10;count=nodes.length;assert.equal(a.ambience(1,true),'begin');assert(nodes.length>count,'games-begin fanfare and roar');
 assert.equal(a.ambience(1,true),null,'begin never repeats on later ticks');
 clock.now+=10000;assert.equal(a.ambience(1,true),null,'no periodic boom even while arrived');
-// Arrival edge advances while muted, without creating nodes.
-a.toggle();clock.now+=1;assert.equal(a.ambience(.8,false),null,'muted periodic band still returns null');
-count=nodes.length;a.ambience(5,false);assert.equal(nodes.length,count,'muted ambience makes no nodes');
-a.toggle();
+// Muted arrival edge still advances but emits no sound. Re-arm the begin edge
+// (leave arrival), mute, then re-enter arrival: 'begin' fires on the edge yet
+// creates no audio nodes while muted, and unmuting releases no backlog.
+clock.now+=1;a.ambience(.8,false);a.toggle();assert.equal(button.textContent,'Garden sound off');
+clock.now+=1;count=nodes.length;assert.equal(a.ambience(1,true),'begin','muted arrival edge still advances');
+assert.equal(nodes.length,count,'muted arrival makes no nodes');
+assert.equal(a.ambience(1,true),null,'muted begin edge still fires only once');
+a.toggle();assert.equal(button.textContent,'Garden sound on');
+count=nodes.length;assert.equal(a.ambience(1,true),null,'unmuting releases no backlog');assert.equal(nodes.length,count,'no deferred arrival nodes after unmute');
 // Leaving arrival re-arms the begin edge; progress is clamped and non-finite becomes 0.
 assert.equal(a.ambience(NaN,false),null);clock.now+=1;assert.equal(a.ambience(1,true),'begin','leaving arrival re-arms the begin edge');
 clock.now+=20000;assert.equal(a.ambience(5,false),null,'progress clamps to 1 and still no periodic boom');
