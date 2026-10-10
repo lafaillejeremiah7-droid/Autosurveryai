@@ -50,36 +50,33 @@ assert.equal(nodes.length,count,'mute blocks every generator');
 a.toggle();assert.equal(button.textContent,'Garden sound on');
 // document.hidden blocks every generator too.
 doc.hidden=true;count=nodes.length;for(const g of generators)a[g]();assert.equal(nodes.length,count,'hidden tab blocks every generator');doc.hidden=false;
-// Ambience cadence.
+// Ambience cadence. The periodic roar/murmur booms are disabled: the only
+// ambience sound event is the one-time arrival 'begin' fanfare. Every
+// non-arrival band now returns null and makes no nodes, muted or not.
 count=nodes.length;
 assert.equal(a.ambience(.1,false),null,'null below .3');assert.equal(a.ambience(.29,false),null);assert.equal(nodes.length,count,'quiet early garden');
-assert.equal(a.ambience(.4,false),'murmur','murmur band .3 to .65');assert(nodes.length>count,'murmur makes a garden wind sound');
-assert.equal(a.ambience(.4,false),null,'murmur waits at least 7 s');
-clock.now+=7001;assert.equal(a.ambience(.5,false),'murmur');
-clock.now+=6999;assert.equal(a.ambience(.5,false),null);
-// Roar at p >= .65 every 10000-6000p ms (p=.8 -> 5200 ms); big above .9.
-clock.now+=5201;count=nodes.length;assert.equal(a.ambience(.8,false),'roar');assert(nodes.length>count,'roar makes sound');
-clock.now+=5100;assert.equal(a.ambience(.8,false),null,'roar waits 5200 ms at p=.8');
-clock.now+=101;assert.equal(a.ambience(.8,false),'roar');
-clock.now+=4001;assert.equal(a.ambience(.95,false),null,'p=.95 waits 4300 ms');
-clock.now+=300;assert.equal(a.ambience(.95,false),'big','big roar above .9 after 4300 ms');
-// Arrival: begin exactly once, then roars every 4500 ms.
+// The old .3-.65 'murmur' band no longer booms: null, no nodes, any elapsed time.
+assert.equal(a.ambience(.4,false),null,'mid band is silent (periodic boom disabled)');assert.equal(nodes.length,count,'mid band makes no nodes');
+clock.now+=7001;assert.equal(a.ambience(.5,false),null,'mid band stays silent regardless of elapsed time');assert.equal(nodes.length,count);
+// The old >=.65 'roar'/'big' band no longer booms either.
+clock.now+=5201;assert.equal(a.ambience(.8,false),null,'periodic roar band is silent (boom disabled)');assert.equal(nodes.length,count,'roar band makes no nodes');
+clock.now+=5201;assert.equal(a.ambience(.8,false),null,'still silent after a full cadence window');assert.equal(nodes.length,count);
+clock.now+=5000;assert.equal(a.ambience(.95,false),null,'high-progress band is silent too');assert.equal(nodes.length,count,'big band makes no nodes');
+// Arrival: begin exactly once, firing fanfare+roar; it never repeats on later ticks.
 clock.now+=10;count=nodes.length;assert.equal(a.ambience(1,true),'begin');assert(nodes.length>count,'games-begin fanfare and roar');
 assert.equal(a.ambience(1,true),null,'begin never repeats on later ticks');
-clock.now+=4400;assert.equal(a.ambience(1,true),null);
-clock.now+=101;assert.equal(a.ambience(1,true),'big','arrived cadence is 4500 ms');
-assert.equal(a.ambience(1,true),null);
-// Cadence advances while muted, without creating nodes.
-a.toggle();count=nodes.length;clock.now+=4501;
-assert.equal(a.ambience(1,true),'big','cadence advances while muted');assert.equal(nodes.length,count,'muted ambience makes no nodes');
-a.toggle();assert.equal(a.ambience(1,true),null,'unmuting does not release a backlog');
+clock.now+=10000;assert.equal(a.ambience(1,true),null,'no periodic boom even while arrived');
+// Arrival edge advances while muted, without creating nodes.
+a.toggle();clock.now+=1;assert.equal(a.ambience(.8,false),null,'muted periodic band still returns null');
+count=nodes.length;a.ambience(5,false);assert.equal(nodes.length,count,'muted ambience makes no nodes');
+a.toggle();
 // Leaving arrival re-arms the begin edge; progress is clamped and non-finite becomes 0.
-assert.equal(a.ambience(NaN,false),null);clock.now+=1;assert.equal(a.ambience(1,true),'begin');
-clock.now+=20000;assert.equal(a.ambience(5,false),'big','progress clamps to 1');
+assert.equal(a.ambience(NaN,false),null);clock.now+=1;assert.equal(a.ambience(1,true),'begin','leaving arrival re-arms the begin edge');
+clock.now+=20000;assert.equal(a.ambience(5,false),null,'progress clamps to 1 and still no periodic boom');
 // Morning birds behave as before.
 const beforeBirds=nodes.length;a.ambientBirds(true);assert(nodes.length>beforeBirds,'morning birds chirp when calm, unmuted and running');
 const beforeOff=nodes.length;a.ambientBirds(false);assert.equal(nodes.length,beforeOff,'garden wind building (birds off) produces no chirp');
 a.ambientBirds(false);a.toggle();const mutedCount=nodes.length;a.ambientBirds(true);assert.equal(nodes.length,mutedCount,'mute silences morning birds');a.toggle();
 a.ambientBirds(false);doc.hidden=true;const hiddenCount=nodes.length;a.ambientBirds(true);assert.equal(nodes.length,hiddenCount,'hidden tab silences morning birds');doc.hidden=false;
 a.stop();
-console.log('Sound passed: unlock gate, every arena generator plays when unlocked and stays silent when muted or hidden, audio-clock delays, mute label and stop, ambience begin/roar/big/murmur cadence (also while muted), morning birds, and no recorded scream.');
+console.log('Sound passed: unlock gate, every arena generator plays when unlocked and stays silent when muted or hidden, audio-clock delays, mute label and stop, ambience one-time begin fanfare with the periodic roar/murmur boom disabled (null and no nodes, muted or not), morning birds, and no recorded scream.');
