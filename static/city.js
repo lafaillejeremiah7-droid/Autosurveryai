@@ -235,16 +235,29 @@ void main(){
   part('rose-beds',()=>{
    // The opening countdown grows the roses. A stable permutation scatters the
    // flowers around the maze and preserves their positions across reloads.
+   // As bloom approaches 1 the open roses swell to a dramatic, HUGE payoff:
+   // the ramp starts around 55% bloom and peaks ~3.4x at full bloom.
+   const bloomScale=1+smooth(clamp((bloomLevel-.55)/.45))*2.4;
    for(let i=0;i<112;i++){
     const lane=i%8,rank=Math.floor(i/8),side=lane<4?-1:1;
     const x=side*(5+(lane%4)*8)+Math.sin(i*13.1)*1.4,z=-19-rank*7.3;
     const y=.2+(i%4)*.05,col=roseColors[i%roseColors.length];
-    m.box(x,.3,z,.13,.6,.13,[.12,.42,.17]);
+    m.box(x,.3*Math.max(1,bloomScale*.6),z,.13,.6*Math.max(1,bloomScale*.6),.13,[.12,.42,.17]);
     const open=(i*37)%112<openRoses;
     if(open){
-     m.gem(x,.95,z,.62,col,3,.55);gardenFlowers++;
-     for(let k=0;k<5;k++){const angle=k*TAU/5;m.gem(x+Math.sin(angle)*.4,.76,z+Math.cos(angle)*.4,.28,
+     const by=.95+(bloomScale-1)*.55,pr=.4*bloomScale,ph=.76+(bloomScale-1)*.4;
+     m.gem(x,by,z,.62*bloomScale,col,3,.55);gardenFlowers++;
+     for(let k=0;k<5;k++){const angle=k*TAU/5;m.gem(x+Math.sin(angle)*pr,ph,z+Math.cos(angle)*pr,.28*bloomScale,
       color(col,[.95,.93,.78],.15),3,.4);}
+     // Full bloom only: a fuller outer petal fan and a small golden coronet on
+     // top crown each rose. Gated on bloomLevel>=1 so partial bloom never
+     // inflates the triangle budget (the full-vs-partial tri delta is the pin).
+     if(bloomLevel>=1){
+      const outer=pr*1.55,oy=ph-.18*bloomScale;
+      for(let k=0;k<3;k++){const angle=k*TAU/3+.6;m.gem(x+Math.sin(angle)*outer,oy,z+Math.cos(angle)*outer,.3*bloomScale,
+       color(col,[.97,.93,.76],.3),3,.5);}
+      m.gem(x,by+.5*bloomScale,z,.22*bloomScale,gold,3,.9);
+     }
     }else m.gem(x,.75,z,.19,[.43,.20,.22],3,1.2);
    }
   });

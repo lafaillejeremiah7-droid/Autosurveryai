@@ -79,8 +79,10 @@ window.BrawlAudio=(()=>{
   if(!arrived)lastArrived=false;
   const now=Date.now();
   if(arrived&&!lastArrived){lastArrived=true;lastRoar=now;if(allowed){fanfare();roar(true);}return 'begin';}
-  if(progress>=.65&&now-lastRoar>(arrived?4500:10000-6000*progress)){lastRoar=now;const big=progress>.9;if(allowed)roar(big);return big?'big':'roar';}
-  if(progress>=.3&&progress<.65&&now-lastRoar>7000){lastRoar=now;if(allowed)noise(1.8,.035,440);return 'murmur';}
+  // Periodic roar/murmur booms are intentionally disabled: the garden no longer
+  // randomly booms while it sits/blooms. Only the one-time arrival fanfare above
+  // (and the morning birdsong) remain, so every non-arrival band now emits no
+  // sound and returns null regardless of progress or elapsed time.
   return null;
  }
  // A single morning birdsong phrase: a few quick, high, frequency-swept blips.
