@@ -72,7 +72,7 @@ function makeWorld({gl=null}={}){
  assert.equal(status.bloomLevel,0,'rosebuds begin closed');
  assert.equal(status.gardenFlowers,0,'no open roses without a countdown');
  assert.ok(status.gardenHedges>40,'maze hedges have actual 3D geometry');
- assert.ok(status.debug.staticTriangles>2000&&status.debug.staticTriangles<12000,'garden mesh budget');
+ assert.ok(status.debug.staticTriangles>2000&&status.debug.staticTriangles<16000,'garden mesh budget');
  assert.equal(Object.values(status.debug.parts).reduce((sum,n)=>sum+n,0),status.debug.staticTriangles,'part triangle counts sum to mesh');
  assert.ok(status.debug.dynamicTriangles<4000,'bounded petals/fountain mesh');
  for(const key of ['lawn','maze-hedges','rose-beds','pavilions','royal-palace','fountains','rose-arches'])
@@ -93,6 +93,10 @@ function makeWorld({gl=null}={}){
  assert.equal(S.status().bloomLevel,.5);
  assert.equal(S.elements['city-damage'].textContent,'50% BLOOM');
  assert.equal(S.status().gardenFlowers,56);
+ // Capture the rose geometry at mid bloom so we can prove the roses swell into a
+ // dramatic HUGE full-bloom flourish (extra outer petals + golden coronet gated
+ // on bloomLevel>=1). A revert of the full-bloom enrichment collapses this delta.
+ const midRoseBeds=S.status().debug.parts['rose-beds'];
  const cachedBuilds=S.status().debug.rebuilds;
  S.W.setSettings(settingsAt(0));await S.step(301);
  assert.equal(S.status().debug.rebuilds,cachedBuilds,'unchanged progress reuses geometry');
@@ -106,6 +110,8 @@ function makeWorld({gl=null}={}){
  await S.advance(1000);
  status=S.status();assert.equal(status.bloomLevel,1);
  assert.equal(status.gardenFlowers,112,'all roses open exactly at the deadline');
+ assert.ok(status.debug.staticTriangles<16000,'full-bloom garden mesh stays within raised budget');
+ assert.ok(status.debug.parts['rose-beds']>midRoseBeds+4000,'full bloom grows the roses into a dramatically richer flourish');
  assert.equal(S.elements['city-status'].textContent,'ROYAL GARDEN IN FULL BLOOM');
  assert.equal(S.elements['city-damage'].textContent,'100% BLOOM');
  assert.equal(S.elements['city-progress'].style.width,'100%');
@@ -154,7 +160,7 @@ function makeWorld({gl=null}={}){
  assert.equal(G.status().bloomLevel,.5,'WebGL also follows the countdown');
  assert.equal(G.status().gardenFlowers,56);
  assert.ok(g.gardenHedges>40);
- assert.ok(g.debug.staticTriangles<12000);
+ assert.ok(g.debug.staticTriangles<16000);
  assert.equal(rec.programs.length,2,'3D shader and sky shader');
  assert.ok(rec.buffers.length>=2);
  assert.ok(g.cameraEye[1]>30,'aerial first-person garden camera');
@@ -170,5 +176,5 @@ function makeWorld({gl=null}={}){
  assert.equal(G.status().debug.rebuilds,oldBuilds+1,'bloom transition rebuilds flowers');
  assert.equal(G.status().gardenFlowers,112);
  assert.deepEqual(G.warnings,[]);
- console.log('Royal Garden renderer passed: countdown bloom, exact arrival, no early 100%, pause, resets, scoring independence, 2D/WebGL, camera and ceremony.');
+ console.log('Royal Garden renderer passed: countdown bloom, exact arrival, no early 100%, huge full-bloom rose flourish, pause, resets, scoring independence, 2D/WebGL, camera and ceremony.');
 })().catch(e=>{console.error(e);process.exit(1);});
